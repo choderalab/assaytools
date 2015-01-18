@@ -19,6 +19,8 @@ requirements:
     - pandas
     - scipy
     - pymc
+    - matplotlib
+    - seaborn
 
 test:
   requires:
@@ -27,6 +29,8 @@ test:
     - numpy
     - scipy
     - pymc
+    - matplotlib
+    - seaborn
 
 about:
   home: http://assaytools.choderalab.org
