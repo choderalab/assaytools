@@ -9,10 +9,9 @@ A test of pymc for ITC.
 # IMPORTS
 #=============================================================================================
 
-import numpy
+import numpy as np
 import pymc
-
-from math import sqrt, exp, log
+import pint
 
 #=============================================================================================
 # Physical constants
@@ -23,128 +22,177 @@ kB = Na * 1.3806504e-23 / 4184.0 # Boltzmann constant (kcal/mol/K)
 C0 = 1.0 # standard concentration (M)
 
 #=============================================================================================
-# Experimental parameters and data
+# Parameters for MCMC sampling
 #=============================================================================================
 
-# ABRF-MIRG'02 dataset 10
-V0 = 1.4301e-3 # volume of calorimeter sample cell (L)
-V0 = V0 - 0.044e-3 # Tellinghuisen volume correction for VP-ITC (L)
-DeltaV = 8.e-6 # injection volume (L)
-P0_stated = 32.e-6 # protein stated concentration (M)
-Ls_stated = 384.e-6 # ligand syringe stated concentration (M)
-temperature = 298.15 # temperature (K)
-dP0 = 0.10 * P0_stated # uncertainty in protein stated concentration (M) - 10% error
-dLs = 0.10  * Ls_stated # uncertainty in ligand stated concentration (M) - 10% error
-q_n = numpy.array([
-    -13.343, -13.417, -13.279, -13.199, -13.118, -12.781, -12.600, -12.124, -11.633, -10.921, -10.009, -8.810, 
-    -7.661, -6.272, -5.163, -4.228, -3.519, -3.055, -2.599, -2.512, -2.197, -2.096, -2.087, -1.959, -1.776, -1.879,
-    -1.894, -1.813, -1.740, -1.810]) # integrated heats of injection (kcal/mol injectant)
-q_n = q_n * DeltaV * Ls_stated * 1000.0 # convert injection heats to cal/injection
-beta = 1.0 / (kB * temperature) # inverse temperature 1/(kcal/mol)
+DG_min = np.log(1e-15) # kT, most favorable (negative) binding free energy possible; 1 fM
+DG_max = +0 # kT, least favorable binding free energy possible
+niter = 500000 # number of iterations
+nburn = 50000 # number of burn-in iterations to discard
+nthin = 500 # thinning interval
 
 #=============================================================================================
-# Model
+# PyMC models
 #=============================================================================================
 
-# Determine number of observations.
-N = q_n.size
-
-# Determine guesses for initial values
-log_sigma_guess = log(q_n[N-4:N].std()) # cal/injection
-DeltaG_guess = -8.3 # kcal/mol
-DeltaH_guess = -12.0 # kcal/mol
-DeltaH_0_guess = q_n[N-1] # cal/injection
-
-# Determine min and max range for log_sigma
-log_sigma_min = log_sigma_guess - 10
-log_sigma_max = log_sigma_guess + 5
-
-# Determine range for priors for thermodynamic parameters.
-DeltaG_min = -40. # (kcal/mol)
-DeltaG_max = +40. # (kcal/mol)
-DeltaH_min = -100. # (kcal/mol)
-DeltaH_max = +100. # (kcal/mol)
-heat_interval = q_n.max() - q_n.min()
-DeltaH_0_min = q_n.min() - heat_interval # (cal/mol)
-DeltaH_0_max = q_n.max() + heat_interval # (cal/mol)
-
-# Define priors.
-#P0 = pymc.Normal('P0', mu=P0_stated, tau=1.0/dP0**2, value=P0_stated)
-#Ls = pymc.Normal('Ls', mu=Ls_stated, tau=1.0/dLs**2, value=Ls_stated)
-
-P0 = pymc.Lognormal('P0', mu=log(P0_stated), tau=1.0/log(1.0+(dP0/P0_stated)**2), value=P0_stated)
-Ls = pymc.Lognormal('Ls', mu=log(Ls_stated), tau=1.0/log(1.0+(dLs/Ls_stated)**2), value=Ls_stated)
-
-log_sigma = pymc.Uniform('log_sigma', lower=log_sigma_min, upper=log_sigma_max, value=log_sigma_guess)
-DeltaG = pymc.Uniform('DeltaG', lower=DeltaG_min, upper=DeltaG_max, value=DeltaG_guess)
-DeltaH = pymc.Uniform('DeltaH', lower=DeltaH_min, upper=DeltaH_max, value=DeltaH_guess)
-DeltaH_0 = pymc.Uniform('DeltaH_0', lower=DeltaH_0_min, upper=DeltaH_0_max, value=DeltaH_0_guess)
-        
-#=============================================================================================
-# Initial guess for thermodynaic parameters
-#=============================================================================================
-
-@pymc.deterministic
-def expected_injection_heats(P0=P0, Ls=Ls, DeltaG=DeltaG, DeltaH=DeltaH, DeltaH_0=DeltaH_0, q_n_obs=q_n):
+# Create a pymc model
+def make_model(Pstated, dPstated, Lstated, dLstated, Fobs_i, Fligand_i,
+               DG_prior='uniform',
+               concentration_priors='lognormal',
+               use_primary_inner_filter_correction=True, well_volume=75e-6, well_area=0.1586,
+               epsilon=None, depsilon=None):
     """
-    Expected heats of injection for two-component binding model.
-    
-    ARGUMENTS
-    
-    DeltaG - free energy of binding (kcal/mol)
-    DeltaH - enthalpy of binding (kcal/mol)
-    DeltaH_0 - heat of injection (cal/mol)
-    
+    Build a PyMC model for an assay that consists of N wells of protein:ligand at various concentrations and an additional N wells of ligand in buffer, with the ligand at the same concentrations as the corresponding protein:ligand wells.
+
+    Parameters
+    ----------
+    Pstated : numpy.array of N values
+       Stated protein concentrations for all protein:ligand wells of assay. Units of molarity.
+    dPstated : numpy.array of N values
+       Absolute uncertainty in stated protein concentrations for all wells of assay. Units of molarity.
+       Uncertainties currently cannot be zero.
+    Lstated : numpy.array of N values
+       Stated ligand concentrations for all protein:ligand and ligand wells of assay, which must be the same with and without protein. Units of molarity.
+    dLstated : numpy.array of N values
+       Absolute uncertainty in stated protein concentrations for all wells of assay. Units of molarity.
+       Uncertainties currently cannot be zero
+    DG_prior : str, optional, default='uniform'
+       Prior to use for reduced free energy of binding (DG): 'uniform' (uniform over reasonable range), or 'chembl' (ChEMBL-inspired distribution); default: 'uniform'
+    concentration_priors : str, optional, default='lognormal'
+       Prior to use for protein and ligand concentrations. Available options are ['lognormal', 'normal'].
+    use_primary_inner_filter_correction : bool, optional, default=True
+       If true, will infer ligand extinction coefficient epsilon and apply primary inner filter correction to attenuate excitation light.
+    well_volume : float, optional, default=75e-6
+       Well volume. Units of L. Default 75 uL for half-area plate.
+    well_area : float, optional, default=0.1586
+       Well area. Units of cm^2. Default 0.1586 cm^2, for half-area plate.
+    epsilon : float, optional, default=None
+       Orthogonal measurement of ligand extinction coefficient at excitation wavelength. If None, will use a uniform prior.
+    depsilon : float, optional, default=None
+       Uncertainty (standard error) in measurement 'epsilon'.
+
+    Examples
+    --------
+    Create a simple model
+
+    >>> N = 12 # 12 wells per series of protein:ligand or ligand alone
+    >>> Pstated = np.ones([N], np.float64) * 1e-6
+    >>> Lstated = 20.0e-6 / np.array([10**(float(i)/2.0) for i in range(N)])
+    >>> dPstated = 0.10 * Pstated
+    >>> dLstated = 0.08 * Lstated
+    >>> Fobs_i = array([ 689., 683., 664., 588., 207., 80., 28., 17., 10., 11., 10., 10.])
+    >>> Fligand_i = array([ 174., 115., 57., 20., 7., 6., 6., 6., 6., 7., 6., 7.])
+    >>> pymc_model = pymcmodels.make_model(Pstated, dPstated, Lstated, dLstated, Fobs_i, Fligand_i)
+
     """
 
-    debug = False
+    # Compute path length.
+    path_length = well_volume * 1000 / well_area # cm, needed for inner filter effect corrections
 
-    Kd = exp(beta * DeltaG) * C0 # dissociation constant (M)
+    # Compute number of samples.
+    N = len(Lstated)
 
-    # Compute complex concentrations.
-    Pn = numpy.zeros([N], numpy.float64) # Pn[n] is the protein concentration in sample cell after n injections (M)
-    Ln = numpy.zeros([N], numpy.float64) # Ln[n] is the ligand concentration in sample cell after n injections (M)
-    PLn = numpy.zeros([N], numpy.float64) # PLn[n] is the complex concentration in sample cell after n injections (M)
-    for n in range(N):
-        # Instantaneous injection model (perfusion)
-        d = 1.0 - (DeltaV / V0) # dilution factor (dimensionless)
-        P = V0 * P0 * d**(n+1) # total quantity of protein in sample cell after n injections (mol)
-        L = V0 * Ls * (1. - d**(n+1)) # total quantity of ligand in sample cell after n injections (mol)
-        PLn[n] = 0.5/V0 * ((P + L + Kd*V0) - sqrt((P + L + Kd*V0)**2 - 4*P*L));  # complex concentration (M)
-        Pn[n] = P/V0 - PLn[n]; # free protein concentration in sample cell after n injections (M)
-        Ln[n] = L/V0 - PLn[n]; # free ligand concentration in sample cell after n injections (M)
-        
-    # Compute expected injection heats.
-    q_n = numpy.zeros([N], numpy.float64) # q_n_model[n] is the expected heat from injection n
-    # Instantaneous injection model (perfusion)
-    d = 1.0 - (DeltaV / V0) # dilution factor (dimensionless)
-    q_n[0] = (1000.0*DeltaH) * V0 * PLn[0] + DeltaH_0 # first injection
-    for n in range(1,N):
-        q_n[n] = (1000.0*DeltaH) * V0 * (PLn[n] - d*PLn[n-1]) + DeltaH_0 # subsequent injections
+    # Check input.
+    if (len(Pstated) != N):
+        raise Exception('len(Pstated) [%d] must equal len(Lstated) [%d].' % (len(Pstated), len(Lstated)))
+    if (len(dPstated) != N):
+        raise Exception('len(dPstated) [%d] must equal len(Lstated) [%d].' % (len(dPstated), len(Lstated)))
+    if (len(dLstated) != N):
+        raise Exception('len(dLstated) [%d] must equal len(Lstated) [%d].' % (len(dLstated), len(Lstated)))
 
-    # Debug output
-    if debug:
-        print "DeltaG = %6.1f kcal/mol ; DeltaH = %6.1f kcal/mol ; DeltaH_0 = %6.1f ucal/injection" % (DeltaG, DeltaH, DeltaH_0*1e6)
-        for n in range(N):
-            print "%6.1f" % (PLn[n]*1e6),
-        print ""
-        for n in range(N):
-            print "%6.1f" % (q_n[n]*1e6),
-        print ""
-        for n in range(N):
-            print "%6.1f" % (q_n_obs[n]*1e6),
-        print ""
-        print ""
-    
-    return q_n
+    # Prior on binding free energies.
+    if DG_prior == 'uniform':
+        DeltaG = pymc.Uniform('DeltaG', lower=DG_min, upper=DG_max, value=0.0) # binding free energy (kT), uniform over huge range
+    elif DG_prior == 'chembl':
+        DeltaG = pymc.Normal('DeltaG', mu=0, tau=1./(12.5**2)) # binding free energy (kT), using a Gaussian prior inspured by ChEMBL
+    else:
+        raise Exception("DG_prior = '%s' unknown. Must be one of 'DeltaG' or 'chembl'." % DG_prior)
 
-@pymc.deterministic
-def tau(log_sigma=log_sigma):
-    """
-    Injection heat measurement precision.
+    # Create an empty dict to hold the model.
+    pymc_model = dict()
 
-    """
-    return exp(-2.0*log_sigma)
+    # Create priors on true concentrations of protein and ligand.
+    if concentration_priors == 'lognormal':
+        Ptrue = pymc.Lognormal('Ptrue', mu=np.log(Pstated**2 / np.sqrt(dPstated**2 + Pstated**2)), tau=np.sqrt(np.log(1.0 + (dPstated/Pstated)**2))**(-2)) # protein concentration (M)
+        Ltrue = pymc.Lognormal('Ltrue', mu=np.log(Lstated**2 / np.sqrt(dLstated**2 + Lstated**2)), tau=np.sqrt(np.log(1.0 + (dLstated/Lstated)**2))**(-2)) # ligand concentration (M)
+        Ltrue_control = pymc.Lognormal('Ltrue_control', mu=np.log(Lstated**2 / np.sqrt(dLstated**2 + Lstated**2)), tau=np.sqrt(np.log(1.0 + (dLstated/Lstated)**2))**(-2)) # ligand concentration (M)
+    elif concentration_priors == 'gaussian':
+        # Warning: These priors could lead to negative concentrations.
+        Ptrue = pymc.Normal('Ptrue', mu=Pstated, tau=dPstated**(-2)) # protein concentration (M)
+        Ltrue = pymc.Normal('Ltrue', mu=Lstated, tau=dLstated**(-2)) # ligand concentration (M)
+        Ltrue_control = pymc.Normal('Ltrue_control', mu=Lstated, tau=dLstated**(-2)) # ligand concentration (M)
+    else:
+        raise Exception("concentration_priors = '%s' unknown. Must be one of ['lognormal', 'normal']." % concentration_priors)
+    # Add to model.
+    pymc_model['Ptrue'] = Ptrue
+    pymc_model['Ltrue'] = Ltrue
+    pymc_model['Ltrue_control'] = Ltrue_control
 
-# Define observed data.
-observed_injection_heats = pymc.Normal('q_n', size=N, mu=expected_injection_heats, tau=tau, observed=True, value=q_n)
+    # extinction coefficient
+    if use_primary_inner_filter_correction:
+        if epsilon:
+            epsilon = pymc.Normal('epsilon', mu=epsilon, tau=depsilon**(-2)) # prior is centered on measured extinction coefficient
+            # TODO: Change this to lognormal, since epsilon cannot be negative
+        else:
+            epsilon = pymc.Uniform('epsilon', lower=0.0, upper=200e3) # extinction coefficient or molar absorptivity for ligand, units of 1/M/cm
+            # TODO: Select a reasonable physical range for plausible extinction coefficients.
+        # Add to model.
+        pymc_model['epsilon'] = epsilon
+
+    # Priors on fluorescence intensities of complexes (later divided by a factor of Pstated for scale).
+    Fmax = max(Fobs_i.max(), Fligand_i.max())
+    F_background = pymc.Uniform('F_background', lower=0.0, upper=Fmax) # background fluorescence
+    F_PL = pymc.Uniform('F_PL', lower=0.0, upper=2*Fmax/min(Pstated.max(),Lstated.max())) # complex fluorescence
+    F_P = pymc.Uniform('F_P', lower=0.0, upper=2*(Fobs_i/Pstated).max()) # protein fluorescence
+    F_L = pymc.Uniform('F_L', lower=0.0, upper=2*(Fligand_i/Lstated).max()) # ligand fluorescence
+    # Add to model.
+    pymc_model['F_background'] = F_background
+    pymc_model['F_PL'] = F_PL
+    pymc_model['F_P'] = F_P
+    pymc_model['F_L'] = F_L
+
+    # Unknown experimental measurement error.
+    log_sigma = pymc.Uniform('log_sigma', lower=-10, upper=np.log(Fmax), value=0.0)
+    @pymc.deterministic
+    def precision(log_sigma=log_sigma): # measurement precision
+        return 1.0 / np.exp(log_sigma)**2
+    # Add to model.
+    pymc_model['log_sigma'] = log_sigma
+
+    # Fluorescence model.
+    from assaytools.bindingmodels import TwoComponentBindingModel
+    @pymc.deterministic
+    def Fmodel(F_background=F_background, F_PL=F_PL, F_P=F_P, F_L=F_L, Ptrue=Ptrue, Ltrue=Ltrue, DeltaG=DeltaG, epsilon=epsilon):
+        if use_primary_inner_filter_correction:
+            IF_i = np.exp(np.minimum(-epsilon*path_length*Ltrue[:], 0.0))
+        else:
+            IF_i = np.ones(N)
+        [P_i, L_i, PL_i] = TwoComponentBindingModel.equilibrium_concentrations(DeltaG, Ptrue[:], Ltrue[:])
+        Fmodel_i = IF_i[:]*(F_PL*PL_i + F_L*L_i + F_P*P_i + F_background)
+
+        return Fmodel_i
+    # Add to model.
+    pymc_model['Fmodel'] = Fmodel
+
+    # Fluorescence model, ligand only.
+    @pymc.deterministic
+    def Fligand(F_background=F_background, F_L=F_L, Ltrue_control=Ltrue_control, epsilon=epsilon):
+        if use_primary_inner_filter_correction:
+            IF_i = np.exp(np.minimum(-epsilon*path_length*Ltrue_control[:], 0.0))
+        else:
+            IF_i = np.ones(N)
+        Fmodel_i = IF_i[:]*(F_L*Ltrue_control[:] + F_background)
+        return Fmodel_i
+    # Add to model.
+    pymc_model['Fligand'] = Fligand
+
+    # Experimental error on fluorescence observations.
+    Fobs_model = pymc.Normal('Fobs_model', mu=Fmodel, tau=precision, size=[N], observed=True, value=Fobs_i) # observed data
+    Fligand_model = pymc.Normal('Fligand_model', mu=Fligand, tau=precision, size=[N], observed=True, value=Fligand_i) # ligand only data
+    # Add to model.
+    pymc_model['Fobs_model'] = Fobs_model
+    pymc_model['Fligand_model'] = Fligand_model
+
+    # Return the pymc model
+    return pymc_model
+

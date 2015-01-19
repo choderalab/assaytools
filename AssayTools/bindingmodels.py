@@ -9,7 +9,7 @@ Various ligand binding models for use in assays.
 # IMPORTS
 #=============================================================================================
 
-import numpy
+import numpy as np
 import copy
 import pint
 

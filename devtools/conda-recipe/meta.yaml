@@ -16,6 +16,7 @@ requirements:
   run:
     - python
     - numpy
+    - pint
     - pandas
     - scipy
     - pymc
@@ -26,6 +27,7 @@ test:
   requires:
     - nose
     - scripttest
+    - pint
     - numpy
     - scipy
     - pymc
