@@ -11,3 +11,5 @@ AssayTools is a python library that allows users to model automated assays and a
 * John D. Chodera `<john.chodera@choderalab.org>
 * Sonya M. Hanson `<sonya.hanson@choderalab.org>`
 
+## Acknowledgments
+* Many thanks to the authors of the [MDTraj](http://mdtraj.org) project on which much of the modern project skeleton is based.
