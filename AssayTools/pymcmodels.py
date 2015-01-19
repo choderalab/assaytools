@@ -110,7 +110,7 @@ def make_model(Pstated, dPstated, Lstated, dLstated, Fobs_i, Fligand_i,
 
     # Prior on binding free energies.
     if DG_prior == 'uniform':
-        DeltaG = pymc.Uniform('DeltaG', lower=DG_min, upper=DG_max, value=0.0) # binding free energy (kT), uniform over huge range
+        DeltaG = pymc.Uniform('DeltaG', lower=DG_min, upper=DG_max) # binding free energy (kT), uniform over huge range
     elif DG_prior == 'chembl':
         DeltaG = pymc.Normal('DeltaG', mu=0, tau=1./(12.5**2)) # binding free energy (kT), using a Gaussian prior inspured by ChEMBL
     else:
@@ -159,7 +159,7 @@ def make_model(Pstated, dPstated, Lstated, dLstated, Fobs_i, Fligand_i,
     pymc_model['F_L'] = F_L
 
     # Unknown experimental measurement error.
-    log_sigma = pymc.Uniform('log_sigma', lower=-10, upper=np.log(Fmax), value=0.0)
+    log_sigma = pymc.Uniform('log_sigma', lower=-10, upper=np.log(Fmax))
     @pymc.deterministic
     def precision(log_sigma=log_sigma): # measurement precision
         return np.exp(-2.0*log_sigma)
@@ -199,6 +199,9 @@ def make_model(Pstated, dPstated, Lstated, dLstated, Fobs_i, Fligand_i,
     # Add to model.
     pymc_model['Fobs_model'] = Fobs_model
     pymc_model['Fligand_model'] = Fligand_model
+
+    # Promote this to a full-fledged PyMC model.
+    pymc_model = pymc.Model(pymc_model)
 
     # Return the pymc model
     return pymc_model
