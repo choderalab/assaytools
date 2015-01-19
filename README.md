@@ -7,6 +7,8 @@ assaytools
 
 AssayTools is a python library that allows users to model automated assays and analyze assay data using powerful Bayesian techniques that allow complete characterization of the uncertainty in fit models.
 
+See the [examples](https://github.com/choderalab/assaytools/tree/master/examples).
+
 ## Authors
 * John D. Chodera `<john.chodera@choderalab.org>
 * Sonya M. Hanson `<sonya.hanson@choderalab.org>`
