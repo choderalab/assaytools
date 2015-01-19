@@ -19,7 +19,7 @@ script:
   - conda install --yes $HOME/miniconda/conda-bld/linux-64/assaytools-dev-*
   - conda list -e
   #- pydir=$(which python); $precmd $(dirname $pydir)/nosetests --exclude-dir=AssayTools/html --with-coverage --cover-erase -vv
-  - pydir=$(which python); $precmd $(dirname $pydir)/nosetests --exclude-dir=AssayTools/html --with-coverage --cover-erase -vv
+  #- pydir=$(which python); $precmd $(dirname $pydir)/nosetests --exclude-dir=AssayTools/html --with-coverage --cover-erase -vv
 
 env:
   matrix:
