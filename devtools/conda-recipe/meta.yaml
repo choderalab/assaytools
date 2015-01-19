@@ -20,6 +20,7 @@ requirements:
     - pymc
     - matplotlib
     - seaborn
+    - lxml
 
 test:
   requires:
@@ -31,6 +32,7 @@ test:
     - pymc
     - matplotlib
     - seaborn
+    - lxml
 
 about:
   home: http://assaytools.choderalab.org

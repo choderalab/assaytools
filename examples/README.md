@@ -5,3 +5,4 @@
   * See the [IPython notebook online](http://nbviewer.ipython.org/github/choderalab/assaytools/blob/master/examples/fitting-fluorescence-titration-assay/fitting-fluorescence-titration-assay.ipynb).
 * `competition-assay-modeling/` - modeling a fluorescence ligand competition assay
   * See the [IPython notebook online](http://nbviewer.ipython.org/github/choderalab/assaytools/blob/master/examples/competition-assay-modeling/competition-assay-modeling.ipynb).
+* `xml2png/` - illustrate the use of the xml2png tool
