@@ -1,4 +1,7 @@
-# assaytools
+[![Build Status](https://travis-ci.org/choderalab/assaytools.png)](https://travis-ci.org/choderalab/assaytools)
+
+assaytools
+==========
 
 *Assay modeling and Bayesian analysis made easy.*
 
