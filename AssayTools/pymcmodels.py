@@ -162,7 +162,7 @@ def make_model(Pstated, dPstated, Lstated, dLstated, Fobs_i, Fligand_i,
     log_sigma = pymc.Uniform('log_sigma', lower=-10, upper=np.log(Fmax), value=0.0)
     @pymc.deterministic
     def precision(log_sigma=log_sigma): # measurement precision
-        return 1.0 / np.exp(log_sigma)**2
+        return np.exp(-2.0*log_sigma)
     # Add to model.
     pymc_model['log_sigma'] = log_sigma
 
