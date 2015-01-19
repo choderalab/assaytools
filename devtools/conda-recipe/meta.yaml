@@ -9,8 +9,6 @@ build:
 requirements:
   build:
     - python
-    - cython
-    - numpy
     - setuptools
 
   run:
