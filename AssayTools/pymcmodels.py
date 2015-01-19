@@ -71,6 +71,11 @@ def make_model(Pstated, dPstated, Lstated, dLstated, Fobs_i, Fligand_i,
     depsilon : float, optional, default=None
        Uncertainty (standard error) in measurement 'epsilon'.
 
+    Returns
+    -------
+    pymc_model : dict
+       A dict mapping variable names to onbjects that can be used as a PyMC model object.
+
     Examples
     --------
     Create a simple model
@@ -100,6 +105,9 @@ def make_model(Pstated, dPstated, Lstated, dLstated, Fobs_i, Fligand_i,
     if (len(dLstated) != N):
         raise Exception('len(dLstated) [%d] must equal len(Lstated) [%d].' % (len(dLstated), len(Lstated)))
 
+    # Create an empty dict to hold the model.
+    pymc_model = dict()
+
     # Prior on binding free energies.
     if DG_prior == 'uniform':
         DeltaG = pymc.Uniform('DeltaG', lower=DG_min, upper=DG_max, value=0.0) # binding free energy (kT), uniform over huge range
@@ -107,9 +115,8 @@ def make_model(Pstated, dPstated, Lstated, dLstated, Fobs_i, Fligand_i,
         DeltaG = pymc.Normal('DeltaG', mu=0, tau=1./(12.5**2)) # binding free energy (kT), using a Gaussian prior inspured by ChEMBL
     else:
         raise Exception("DG_prior = '%s' unknown. Must be one of 'DeltaG' or 'chembl'." % DG_prior)
-
-    # Create an empty dict to hold the model.
-    pymc_model = dict()
+    # Add to model.
+    pymc_model['DeltaG'] = DeltaG
 
     # Create priors on true concentrations of protein and ligand.
     if concentration_priors == 'lognormal':
