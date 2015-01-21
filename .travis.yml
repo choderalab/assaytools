@@ -13,7 +13,7 @@ install:
 script:
   - source deactivate
   - conda config --add channels https://conda.binstar.org/omnia
-  - conda install --yes conda-build
+  - conda install --yes conda-build jinja2 binstar pip
   - conda build devtools/conda-recipe
   - source activate $python
   - conda install --yes $HOME/miniconda/conda-bld/linux-64/assaytools-dev-*
