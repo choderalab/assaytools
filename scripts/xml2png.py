@@ -1,4 +1,4 @@
-# This script takes xml data file output from the Tecan Infinite m1000 Pro plate reader 
+# This script takes xml data file output from the Tecan Infinite m1000 Pro plate reader
 # and makes quick and dirty images of the raw data.
 
 # The same procedure can be used to make matrices suitable for analysis using
@@ -21,6 +21,7 @@
 
 import numpy as np
 import matplotlib.pyplot as plt
+import seaborn
 from lxml import etree
 import pandas as pd
 import sys
@@ -123,7 +124,7 @@ def process_files(xml_files):
         fig, axes = plt.subplots(nrows=1,ncols=len(Sections), figsize=(20,4.5))
 
         for i, sect in enumerate(data):
-            sect['dataframe'].plot(title = sect['title'] , ax = axes[i], legend=False )
+            sect['dataframe'].plot(title = sect['title'], ax = axes[i], legend=False )
 
         fig.tight_layout()
         fig.subplots_adjust(top=0.8)

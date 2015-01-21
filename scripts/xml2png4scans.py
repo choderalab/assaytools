@@ -25,6 +25,7 @@ import matplotlib.pyplot as plt
 from lxml import etree
 import pandas as pd
 import matplotlib.cm as cm
+import seaborn
 import sys
 import os
 
