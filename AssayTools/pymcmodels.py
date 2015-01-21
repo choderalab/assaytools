@@ -120,20 +120,21 @@ def make_model(Pstated, dPstated, Lstated, dLstated, Fobs_i, Fligand_i,
 
     # Create priors on true concentrations of protein and ligand.
     if concentration_priors == 'lognormal':
-        Ptrue = pymc.Lognormal('Ptrue', mu=np.log(Pstated**2 / np.sqrt(dPstated**2 + Pstated**2)), tau=np.sqrt(np.log(1.0 + (dPstated/Pstated)**2))**(-2)) # protein concentration (M)
-        Ltrue = pymc.Lognormal('Ltrue', mu=np.log(Lstated**2 / np.sqrt(dLstated**2 + Lstated**2)), tau=np.sqrt(np.log(1.0 + (dLstated/Lstated)**2))**(-2)) # ligand concentration (M)
-        Ltrue_control = pymc.Lognormal('Ltrue_control', mu=np.log(Lstated**2 / np.sqrt(dLstated**2 + Lstated**2)), tau=np.sqrt(np.log(1.0 + (dLstated/Lstated)**2))**(-2)) # ligand concentration (M)
+        Ptrue = [pymc.Lognormal('Ptrue_%i' % i, mu=np.log(Pstated[i]**2 / np.sqrt(dPstated[i]**2 + Pstated[i]**2)), tau=np.sqrt(np.log(1.0 + (dPstated[i]/Pstated[i])**2))**(-2)) for i in range(N)]# protein concentration (M)
+        Ltrue = [pymc.Lognormal('Ltrue_%i' % i, mu=np.log(Lstated[i]**2 / np.sqrt(dLstated[i]**2 + Lstated[i]**2)), tau=np.sqrt(np.log(1.0 + (dLstated[i]/Lstated[i])**2))**(-2)) for i in range(N)]  # ligand concentration (M)
+        Ltrue_control = [pymc.Lognormal('Ltrue_control_%i' % i, mu=np.log(Lstated[i]**2 / np.sqrt(dLstated[i]**2 + Lstated[i]**2)), tau=np.sqrt(np.log(1.0 + (dLstated[i]/Lstated[i])**2))**(-2)) for i in range(N)]  # ligand concentration (M)
     elif concentration_priors == 'gaussian':
         # Warning: These priors could lead to negative concentrations.
-        Ptrue = pymc.Normal('Ptrue', mu=Pstated, tau=dPstated**(-2)) # protein concentration (M)
-        Ltrue = pymc.Normal('Ltrue', mu=Lstated, tau=dLstated**(-2)) # ligand concentration (M)
-        Ltrue_control = pymc.Normal('Ltrue_control', mu=Lstated, tau=dLstated**(-2)) # ligand concentration (M)
+        Ptrue = [pymc.Normal('Ptrue_%i' % i, mu=Pstated[i], tau=dPstated[i]**(-2)) for i in range(N)] # protein concentration (M)
+        Ltrue = [pymc.Normal('Ltrue_%i' % i, mu=Lstated[i], tau=dLstated[i]**(-2)) for i in range(N)] # ligand concentration (M)
+        Ltrue_control = [pymc.Normal('Ltrue_control_%i' % i, mu=Lstated[i], tau=dLstated[i]**(-2)) for i in range(N)] # ligand concentration (M)
     else:
         raise Exception("concentration_priors = '%s' unknown. Must be one of ['lognormal', 'normal']." % concentration_priors)
     # Add to model.
-    pymc_model['Ptrue'] = Ptrue
-    pymc_model['Ltrue'] = Ltrue
-    pymc_model['Ltrue_control'] = Ltrue_control
+    for i in range(N):
+        pymc_model['Ptrue_%i' % i] = Ptrue[i]
+        pymc_model['Ltrue_%i' % i] = Ltrue[i]
+        pymc_model['Ltrue_control_%i' % i] = Ltrue_control[i]
 
     # extinction coefficient
     if use_primary_inner_filter_correction:
@@ -170,12 +171,13 @@ def make_model(Pstated, dPstated, Lstated, dLstated, Fobs_i, Fligand_i,
     from assaytools.bindingmodels import TwoComponentBindingModel
     @pymc.deterministic
     def Fmodel(F_background=F_background, F_PL=F_PL, F_P=F_P, F_L=F_L, Ptrue=Ptrue, Ltrue=Ltrue, DeltaG=DeltaG, epsilon=epsilon):
-        if use_primary_inner_filter_correction:
-            IF_i = np.exp(np.minimum(-epsilon*path_length*Ltrue[:], 0.0))
-        else:
-            IF_i = np.ones(N)
-        [P_i, L_i, PL_i] = TwoComponentBindingModel.equilibrium_concentrations(DeltaG, Ptrue[:], Ltrue[:])
-        Fmodel_i = IF_i[:]*(F_PL*PL_i + F_L*L_i + F_P*P_i + F_background)
+        Fmodel_i = np.zeros([N])
+        for i in range(N):
+            IF = 1.0
+            if use_primary_inner_filter_correction:
+                IF = np.exp(np.minimum(-epsilon*path_length*Ltrue[i], 0.0))
+            [P_i, L_i, PL_i] = TwoComponentBindingModel.equilibrium_concentrations(DeltaG, Ptrue[i], Ltrue[i])
+            Fmodel_i[i] = IF*(F_PL*PL_i + F_L*L_i + F_P*P_i + F_background)
 
         return Fmodel_i
     # Add to model.
@@ -184,11 +186,12 @@ def make_model(Pstated, dPstated, Lstated, dLstated, Fobs_i, Fligand_i,
     # Fluorescence model, ligand only.
     @pymc.deterministic
     def Fligand(F_background=F_background, F_L=F_L, Ltrue_control=Ltrue_control, epsilon=epsilon):
-        if use_primary_inner_filter_correction:
-            IF_i = np.exp(np.minimum(-epsilon*path_length*Ltrue_control[:], 0.0))
-        else:
-            IF_i = np.ones(N)
-        Fmodel_i = IF_i[:]*(F_L*Ltrue_control[:] + F_background)
+        Fmodel_i = np.zeros([N])
+        for i in range(N):
+            IF = 1.0
+            if use_primary_inner_filter_correction:
+                IF = np.exp(np.minimum(-epsilon*path_length*Ltrue_control[i], 0.0))
+            Fmodel_i[i] = IF*(F_L*Ltrue_control[i] + F_background)
         return Fmodel_i
     # Add to model.
     pymc_model['Fligand'] = Fligand

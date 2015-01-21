@@ -85,9 +85,8 @@ class TwoComponentBindingModel(BindingModel):
       logL = np.log(Ltot)
       logPLK = np.logaddexp(np.logaddexp(logP, logL), DeltaG)
       PLK = np.exp(logPLK);
-      sqrt_arg = 1.0 - np.exp(np.log(4.0) + logP + logL - 2*logPLK);
-      sqrt_arg[sqrt_arg < 0.0] = 0.0 # ensure always positive
-      PL = 0.5 * PLK * (1.0 - np.sqrt(sqrt_arg));  # complex concentration (M)
+      sqrt_arg = max(1.0 - np.exp(np.log(4.0) + logP + logL - 2*logPLK), 0.0);
+      PL = max(0.5 * PLK * (1.0 - np.sqrt(sqrt_arg)), 0.0);  # complex concentration (M)
 
       # Another variant
       #PL = 2*Ptot*Ltot / ((Ptot+Ltot+Kd) + np.sqrt((Ptot + Ltot + Kd)**2 - 4*Ptot*Ltot));  # complex concentration (M)
@@ -98,12 +97,6 @@ class TwoComponentBindingModel(BindingModel):
       #chi = 1.0 - 4.0 * xy;
       #chi[chi < 0.0] = 0.0 # prevent square roots of negative numbers
       #PL = 0.5 * PLK * (1 - np.sqrt(chi))
-
-      # Ensure all concentrations are within limits, correcting cases where numerical issues cause problems.
-      PL[PL < 0.0] = 0.0 # complex cannot have negative concentration
-      #PL_max = np.minimum(Ptot, Ltot)
-      #indices = np.where(PL > PL_max)
-      #PL[indices] = PL_max[indices]
 
       # Compute remaining concentrations.
       P = Ptot - PL; # free protein concentration in sample cell after n injections (M)
