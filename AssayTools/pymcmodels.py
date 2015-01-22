@@ -39,7 +39,7 @@ nthin = 500 # thinning interval
 def make_model(Pstated, dPstated, Lstated, dLstated, Fobs_i, Fligand_i,
                DG_prior='uniform',
                concentration_priors='lognormal',
-               use_primary_inner_filter_correction=True, well_volume=75e-6, well_area=0.1586,
+               use_primary_inner_filter_correction=True, assay_volume=100e-6, well_area=0.1586,
                epsilon=None, depsilon=None):
     """
     Build a PyMC model for an assay that consists of N wells of protein:ligand at various concentrations and an additional N wells of ligand in buffer, with the ligand at the same concentrations as the corresponding protein:ligand wells.
@@ -62,8 +62,8 @@ def make_model(Pstated, dPstated, Lstated, dLstated, Fobs_i, Fligand_i,
        Prior to use for protein and ligand concentrations. Available options are ['lognormal', 'normal'].
     use_primary_inner_filter_correction : bool, optional, default=True
        If true, will infer ligand extinction coefficient epsilon and apply primary inner filter correction to attenuate excitation light.
-    well_volume : float, optional, default=75e-6
-       Well volume. Units of L. Default 75 uL for half-area plate.
+    assay_volume : float, optional, default=100e-6
+       Assay volume. Units of L. Default 100 uL.
     well_area : float, optional, default=0.1586
        Well area. Units of cm^2. Default 0.1586 cm^2, for half-area plate.
     epsilon : float, optional, default=None
@@ -92,7 +92,7 @@ def make_model(Pstated, dPstated, Lstated, dLstated, Fobs_i, Fligand_i,
     """
 
     # Compute path length.
-    path_length = well_volume * 1000 / well_area # cm, needed for inner filter effect corrections
+    path_length = assay_volume * 1000 / well_area # cm, needed for inner filter effect corrections
 
     # Compute number of samples.
     N = len(Lstated)
