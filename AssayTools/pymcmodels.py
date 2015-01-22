@@ -110,7 +110,7 @@ def make_model(Pstated, dPstated, Lstated, dLstated, Fobs_i, Fligand_i,
 
     # Prior on binding free energies.
     if DG_prior == 'uniform':
-        DeltaG = pymc.Uniform('DeltaG', lower=DG_min, upper=DG_max, value=-20) # binding free energy (kT), uniform over huge range
+        DeltaG = pymc.Uniform('DeltaG', lower=DG_min, upper=DG_max) # binding free energy (kT), uniform over huge range
     elif DG_prior == 'chembl':
         DeltaG = pymc.Normal('DeltaG', mu=0, tau=1./(12.5**2)) # binding free energy (kT), using a Gaussian prior inspured by ChEMBL
     else:
