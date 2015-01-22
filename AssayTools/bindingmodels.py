@@ -75,19 +75,20 @@ class TwoComponentBindingModel(BindingModel):
       """
 
       # Original form:
-      #Kd = np.exp(DeltaG)
-      #sqrt_arg = (Ptot + Ltot + Kd)**2 - 4*Ptot*Ltot
-      #sqrt_arg[sqrt_arg < 0.0] = 0.0
-      #PL = 0.5 * ((Ptot + Ltot + Kd) - np.sqrt(sqrt_arg));  # complex concentration (M)
+      Kd = np.exp(DeltaG)
+      sqrt_arg = (Ptot + Ltot + Kd)**2 - 4*Ptot*Ltot
+      sqrt_arg[sqrt_arg < 0.0] = 0.0
+      PL = 0.5 * ((Ptot + Ltot + Kd) - np.sqrt(sqrt_arg));  # complex concentration (M)
 
       # Numerically stable variant?
-      logP = np.log(Ptot)
-      logL = np.log(Ltot)
-      logPLK = np.logaddexp(np.logaddexp(logP, logL), DeltaG)
-      PLK = np.exp(logPLK);
-      sqrt_arg = 1.0 - np.exp(np.log(4.0) + logP + logL - 2*logPLK);
-      sqrt_arg[sqrt_arg < 0.0] = 0.0 # ensure always positive
-      PL = 0.5 * PLK * (1.0 - np.sqrt(sqrt_arg));  # complex concentration (M)
+      #logP = np.log(Ptot)
+      #logL = np.log(Ltot)
+      #logPLK = np.logaddexp(np.logaddexp(logP, logL), DeltaG)
+      ##PLK = np.exp(logPLK);
+      #PLK = (Ptot + Ltot + np.exp(DeltaG))
+      #sqrt_arg = 1.0 - np.exp(np.log(4.0) + logP + logL - 2*logPLK);
+      #sqrt_arg[sqrt_arg < 0.0] = 0.0 # ensure always positive
+      #PL = 0.5 * PLK * (1.0 - np.sqrt(sqrt_arg));  # complex concentration (M)
 
       # Another variant
       #PL = 2*Ptot*Ltot / ((Ptot+Ltot+Kd) + np.sqrt((Ptot + Ltot + Kd)**2 - 4*Ptot*Ltot));  # complex concentration (M)

@@ -110,7 +110,7 @@ def make_model(Pstated, dPstated, Lstated, dLstated, Fobs_i, Fligand_i,
 
     # Prior on binding free energies.
     if DG_prior == 'uniform':
-        DeltaG = pymc.Uniform('DeltaG', lower=DG_min, upper=DG_max) # binding free energy (kT), uniform over huge range
+        DeltaG = pymc.Uniform('DeltaG', lower=DG_min, upper=DG_max, value=-20) # binding free energy (kT), uniform over huge range
     elif DG_prior == 'chembl':
         DeltaG = pymc.Normal('DeltaG', mu=0, tau=1./(12.5**2)) # binding free energy (kT), using a Gaussian prior inspured by ChEMBL
     else:
@@ -138,7 +138,7 @@ def make_model(Pstated, dPstated, Lstated, dLstated, Fobs_i, Fligand_i,
     # extinction coefficient
     if use_primary_inner_filter_correction:
         if epsilon:
-            epsilon = pymc.Normal('epsilon', mu=epsilon, tau=depsilon**(-2)) # prior is centered on measured extinction coefficient
+            epsilon = pymc.Lognormal('epsilon', mu=np.log(epsilon**2 / np.sqrt(depsilon**2 + epsilon**2)), tau=np.sqrt(np.log(1.0 + (depsilon/epsilon)**2))**(-2)) # prior is centered on measured extinction coefficient
             # TODO: Change this to lognormal, since epsilon cannot be negative
         else:
             epsilon = pymc.Uniform('epsilon', lower=0.0, upper=200e3) # extinction coefficient or molar absorptivity for ligand, units of 1/M/cm
@@ -146,12 +146,18 @@ def make_model(Pstated, dPstated, Lstated, dLstated, Fobs_i, Fligand_i,
         # Add to model.
         pymc_model['epsilon'] = epsilon
 
+    # Compute initial guesses.
+    F_background_guess = min(Fobs_i.min(), Fligand_i.min())
+    F_L_guess = ((Fligand_i.max() - F_background_guess) / Lstated.max())
+    F_P_guess = 0.0
+    F_PL_guess = ((Fobs_i.max() - F_background_guess) / Pstated)
+
     # Priors on fluorescence intensities of complexes (later divided by a factor of Pstated for scale).
     Fmax = max(Fobs_i.max(), Fligand_i.max())
-    F_background = pymc.Uniform('F_background', lower=0.0, upper=Fmax) # background fluorescence
-    F_PL = pymc.Uniform('F_PL', lower=0.0, upper=2*Fmax/min(Pstated.max(),Lstated.max())) # complex fluorescence
-    F_P = pymc.Uniform('F_P', lower=0.0, upper=2*(Fobs_i/Pstated).max()) # protein fluorescence
-    F_L = pymc.Uniform('F_L', lower=0.0, upper=2*(Fligand_i/Lstated).max()) # ligand fluorescence
+    F_background = pymc.Uniform('F_background', lower=0.0, upper=Fmax, value=F_background_guess) # background fluorescence
+    F_PL = pymc.Uniform('F_PL', lower=0.0, upper=2*Fmax/min(Pstated.max(),Lstated.max()), value=F_PL_guess) # complex fluorescence
+    F_P = pymc.Uniform('F_P', lower=0.0, upper=2*(Fobs_i/Pstated).max(), value=F_P_guess) # protein fluorescence
+    F_L = pymc.Uniform('F_L', lower=0.0, upper=2*(Fligand_i/Lstated).max(), value=F_L_guess) # ligand fluorescence
     # Add to model.
     pymc_model['F_background'] = F_background
     pymc_model['F_PL'] = F_PL
