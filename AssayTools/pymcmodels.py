@@ -158,7 +158,7 @@ def make_model(Pstated, dPstated, Lstated, dLstated, Fobs_i, Fligand_i,
             epsilon = pymc.Lognormal('epsilon', mu=np.log(epsilon**2 / np.sqrt(depsilon**2 + epsilon**2)), tau=np.sqrt(np.log(1.0 + (depsilon/epsilon)**2))**(-2)) # prior is centered on measured extinction coefficient
             # TODO: Change this to lognormal, since epsilon cannot be negative
         else:
-            epsilon = pymc.Uniform('epsilon', lower=0.0, upper=200e3) # extinction coefficient or molar absorptivity for ligand, units of 1/M/cm
+            epsilon = pymc.Uniform('epsilon', lower=0.0, upper=1000e3) # extinction coefficient or molar absorptivity for ligand, units of 1/M/cm
             # TODO: Select a reasonable physical range for plausible extinction coefficients.
         # Add to model.
         pymc_model['epsilon'] = epsilon
@@ -167,7 +167,7 @@ def make_model(Pstated, dPstated, Lstated, dLstated, Fobs_i, Fligand_i,
     F_background_guess = min(Fobs_i.min(), Fligand_i.min())
     F_L_guess = ((Fligand_i.max() - F_background_guess) / Lstated.max())
     F_P_guess = 0.0
-    F_PL_guess = ((Fobs_i.max() - F_background_guess) / Pstated)
+    F_PL_guess = ((Fobs_i - F_background_guess) / Pstated).max()
 
     # Priors on fluorescence intensities of complexes (later divided by a factor of Pstated for scale).
     Fmax = max(Fobs_i.max(), Fligand_i.max())
