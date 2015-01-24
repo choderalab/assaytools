@@ -138,6 +138,7 @@ def make_model(Pstated, dPstated, Lstated, dLstated, Fobs_i, Fligand_i,
     # Create priors on true concentrations of protein and ligand.
     if concentration_priors == 'lognormal':
         Ptrue = pymc.Lognormal('Ptrue', mu=np.log(Pstated**2 / np.sqrt(dPstated**2 + Pstated**2)), tau=np.sqrt(np.log(1.0 + (dPstated/Pstated)**2))**(-2)) # protein concentration (M)
+        #Ptrue = pymc.Uniform('Ptrue', lower=0.0*Pstated, upper=Pstated, value=Pstated) # protein concentration (M)
         Ltrue = pymc.Lognormal('Ltrue', mu=np.log(Lstated**2 / np.sqrt(dLstated**2 + Lstated**2)), tau=np.sqrt(np.log(1.0 + (dLstated/Lstated)**2))**(-2)) # ligand concentration (M)
         Ltrue_control = pymc.Lognormal('Ltrue_control', mu=np.log(Lstated**2 / np.sqrt(dLstated**2 + Lstated**2)), tau=np.sqrt(np.log(1.0 + (dLstated/Lstated)**2))**(-2)) # ligand concentration (M)
     elif concentration_priors == 'gaussian':
@@ -167,7 +168,7 @@ def make_model(Pstated, dPstated, Lstated, dLstated, Fobs_i, Fligand_i,
     F_background_guess = min(Fobs_i.min(), Fligand_i.min())
     F_L_guess = ((Fligand_i.max() - F_background_guess) / Lstated.max())
     F_P_guess = 0.0
-    F_PL_guess = ((Fobs_i - F_background_guess) / Pstated).max()
+    F_PL_guess = ((Fobs_i.max() - F_background_guess) / Pstated.max())
 
     # Priors on fluorescence intensities of complexes (later divided by a factor of Pstated for scale).
     Fmax = max(Fobs_i.max(), Fligand_i.max())
