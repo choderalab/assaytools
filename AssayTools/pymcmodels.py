@@ -35,6 +35,23 @@ nthin = 500 # thinning interval
 # PyMC models
 #=============================================================================================
 
+def inner_filter_effect_attenuation(epsilon, path_length, concentration):
+    """
+    Compute inner filter effect attenuation.
+    """
+    ELC = epsilon*path_length*concentration
+    try:
+        if (ELC > 0.01):
+            IF = (1 - np.exp(-ELC)) / ELC
+        else:
+            IF = 1 - ELC
+    except:
+        IF = (1 - np.exp(-ELC)) / ELC
+        indices = np.where(ELC < 0.01)
+        IF[indices] = 1 - ELC[indices]
+
+    return IF
+
 # Create a pymc model
 def make_model(Pstated, dPstated, Lstated, dLstated, Fobs_i, Fligand_i,
                DG_prior='uniform',
@@ -177,7 +194,7 @@ def make_model(Pstated, dPstated, Lstated, dLstated, Fobs_i, Fligand_i,
     @pymc.deterministic
     def Fmodel(F_background=F_background, F_PL=F_PL, F_P=F_P, F_L=F_L, Ptrue=Ptrue, Ltrue=Ltrue, DeltaG=DeltaG, epsilon=epsilon):
         if use_primary_inner_filter_correction:
-            IF_i = np.exp(np.minimum(-epsilon*path_length*Ltrue[:], 0.0))
+            IF_i = inner_filter_effect_attenuation(epsilon, path_length, Ltrue)
         else:
             IF_i = np.ones(N)
         [P_i, L_i, PL_i] = TwoComponentBindingModel.equilibrium_concentrations(DeltaG, Ptrue[:], Ltrue[:])
@@ -191,7 +208,7 @@ def make_model(Pstated, dPstated, Lstated, dLstated, Fobs_i, Fligand_i,
     @pymc.deterministic
     def Fligand(F_background=F_background, F_L=F_L, Ltrue_control=Ltrue_control, epsilon=epsilon):
         if use_primary_inner_filter_correction:
-            IF_i = np.exp(np.minimum(-epsilon*path_length*Ltrue_control[:], 0.0))
+            IF_i = inner_filter_effect_attenuation(epsilon, path_length, Ltrue_control)
         else:
             IF_i = np.ones(N)
         Fmodel_i = IF_i[:]*(F_L*Ltrue_control[:] + F_background)
