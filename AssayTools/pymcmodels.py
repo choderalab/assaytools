@@ -38,6 +38,7 @@ nthin = 500 # thinning interval
 def inner_filter_effect_attenuation(epsilon, path_length, concentration):
     """
     Compute inner filter effect attenuation.
+
     """
     ELC = epsilon*path_length*concentration
     try:
