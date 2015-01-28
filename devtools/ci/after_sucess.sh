@@ -1,4 +1,5 @@
-coveralls
+# Coveralls is temporarily commented out until we can set this up.
+#coveralls
 
 echo $TRAVIS_PULL_REQUEST $TRAVIS_BRANCH
 
@@ -13,8 +14,10 @@ fi
 
 
 if [[ "2.7 3.3 3.4" =~ "$python" ]]; then
+    echo "Uploading to binstar..."
     conda install --yes binstar
-    binstar -t $BINSTAR_TOKEN upload --force -u omnia -p assaytools-dev $HOME/miniconda/conda-bld/linux-64/assaytools-dev-*
+    echo binstar upload -t $BINSTAR_TOKEN --force -u omnia -p assaytools-dev $HOME/miniconda/conda-bld/linux-64/assaytools-dev-*
+    binstar upload -t $BINSTAR_TOKEN --force -u omnia -p assaytools-dev $HOME/miniconda/conda-bld/linux-64/assaytools-dev-*
 fi
 
 if [[ "$python" != "2.7" ]]; then
