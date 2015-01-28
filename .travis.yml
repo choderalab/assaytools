@@ -31,7 +31,7 @@ env:
   global:
     # TODO: add encrypted AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY to push documentation to S3
     # binstar
-    secure: "YAR8F9OM0DmISGy8FKVzrlBv+s4Q7ceLsYCMx8zx/7ZWclwVKyBXd4DHoxfFqnVAWdmRc1lKsFOHW1BwmnWjnbLjXHPmYdbRU4K2VNqEM5CmY0wYsxCm2tvdA9DtRnebrGATeQ8PE/u/VneyY6Bg+d1MajL2D4aY7sui7QSXNu4="
+    secure: "GDGhaZfWEmGAu8i/jVliy50LnTIHl70k0buQDMfDdn0inu2MM8vtWdw3zEo1GYlwnfOwpKHUuvZVzVC8jkkVFHU9xLFNpGo25W3m68jQtnq0Ez/9qQ2jbdtDAv1z4RnXhDPbjfYUHhtM8apf27+1zYpPJle5rlpxe0aNtIPiMI0="
 
 after_success:
   - echo "after_success"

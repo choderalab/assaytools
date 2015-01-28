@@ -16,7 +16,6 @@ fi
 if [[ "2.7 3.3 3.4" =~ "$python" ]]; then
     echo "Uploading to binstar..."
     conda install --yes binstar
-    echo binstar upload -t $BINSTAR_TOKEN --force -u omnia -p assaytools-dev $HOME/miniconda/conda-bld/linux-64/assaytools-dev-*
     binstar upload -t $BINSTAR_TOKEN --force -u omnia -p assaytools-dev $HOME/miniconda/conda-bld/linux-64/assaytools-dev-*
 fi
 
