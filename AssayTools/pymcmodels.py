@@ -43,9 +43,11 @@ def inner_filter_effect_attenuation(epsilon, path_length, concentration):
     ELC = epsilon*path_length*concentration
     try:
         if (ELC > 0.01):
+            # General form for ELC > 0
             IF = (1 - np.exp(-ELC)) / ELC
         else:
-            IF = 1 - ELC
+            # Low-order Taylor expansion near ELC = 0
+            IF = 1 - ELC/2.0 + (ELC**2)/6.0 - (ELC**3)/24.0 + (ELC**4)/120.0
     except:
         IF = (1 - np.exp(-ELC)) / ELC
         indices = np.where(ELC < 0.01)
