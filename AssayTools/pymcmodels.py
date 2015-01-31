@@ -35,32 +35,70 @@ nthin = 500 # thinning interval
 # PyMC models
 #=============================================================================================
 
-def inner_filter_effect_attenuation(epsilon, path_length, concentration):
+def inner_filter_effect_attenuation(epsilon_ex, epsilon_em, path_length, concentration, geometry='top'):
     """
-    Compute inner filter effect attenuation.
+    Compute primary and secondar inner filter effect attenuation for top and bottom observation geometries.
+
+    Parameters
+    ----------
+    epsilon_ex : float
+       Exctinction coefficient at excitation wavelength. Units of 1/M/cm
+    epsilon_em : float
+       Extinction coefficient at emission wavelength. Units of 1/M/cm
+    path_length : float
+       Path length. Units of cm.
+    concentration : float
+       Concentration of species whose extinction coefficient is provided. Units of M.
+    geometry : str, optional, default='top'
+       Observation geometry, one of ['top', 'bottom'].
+
+    Returns
+    -------
+    scaling : factor by which expected fluorescence is attenuated by primary and secondary inner filter effects
 
     """
-    ELC = epsilon*path_length*concentration
-    try:
-        if (ELC > 0.01):
-            # General form for ELC > 0
-            IF = (1 - np.exp(-ELC)) / ELC
-        else:
-            # Low-order Taylor expansion near ELC = 0
-            IF = 1 - ELC/2.0 + (ELC**2)/6.0 - (ELC**3)/24.0 + (ELC**4)/120.0
-    except:
-        IF = (1 - np.exp(-ELC)) / ELC
-        indices = np.where(ELC < 0.01)
-        IF[indices] = 1 - ELC[indices]
 
-    return IF
+    # Ensure concentration is a vector.
+    if not hasattr(concentration, '__getitem__'):
+        concentration = np.array([concentration])
+
+    ELC_ex = epsilon_ex*path_length*concentration
+    ELC_em = epsilon_em*path_length*concentration
+
+    scaling = 1.0 # no attenuation
+
+    if geometry == 'top':
+        alpha = (ELC_ex + ELC_em)
+
+        scaling = (1 - np.exp(-alpha)) / alpha
+        # Handle alpha -> 0 case explicitly.
+        indices = np.where(np.abs(alpha) < 0.01)
+        scaling[indices] = 1. - alpha[indices]/2. + (alpha[indices]**2)/6. - (alpha[indices]**3)/24. + (alpha[indices]**4)/120.
+    elif geometry == 'bottom':
+        alpha = (ELC_ex - ELC_em)
+
+        scaling = (1 - np.exp(-alpha)) / alpha
+        # Handle alpha -> 0 case explicitly.
+        indices = np.where(np.abs(alpha) < 0.01)
+        scaling[indices] = 1. - alpha[indices]/2. + (alpha[indices]**2)/6. - (alpha[indices]**3)/24. + (alpha[indices]**4)/120.
+        # Include additional term.
+        scaling *= np.exp(-ELC_em)
+    else:
+        raise Exception("geometry '%s' unknown, must be one of ['top', 'bottom']" % geometry)
+
+    return scaling
 
 # Create a pymc model
-def make_model(Pstated, dPstated, Lstated, dLstated, Fobs_i, Fligand_i,
+def make_model(Pstated, dPstated, Lstated, dLstated,
+               top_complex_fluorescence=None, top_ligand_fluorescence=None,
+               bottom_complex_fluorescence=None, bottom_ligand_fluorescence=None,
                DG_prior='uniform',
                concentration_priors='lognormal',
-               use_primary_inner_filter_correction=True, assay_volume=100e-6, well_area=0.1586,
-               epsilon=None, depsilon=None):
+               use_primary_inner_filter_correction=True,
+               use_secondary_inner_filter_correction=True,
+               assay_volume=100e-6, well_area=0.1586,
+               epsilon_ex=None, depsilon_ex=None,
+               epsilon_em=None, depsilon_em=None):
     """
     Build a PyMC model for an assay that consists of N wells of protein:ligand at various concentrations and an additional N wells of ligand in buffer, with the ligand at the same concentrations as the corresponding protein:ligand wells.
 
@@ -76,20 +114,30 @@ def make_model(Pstated, dPstated, Lstated, dLstated, Fobs_i, Fligand_i,
     dLstated : numpy.array of N values
        Absolute uncertainty in stated protein concentrations for all wells of assay. Units of molarity.
        Uncertainties currently cannot be zero
+    top_complex_fluorecence : numpy.array of N values, optional, default=None
+       Fluorescence intensity (top) for protein:ligand mixture.
+    top_ligand_fluorescence : numpy.array of N values, optional, default=None
+       Fluorescence intensity (top) for ligand control.
+    bottom_complex_fluorescence: numpy.array of N values, optional, default=None
+       Fluorescence intensity (bottom) for protein:ligand mixture.
+    bottom_ligand_fluorescence : numpy.array of N values, optional, default=None
+       Fluorescence intensity (bottom) for ligand control.
     DG_prior : str, optional, default='uniform'
        Prior to use for reduced free energy of binding (DG): 'uniform' (uniform over reasonable range), or 'chembl' (ChEMBL-inspired distribution); default: 'uniform'
     concentration_priors : str, optional, default='lognormal'
        Prior to use for protein and ligand concentrations. Available options are ['lognormal', 'normal'].
     use_primary_inner_filter_correction : bool, optional, default=True
        If true, will infer ligand extinction coefficient epsilon and apply primary inner filter correction to attenuate excitation light.
+    use_secondary_inner_filter_correction : bool, optional, default=True
+       If true, will infer ligand extinction coefficient epsilon and apply secondary inner filter correction to attenuate excitation light.
     assay_volume : float, optional, default=100e-6
        Assay volume. Units of L. Default 100 uL.
     well_area : float, optional, default=0.1586
        Well area. Units of cm^2. Default 0.1586 cm^2, for half-area plate.
-    epsilon : float, optional, default=None
-       Orthogonal measurement of ligand extinction coefficient at excitation wavelength. If None, will use a uniform prior.
-    depsilon : float, optional, default=None
-       Uncertainty (standard error) in measurement 'epsilon'.
+    epsilon_ex, depsilon_ex : float, optional, default=None
+       Orthogonal measurement of ligand extinction coefficient at excitation wavelength (and uncertainty). If None, will use a uniform prior.
+    epsilon_em, depsilon_em : float, optional, default=None
+       Orthogonal measurement of ligand extinction coefficient at excitation wavelength (and uncertainty). If None, will use a uniform prior.
 
     Returns
     -------
@@ -105,9 +153,9 @@ def make_model(Pstated, dPstated, Lstated, dLstated, Fobs_i, Fligand_i,
     >>> Lstated = 20.0e-6 / np.array([10**(float(i)/2.0) for i in range(N)])
     >>> dPstated = 0.10 * Pstated
     >>> dLstated = 0.08 * Lstated
-    >>> Fobs_i = array([ 689., 683., 664., 588., 207., 80., 28., 17., 10., 11., 10., 10.])
-    >>> Fligand_i = array([ 174., 115., 57., 20., 7., 6., 6., 6., 6., 7., 6., 7.])
-    >>> pymc_model = pymcmodels.make_model(Pstated, dPstated, Lstated, dLstated, Fobs_i, Fligand_i)
+    >>> top_complex_fluoresnce = array([ 689., 683., 664., 588., 207., 80., 28., 17., 10., 11., 10., 10.])
+    >>> top_ligand_fluorescence = array([ 174., 115., 57., 20., 7., 6., 6., 6., 6., 7., 6., 7.])
+    >>> pymc_model = pymcmodels.make_model(Pstated, dPstated, Lstated, dLstated, top_complex_fluorescence=top_complex_fluorescence, bottom_complex_fluorescence=bottom_complex_fluorescence)
 
     """
 
@@ -126,7 +174,7 @@ def make_model(Pstated, dPstated, Lstated, dLstated, Fobs_i, Fligand_i,
         raise Exception('len(dLstated) [%d] must equal len(Lstated) [%d].' % (len(dLstated), len(Lstated)))
 
     # Create an empty dict to hold the model.
-    pymc_model = dict()
+    model = dict()
 
     # Prior on binding free energies.
     if DG_prior == 'uniform':
@@ -136,12 +184,11 @@ def make_model(Pstated, dPstated, Lstated, dLstated, Fobs_i, Fligand_i,
     else:
         raise Exception("DG_prior = '%s' unknown. Must be one of 'DeltaG' or 'chembl'." % DG_prior)
     # Add to model.
-    pymc_model['DeltaG'] = DeltaG
+    model['DeltaG'] = DeltaG
 
     # Create priors on true concentrations of protein and ligand.
     if concentration_priors == 'lognormal':
         Ptrue = pymc.Lognormal('Ptrue', mu=np.log(Pstated**2 / np.sqrt(dPstated**2 + Pstated**2)), tau=np.sqrt(np.log(1.0 + (dPstated/Pstated)**2))**(-2)) # protein concentration (M)
-        #Ptrue = pymc.Uniform('Ptrue', lower=0.0*Pstated, upper=Pstated, value=Pstated) # protein concentration (M)
         Ltrue = pymc.Lognormal('Ltrue', mu=np.log(Lstated**2 / np.sqrt(dLstated**2 + Lstated**2)), tau=np.sqrt(np.log(1.0 + (dLstated/Lstated)**2))**(-2)) # ligand concentration (M)
         Ltrue_control = pymc.Lognormal('Ltrue_control', mu=np.log(Lstated**2 / np.sqrt(dLstated**2 + Lstated**2)), tau=np.sqrt(np.log(1.0 + (dLstated/Lstated)**2))**(-2)) # ligand concentration (M)
     elif concentration_priors == 'gaussian':
@@ -152,83 +199,132 @@ def make_model(Pstated, dPstated, Lstated, dLstated, Fobs_i, Fligand_i,
     else:
         raise Exception("concentration_priors = '%s' unknown. Must be one of ['lognormal', 'normal']." % concentration_priors)
     # Add to model.
-    pymc_model['Ptrue'] = Ptrue
-    pymc_model['Ltrue'] = Ltrue
-    pymc_model['Ltrue_control'] = Ltrue_control
+    model['Ptrue'] = Ptrue
+    model['Ltrue'] = Ltrue
+    model['Ltrue_control'] = Ltrue_control
 
     # extinction coefficient
+    model['epsilon_ex'] = 0.0
+    model['epsilon_em'] = 0.0
     if use_primary_inner_filter_correction:
-        if epsilon:
-            epsilon = pymc.Lognormal('epsilon', mu=np.log(epsilon**2 / np.sqrt(depsilon**2 + epsilon**2)), tau=np.sqrt(np.log(1.0 + (depsilon/epsilon)**2))**(-2)) # prior is centered on measured extinction coefficient
-            # TODO: Change this to lognormal, since epsilon cannot be negative
+        if epsilon_ex:
+            model['epsilon_ex'] = pymc.Lognormal('epsilon_ex', mu=np.log(epsilon_ex**2 / np.sqrt(depsilon_ex**2 + epsilon_ex**2)), tau=np.sqrt(np.log(1.0 + (depsilon_ex/epsilon_ex)**2))**(-2)) # prior is centered on measured extinction coefficient
         else:
-            epsilon = pymc.Uniform('epsilon', lower=0.0, upper=1000e3) # extinction coefficient or molar absorptivity for ligand, units of 1/M/cm
-            # TODO: Select a reasonable physical range for plausible extinction coefficients.
-        # Add to model.
-        pymc_model['epsilon'] = epsilon
+            model['epsilon_ex'] = pymc.Uniform('epsilon_ex', lower=0.0, upper=1000e3) # extinction coefficient or molar absorptivity for ligand, units of 1/M/cm
+
+    if use_secondary_inner_filter_correction:
+        if epsilon_em:
+            model['epsilon_em'] = pymc.Lognormal('epsilon_em', mu=np.log(epsilon_em**2 / np.sqrt(depsilon_em**2 + epsilon_em**2)), tau=np.sqrt(np.log(1.0 + (depsilon_em/epsilon_em)**2))**(-2)) # prior is centered on measured extinction coefficient
+        else:
+            model['epsilon_em'] = pymc.Uniform('epsilon_em', lower=0.0, upper=1000e3) # extinction coefficient or molar absorptivity for ligand, units of 1/M/cm
 
     # Compute initial guesses.
-    F_background_guess = min(Fobs_i.min(), Fligand_i.min())
-    F_L_guess = ((Fligand_i.max() - F_background_guess) / Lstated.max())
+    # TODO: Generalize this for top and bottom.
+    F_background_guess = min(top_complex_fluorescence.min(), top_ligand_fluorescence.min())
+    F_L_guess = ((top_ligand_fluorescence.max() - F_background_guess) / Lstated.max())
     F_P_guess = 0.0
-    F_PL_guess = ((Fobs_i.max() - F_background_guess) / Pstated.max())
+    F_PL_guess = ((top_complex_fluorescence.max() - F_background_guess) / Pstated.max())
+
+    # Maximum observed fluorescence.
+    Fmax = 0.0
+    if top_complex_fluorescence is not None: Fmax = max(Fmax, top_complex_fluorescence.max())
+    if top_ligand_fluorescence is not None: Fmax = max(Fmax, top_ligand_fluorescence.max())
+    if bottom_complex_fluorescence is not None: Fmax = max(Fmax, bottom_complex_fluorescence.max())
+    if bottom_ligand_fluorescence is not None: Fmax = max(Fmax, bottom_ligand_fluorescence.max())
 
     # Priors on fluorescence intensities of complexes (later divided by a factor of Pstated for scale).
-    Fmax = max(Fobs_i.max(), Fligand_i.max())
-    F_background = pymc.Uniform('F_background', lower=0.0, upper=Fmax, value=F_background_guess) # background fluorescence
-    F_PL = pymc.Uniform('F_PL', lower=0.0, upper=2*Fmax/min(Pstated.max(),Lstated.max()), value=F_PL_guess) # complex fluorescence
-    F_P = pymc.Uniform('F_P', lower=0.0, upper=2*(Fobs_i/Pstated).max(), value=F_P_guess) # protein fluorescence
-    F_L = pymc.Uniform('F_L', lower=0.0, upper=2*(Fligand_i/Lstated).max(), value=F_L_guess) # ligand fluorescence
-    # Add to model.
-    pymc_model['F_background'] = F_background
-    pymc_model['F_PL'] = F_PL
-    pymc_model['F_P'] = F_P
-    pymc_model['F_L'] = F_L
+    model['F_plate'] = pymc.Uniform('F_plate', lower=0.0, upper=Fmax, value=F_background_guess) # plate fluorescence
+    model['F_buffer'] = pymc.Uniform('F_buffer', lower=0.0, upper=Fmax, value=F_background_guess) # buffer fluorescence
+    model['F_PL'] = pymc.Uniform('F_PL', lower=0.0, upper=2*Fmax/min(Pstated.max(),Lstated.max()), value=F_PL_guess) # complex fluorescence
+    model['F_P'] = pymc.Uniform('F_P', lower=0.0, upper=2*(Fmax/Pstated).max(), value=F_P_guess) # protein fluorescence
+    model['F_L'] = pymc.Uniform('F_L', lower=0.0, upper=2*(Fmax/Lstated).max(), value=F_L_guess) # ligand fluorescence
 
     # Unknown experimental measurement error.
-    log_sigma = pymc.Uniform('log_sigma', lower=-10, upper=np.log(Fmax))
-    @pymc.deterministic
-    def precision(log_sigma=log_sigma): # measurement precision
-        return np.exp(-2.0*log_sigma)
-    # Add to model.
-    pymc_model['log_sigma'] = log_sigma
+    model['log_sigma_top'] = pymc.Uniform('log_sigma_top', lower=-10, upper=np.log(Fmax))
+    model['sigma_top'] = pymc.Lambda('sigma_top', lambda log_sigma=model['log_sigma_top'] : np.exp(log_sigma) )
+    model['precision_top'] = pymc.Lambda('precision_top', lambda log_sigma=model['log_sigma_top'] : np.exp(-2*log_sigma) )
+
+    model['log_sigma_bottom'] = pymc.Uniform('log_sigma_bottom', lower=-10, upper=np.log(Fmax))
+    model['sigma_bottom'] = pymc.Lambda('sigma_bottom', lambda log_sigma=model['log_sigma_bottom'] : np.exp(log_sigma) )
+    model['precision_bottom'] = pymc.Lambda('precision_bottom', lambda log_sigma=model['log_sigma_bottom'] : np.exp(-2*log_sigma) )
+
+    model['log_gain_bottom'] = pymc.Uniform('log_gain_bottom', lower=-10.0, upper=10.0, value=-1.6)
 
     # Fluorescence model.
     from assaytools.bindingmodels import TwoComponentBindingModel
-    @pymc.deterministic
-    def Fmodel(F_background=F_background, F_PL=F_PL, F_P=F_P, F_L=F_L, Ptrue=Ptrue, Ltrue=Ltrue, DeltaG=DeltaG, epsilon=epsilon):
-        if use_primary_inner_filter_correction:
-            IF_i = inner_filter_effect_attenuation(epsilon, path_length, Ltrue)
-        else:
-            IF_i = np.ones(N)
-        [P_i, L_i, PL_i] = TwoComponentBindingModel.equilibrium_concentrations(DeltaG, Ptrue[:], Ltrue[:])
-        Fmodel_i = IF_i[:]*(F_PL*PL_i + F_L*L_i + F_P*P_i + F_background)
 
-        return Fmodel_i
-    # Add to model.
-    pymc_model['Fmodel'] = Fmodel
+    if top_complex_fluorescence is not None:
+        @pymc.deterministic
+        def top_complex_fluorescence_model(F_plate=model['F_plate'], F_buffer=model['F_buffer'],
+                                           F_PL=model['F_PL'], F_P=model['F_P'], F_L=model['F_L'],
+                                           Ptrue=Ptrue, Ltrue=Ltrue, DeltaG=DeltaG,
+                                           epsilon_ex=model['epsilon_ex'], epsilon_em=model['epsilon_em']):
+            IF_i = inner_filter_effect_attenuation(epsilon_ex, epsilon_em, path_length, Ltrue, geometry='top')
+            [P_i, L_i, PL_i] = TwoComponentBindingModel.equilibrium_concentrations(DeltaG, Ptrue[:], Ltrue[:])
+            IF_i_plate = np.exp(-(epsilon_ex+epsilon_em)*path_length*Ltrue) # inner filter effect applied only to plate
+            Fmodel_i = IF_i[:]*(F_PL*PL_i + F_L*L_i + F_P*P_i + F_buffer) + IF_i_plate*F_plate
+            return Fmodel_i
+        # Add to model.
+        model['top_complex_fluorescence_model'] = top_complex_fluorescence_model
 
-    # Fluorescence model, ligand only.
-    @pymc.deterministic
-    def Fligand(F_background=F_background, F_L=F_L, Ltrue_control=Ltrue_control, epsilon=epsilon):
-        if use_primary_inner_filter_correction:
-            IF_i = inner_filter_effect_attenuation(epsilon, path_length, Ltrue_control)
-        else:
-            IF_i = np.ones(N)
-        Fmodel_i = IF_i[:]*(F_L*Ltrue_control[:] + F_background)
-        return Fmodel_i
-    # Add to model.
-    pymc_model['Fligand'] = Fligand
+    if top_ligand_fluorescence is not None:
+        @pymc.deterministic
+        def top_ligand_fluorescence_model(F_plate=model['F_plate'], F_buffer=model['F_buffer'],
+                                          F_L=model['F_L'],
+                                          Ltrue=Ltrue,
+                                          epsilon_ex=model['epsilon_ex'], epsilon_em=model['epsilon_em']):
+            IF_i = inner_filter_effect_attenuation(epsilon_ex, epsilon_em, path_length, Ltrue, geometry='top')
+            IF_i_plate = np.exp(-(epsilon_ex+epsilon_em)*path_length*Ltrue) # inner filter effect applied only to plate
+            Fmodel_i = IF_i[:]*(F_L*Ltrue + F_buffer) + IF_i_plate*F_plate
+            return Fmodel_i
+        # Add to model.
+        model['top_ligand_fluorescence_model'] = top_ligand_fluorescence_model
+
+    if bottom_complex_fluorescence is not None:
+        @pymc.deterministic
+        def bottom_complex_fluorescence_model(F_plate=model['F_plate'], F_buffer=model['F_buffer'],
+                                              F_PL=model['F_PL'], F_P=model['F_P'], F_L=model['F_L'],
+                                              Ptrue=Ptrue, Ltrue=Ltrue, DeltaG=DeltaG,
+                                              epsilon_ex=model['epsilon_ex'], epsilon_em=model['epsilon_em'],
+                                              log_gain_bottom=model['log_gain_bottom']):
+            IF_i = inner_filter_effect_attenuation(epsilon_ex, epsilon_em, path_length, Ltrue, geometry='bottom')
+            IF_i_plate = np.exp(-epsilon_ex*path_length*Ltrue) # inner filter effect applied only to plate
+            [P_i, L_i, PL_i] = TwoComponentBindingModel.equilibrium_concentrations(DeltaG, Ptrue[:], Ltrue[:])
+            Fmodel_i = IF_i[:]*(F_PL*PL_i + F_L*L_i + F_P*P_i + F_buffer)*np.exp(log_gain_bottom) + IF_i_plate*F_plate
+            return Fmodel_i
+        # Add to model.
+        model['bottom_complex_fluorescence_model'] = bottom_complex_fluorescence_model
+
+    if bottom_ligand_fluorescence is not None:
+        @pymc.deterministic
+        def bottom_ligand_fluorescence_model(F_plate=model['F_plate'], F_buffer=model['F_buffer'],
+                                             F_PL=model['F_PL'], F_P=model['F_P'], F_L=model['F_L'],
+                                             Ltrue=Ltrue,
+                                             epsilon_ex=model['epsilon_ex'], epsilon_em=model['epsilon_em'],
+                                             log_gain_bottom=model['log_gain_bottom']):
+            IF_i = inner_filter_effect_attenuation(epsilon_ex, epsilon_em, path_length, Ltrue, geometry='bottom')
+            IF_i_plate = np.exp(-epsilon_ex*path_length*Ltrue) # inner filter effect applied only to plate
+            Fmodel_i = IF_i[:]*(F_L*Ltrue + F_buffer)*np.exp(log_gain_bottom) + IF_i_plate*F_plate
+            return Fmodel_i
+        # Add to model.
+        model['bottom_ligand_fluorescence_model'] = bottom_ligand_fluorescence_model
 
     # Experimental error on fluorescence observations.
-    Fobs_model = pymc.Normal('Fobs_model', mu=Fmodel, tau=precision, size=[N], observed=True, value=Fobs_i) # observed data
-    Fligand_model = pymc.Normal('Fligand_model', mu=Fligand, tau=precision, size=[N], observed=True, value=Fligand_i) # ligand only data
-    # Add to model.
-    pymc_model['Fobs_model'] = Fobs_model
-    pymc_model['Fligand_model'] = Fligand_model
+    model['top_complex_fluorescence'] = pymc.Normal('top_complex_fluorescence',
+                                                    mu=model['top_complex_fluorescence_model'], tau=model['precision_top'],
+                                                    size=[N], observed=True, value=top_complex_fluorescence) # observed data
+    model['top_ligand_fluorescence'] = pymc.Normal('top_ligand_fluorescence',
+                                                    mu=model['top_ligand_fluorescence_model'], tau=model['precision_top'],
+                                                    size=[N], observed=True, value=top_ligand_fluorescence) # observed data
+    model['bottom_complex_fluorescence'] = pymc.Normal('bottom_complex_fluorescence',
+                                                    mu=model['bottom_complex_fluorescence_model'], tau=model['precision_bottom'],
+                                                    size=[N], observed=True, value=bottom_complex_fluorescence) # observed data
+    model['bottom_ligand_fluorescence'] = pymc.Normal('bottom_ligand_fluorescence',
+                                                    mu=model['bottom_ligand_fluorescence_model'], tau=model['precision_bottom'],
+                                                    size=[N], observed=True, value=bottom_ligand_fluorescence) # observed data
 
     # Promote this to a full-fledged PyMC model.
-    pymc_model = pymc.Model(pymc_model)
+    pymc_model = pymc.Model(model)
 
     # Return the pymc model
     return pymc_model
