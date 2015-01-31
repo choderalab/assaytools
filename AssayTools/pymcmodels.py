@@ -210,31 +210,38 @@ def make_model(Pstated, dPstated, Lstated, dLstated,
         if epsilon_ex:
             model['epsilon_ex'] = pymc.Lognormal('epsilon_ex', mu=np.log(epsilon_ex**2 / np.sqrt(depsilon_ex**2 + epsilon_ex**2)), tau=np.sqrt(np.log(1.0 + (depsilon_ex/epsilon_ex)**2))**(-2)) # prior is centered on measured extinction coefficient
         else:
-            model['epsilon_ex'] = pymc.Uniform('epsilon_ex', lower=0.0, upper=1000e3) # extinction coefficient or molar absorptivity for ligand, units of 1/M/cm
+            model['epsilon_ex'] = pymc.Uniform('epsilon_ex', lower=0.0, upper=1000e3, value=0.0) # extinction coefficient or molar absorptivity for ligand, units of 1/M/cm
 
     if use_secondary_inner_filter_correction:
         if epsilon_em:
             model['epsilon_em'] = pymc.Lognormal('epsilon_em', mu=np.log(epsilon_em**2 / np.sqrt(depsilon_em**2 + epsilon_em**2)), tau=np.sqrt(np.log(1.0 + (depsilon_em/epsilon_em)**2))**(-2)) # prior is centered on measured extinction coefficient
         else:
-            model['epsilon_em'] = pymc.Uniform('epsilon_em', lower=0.0, upper=1000e3) # extinction coefficient or molar absorptivity for ligand, units of 1/M/cm
+            model['epsilon_em'] = pymc.Uniform('epsilon_em', lower=0.0, upper=1000e3, value=0.0) # extinction coefficient or molar absorptivity for ligand, units of 1/M/cm
+
+    # Min and max observed fluorescence.
+    Fmax = 0.0; Fmin = 1e6;
+    if top_complex_fluorescence is not None:
+        Fmax = max(Fmax, top_complex_fluorescence.max()); Fmin = min(Fmin, top_complex_fluorescence.min())
+    if top_ligand_fluorescence is not None:
+        Fmax = max(Fmax, top_ligand_fluorescence.max()); Fmin = min(Fmin, top_ligand_fluorescence.min())
+    if bottom_complex_fluorescence is not None:
+        Fmax = max(Fmax, bottom_complex_fluorescence.max()); Fmin = min(Fmin, bottom_complex_fluorescence.min())
+    if bottom_ligand_fluorescence is not None:
+        Fmax = max(Fmax, bottom_ligand_fluorescence.max()); Fmin = min(Fmin, bottom_ligand_fluorescence.min())
 
     # Compute initial guesses.
     # TODO: Generalize this for top and bottom.
-    F_background_guess = min(top_complex_fluorescence.min(), top_ligand_fluorescence.min())
-    F_L_guess = ((top_ligand_fluorescence.max() - F_background_guess) / Lstated.max())
+    F_plate_guess = Fmin
+    F_buffer_guess = Fmin / path_length
+    F_L_guess = (top_ligand_fluorescence.max() - top_ligand_fluorescence.min()) / Lstated.max()
     F_P_guess = 0.0
-    F_PL_guess = ((top_complex_fluorescence.max() - F_background_guess) / Pstated.max())
-
-    # Maximum observed fluorescence.
-    Fmax = 0.0
-    if top_complex_fluorescence is not None: Fmax = max(Fmax, top_complex_fluorescence.max())
-    if top_ligand_fluorescence is not None: Fmax = max(Fmax, top_ligand_fluorescence.max())
-    if bottom_complex_fluorescence is not None: Fmax = max(Fmax, bottom_complex_fluorescence.max())
-    if bottom_ligand_fluorescence is not None: Fmax = max(Fmax, bottom_ligand_fluorescence.max())
+    F_PL_guess = (Fmax - Fmin) / min(Pstated.max(), Lstated.max())
+    log_gain_guess = - np.log((top_complex_fluorescence.max() - top_complex_fluorescence.min()) / (bottom_complex_fluorescence.max() - bottom_complex_fluorescence.min()))
+    print "Fmin = %.1f, Fmax = %.1f" % (Fmin, Fmax)
 
     # Priors on fluorescence intensities of complexes (later divided by a factor of Pstated for scale).
-    model['F_plate'] = pymc.Uniform('F_plate', lower=0.0, upper=Fmax, value=F_background_guess) # plate fluorescence
-    model['F_buffer'] = pymc.Uniform('F_buffer', lower=0.0, upper=Fmax, value=F_background_guess) # buffer fluorescence
+    model['F_plate'] = pymc.Uniform('F_plate', lower=0.0, upper=Fmax, value=F_plate_guess) # plate fluorescence
+    model['F_buffer'] = pymc.Uniform('F_buffer', lower=0.0, upper=Fmax/path_length, value=F_buffer_guess) # buffer fluorescence
     model['F_PL'] = pymc.Uniform('F_PL', lower=0.0, upper=2*Fmax/min(Pstated.max(),Lstated.max()), value=F_PL_guess) # complex fluorescence
     model['F_P'] = pymc.Uniform('F_P', lower=0.0, upper=2*(Fmax/Pstated).max(), value=F_P_guess) # protein fluorescence
     model['F_L'] = pymc.Uniform('F_L', lower=0.0, upper=2*(Fmax/Lstated).max(), value=F_L_guess) # ligand fluorescence
@@ -248,7 +255,8 @@ def make_model(Pstated, dPstated, Lstated, dLstated,
     model['sigma_bottom'] = pymc.Lambda('sigma_bottom', lambda log_sigma=model['log_sigma_bottom'] : np.exp(log_sigma) )
     model['precision_bottom'] = pymc.Lambda('precision_bottom', lambda log_sigma=model['log_sigma_bottom'] : np.exp(-2*log_sigma) )
 
-    model['log_gain_bottom'] = pymc.Uniform('log_gain_bottom', lower=-10.0, upper=10.0, value=-1.6)
+    model['log_gain_bottom'] = pymc.Uniform('log_gain_bottom', lower=-6.0, upper=6.0, value=log_gain_guess) # plate material absorbance at emission wavelength
+    model['gain_bottom'] = pymc.Lambda('gain_bottom', lambda log_gain_bottom=model['log_gain_bottom'] : np.exp(log_gain_bottom) )
 
     # Fluorescence model.
     from assaytools.bindingmodels import TwoComponentBindingModel
@@ -262,7 +270,7 @@ def make_model(Pstated, dPstated, Lstated, dLstated,
             IF_i = inner_filter_effect_attenuation(epsilon_ex, epsilon_em, path_length, Ltrue, geometry='top')
             [P_i, L_i, PL_i] = TwoComponentBindingModel.equilibrium_concentrations(DeltaG, Ptrue[:], Ltrue[:])
             IF_i_plate = np.exp(-(epsilon_ex+epsilon_em)*path_length*Ltrue) # inner filter effect applied only to plate
-            Fmodel_i = IF_i[:]*(F_PL*PL_i + F_L*L_i + F_P*P_i + F_buffer) + IF_i_plate*F_plate
+            Fmodel_i = IF_i[:]*(F_PL*PL_i + F_L*L_i + F_P*P_i + F_buffer*path_length) + IF_i_plate*F_plate
             return Fmodel_i
         # Add to model.
         model['top_complex_fluorescence_model'] = top_complex_fluorescence_model
@@ -275,7 +283,7 @@ def make_model(Pstated, dPstated, Lstated, dLstated,
                                           epsilon_ex=model['epsilon_ex'], epsilon_em=model['epsilon_em']):
             IF_i = inner_filter_effect_attenuation(epsilon_ex, epsilon_em, path_length, Ltrue, geometry='top')
             IF_i_plate = np.exp(-(epsilon_ex+epsilon_em)*path_length*Ltrue) # inner filter effect applied only to plate
-            Fmodel_i = IF_i[:]*(F_L*Ltrue + F_buffer) + IF_i_plate*F_plate
+            Fmodel_i = IF_i[:]*(F_L*Ltrue + F_buffer*path_length) + IF_i_plate*F_plate
             return Fmodel_i
         # Add to model.
         model['top_ligand_fluorescence_model'] = top_ligand_fluorescence_model
@@ -290,7 +298,7 @@ def make_model(Pstated, dPstated, Lstated, dLstated,
             IF_i = inner_filter_effect_attenuation(epsilon_ex, epsilon_em, path_length, Ltrue, geometry='bottom')
             IF_i_plate = np.exp(-epsilon_ex*path_length*Ltrue) # inner filter effect applied only to plate
             [P_i, L_i, PL_i] = TwoComponentBindingModel.equilibrium_concentrations(DeltaG, Ptrue[:], Ltrue[:])
-            Fmodel_i = IF_i[:]*(F_PL*PL_i + F_L*L_i + F_P*P_i + F_buffer)*np.exp(log_gain_bottom) + IF_i_plate*F_plate
+            Fmodel_i = IF_i[:]*(F_PL*PL_i + F_L*L_i + F_P*P_i + F_buffer*path_length)*np.exp(log_gain_bottom) + IF_i_plate*F_plate
             return Fmodel_i
         # Add to model.
         model['bottom_complex_fluorescence_model'] = bottom_complex_fluorescence_model
@@ -304,7 +312,7 @@ def make_model(Pstated, dPstated, Lstated, dLstated,
                                              log_gain_bottom=model['log_gain_bottom']):
             IF_i = inner_filter_effect_attenuation(epsilon_ex, epsilon_em, path_length, Ltrue, geometry='bottom')
             IF_i_plate = np.exp(-epsilon_ex*path_length*Ltrue) # inner filter effect applied only to plate
-            Fmodel_i = IF_i[:]*(F_L*Ltrue + F_buffer)*np.exp(log_gain_bottom) + IF_i_plate*F_plate
+            Fmodel_i = IF_i[:]*(F_L*Ltrue + F_buffer*path_length)*np.exp(log_gain_bottom) + IF_i_plate*F_plate
             return Fmodel_i
         # Add to model.
         model['bottom_ligand_fluorescence_model'] = bottom_ligand_fluorescence_model
