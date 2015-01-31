@@ -267,9 +267,9 @@ def make_model(Pstated, dPstated, Lstated, dLstated,
                                            F_PL=model['F_PL'], F_P=model['F_P'], F_L=model['F_L'],
                                            Ptrue=Ptrue, Ltrue=Ltrue, DeltaG=DeltaG,
                                            epsilon_ex=model['epsilon_ex'], epsilon_em=model['epsilon_em']):
-            IF_i = inner_filter_effect_attenuation(epsilon_ex, epsilon_em, path_length, Ltrue, geometry='top')
             [P_i, L_i, PL_i] = TwoComponentBindingModel.equilibrium_concentrations(DeltaG, Ptrue[:], Ltrue[:])
-            IF_i_plate = np.exp(-(epsilon_ex+epsilon_em)*path_length*Ltrue) # inner filter effect applied only to plate
+            IF_i = inner_filter_effect_attenuation(epsilon_ex, epsilon_em, path_length, L_i, geometry='top')
+            IF_i_plate = np.exp(-(epsilon_ex+epsilon_em)*path_length*L_i) # inner filter effect applied only to plate
             Fmodel_i = IF_i[:]*(F_PL*PL_i + F_L*L_i + F_P*P_i + F_buffer*path_length) + IF_i_plate*F_plate
             return Fmodel_i
         # Add to model.
@@ -295,9 +295,9 @@ def make_model(Pstated, dPstated, Lstated, dLstated,
                                               Ptrue=Ptrue, Ltrue=Ltrue, DeltaG=DeltaG,
                                               epsilon_ex=model['epsilon_ex'], epsilon_em=model['epsilon_em'],
                                               log_gain_bottom=model['log_gain_bottom']):
-            IF_i = inner_filter_effect_attenuation(epsilon_ex, epsilon_em, path_length, Ltrue, geometry='bottom')
-            IF_i_plate = np.exp(-epsilon_ex*path_length*Ltrue) # inner filter effect applied only to plate
             [P_i, L_i, PL_i] = TwoComponentBindingModel.equilibrium_concentrations(DeltaG, Ptrue[:], Ltrue[:])
+            IF_i = inner_filter_effect_attenuation(epsilon_ex, epsilon_em, path_length, L_i, geometry='bottom')
+            IF_i_plate = np.exp(-epsilon_ex*path_length*L_i) # inner filter effect applied only to plate
             Fmodel_i = IF_i[:]*(F_PL*PL_i + F_L*L_i + F_P*P_i + F_buffer*path_length)*np.exp(log_gain_bottom) + IF_i_plate*F_plate
             return Fmodel_i
         # Add to model.
