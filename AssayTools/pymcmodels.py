@@ -98,7 +98,8 @@ def make_model(Pstated, dPstated, Lstated, dLstated,
                use_secondary_inner_filter_correction=True,
                assay_volume=100e-6, well_area=0.1586,
                epsilon_ex=None, depsilon_ex=None,
-               epsilon_em=None, depsilon_em=None):
+               epsilon_em=None, depsilon_em=None,
+               ligand_ex_absorbance=None, ligand_em_absorbance=None):
     """
     Build a PyMC model for an assay that consists of N wells of protein:ligand at various concentrations and an additional N wells of ligand in buffer, with the ligand at the same concentrations as the corresponding protein:ligand wells.
 
@@ -138,6 +139,10 @@ def make_model(Pstated, dPstated, Lstated, dLstated,
        Orthogonal measurement of ligand extinction coefficient at excitation wavelength (and uncertainty). If None, will use a uniform prior.
     epsilon_em, depsilon_em : float, optional, default=None
        Orthogonal measurement of ligand extinction coefficient at excitation wavelength (and uncertainty). If None, will use a uniform prior.
+    ligand_ex_absorbance : np.array of N values, optional, default=None
+       Ligand absorbance measurement for excitation wavelength.
+    ligand_em_absorbance : np.array of N values, optional, default=None
+       Ligand absorbance measurement for emission wavelength.
 
     Returns
     -------
@@ -210,7 +215,7 @@ def make_model(Pstated, dPstated, Lstated, dLstated,
         if epsilon_ex:
             model['epsilon_ex'] = pymc.Lognormal('epsilon_ex', mu=np.log(epsilon_ex**2 / np.sqrt(depsilon_ex**2 + epsilon_ex**2)), tau=np.sqrt(np.log(1.0 + (depsilon_ex/epsilon_ex)**2))**(-2)) # prior is centered on measured extinction coefficient
         else:
-            model['epsilon_ex'] = pymc.Uniform('epsilon_ex', lower=0.0, upper=1000e3, value=0.0) # extinction coefficient or molar absorptivity for ligand, units of 1/M/cm
+            model['epsilon_ex'] = pymc.Uniform('epsilon_ex', lower=0.0, upper=1000e3, value=70000.0) # extinction coefficient or molar absorptivity for ligand, units of 1/M/cm
 
     if use_secondary_inner_filter_correction:
         if epsilon_em:
@@ -247,16 +252,20 @@ def make_model(Pstated, dPstated, Lstated, dLstated,
     model['F_L'] = pymc.Uniform('F_L', lower=0.0, upper=2*(Fmax/Lstated).max(), value=F_L_guess) # ligand fluorescence
 
     # Unknown experimental measurement error.
-    model['log_sigma_top'] = pymc.Uniform('log_sigma_top', lower=-10, upper=np.log(Fmax))
+    model['log_sigma_top'] = pymc.Uniform('log_sigma_top', lower=-10, upper=np.log(Fmax), value=np.log(5))
     model['sigma_top'] = pymc.Lambda('sigma_top', lambda log_sigma=model['log_sigma_top'] : np.exp(log_sigma) )
     model['precision_top'] = pymc.Lambda('precision_top', lambda log_sigma=model['log_sigma_top'] : np.exp(-2*log_sigma) )
 
-    model['log_sigma_bottom'] = pymc.Uniform('log_sigma_bottom', lower=-10, upper=np.log(Fmax))
+    model['log_sigma_bottom'] = pymc.Uniform('log_sigma_bottom', lower=-10, upper=np.log(Fmax), value=np.log(5))
     model['sigma_bottom'] = pymc.Lambda('sigma_bottom', lambda log_sigma=model['log_sigma_bottom'] : np.exp(log_sigma) )
     model['precision_bottom'] = pymc.Lambda('precision_bottom', lambda log_sigma=model['log_sigma_bottom'] : np.exp(-2*log_sigma) )
 
     model['log_gain_bottom'] = pymc.Uniform('log_gain_bottom', lower=-6.0, upper=6.0, value=log_gain_guess) # plate material absorbance at emission wavelength
     model['gain_bottom'] = pymc.Lambda('gain_bottom', lambda log_gain_bottom=model['log_gain_bottom'] : np.exp(log_gain_bottom) )
+
+    model['log_sigma_abs'] = pymc.Uniform('log_sigma_abs', lower=-10, upper=0, value=np.log(0.01))
+    model['sigma_abs'] = pymc.Lambda('sigma_abs', lambda log_sigma=model['log_sigma_abs'] : np.exp(log_sigma) )
+    model['precision_abs'] = pymc.Lambda('precision_abs', lambda log_sigma=model['log_sigma_abs'] : np.exp(-2*log_sigma) )
 
     # Fluorescence model.
     from assaytools.bindingmodels import TwoComponentBindingModel
@@ -274,6 +283,9 @@ def make_model(Pstated, dPstated, Lstated, dLstated,
             return Fmodel_i
         # Add to model.
         model['top_complex_fluorescence_model'] = top_complex_fluorescence_model
+        model['top_complex_fluorescence'] = pymc.Normal('top_complex_fluorescence',
+                                                        mu=model['top_complex_fluorescence_model'], tau=model['precision_top'],
+                                                        size=[N], observed=True, value=top_complex_fluorescence) # observed data
 
     if top_ligand_fluorescence is not None:
         @pymc.deterministic
@@ -287,6 +299,9 @@ def make_model(Pstated, dPstated, Lstated, dLstated,
             return Fmodel_i
         # Add to model.
         model['top_ligand_fluorescence_model'] = top_ligand_fluorescence_model
+        model['top_ligand_fluorescence'] = pymc.Normal('top_ligand_fluorescence',
+                                                       mu=model['top_ligand_fluorescence_model'], tau=model['precision_top'],
+                                                       size=[N], observed=True, value=top_ligand_fluorescence) # observed data
 
     if bottom_complex_fluorescence is not None:
         @pymc.deterministic
@@ -302,6 +317,9 @@ def make_model(Pstated, dPstated, Lstated, dLstated,
             return Fmodel_i
         # Add to model.
         model['bottom_complex_fluorescence_model'] = bottom_complex_fluorescence_model
+        model['bottom_complex_fluorescence'] = pymc.Normal('bottom_complex_fluorescence',
+                                                           mu=model['bottom_complex_fluorescence_model'], tau=model['precision_bottom'],
+                                                           size=[N], observed=True, value=bottom_complex_fluorescence) # observed data
 
     if bottom_ligand_fluorescence is not None:
         @pymc.deterministic
@@ -316,20 +334,37 @@ def make_model(Pstated, dPstated, Lstated, dLstated,
             return Fmodel_i
         # Add to model.
         model['bottom_ligand_fluorescence_model'] = bottom_ligand_fluorescence_model
+        model['bottom_ligand_fluorescence'] = pymc.Normal('bottom_ligand_fluorescence',
+                                                          mu=model['bottom_ligand_fluorescence_model'], tau=model['precision_bottom'],
+                                                          size=[N], observed=True, value=bottom_ligand_fluorescence) # observed data
 
-    # Experimental error on fluorescence observations.
-    model['top_complex_fluorescence'] = pymc.Normal('top_complex_fluorescence',
-                                                    mu=model['top_complex_fluorescence_model'], tau=model['precision_top'],
-                                                    size=[N], observed=True, value=top_complex_fluorescence) # observed data
-    model['top_ligand_fluorescence'] = pymc.Normal('top_ligand_fluorescence',
-                                                    mu=model['top_ligand_fluorescence_model'], tau=model['precision_top'],
-                                                    size=[N], observed=True, value=top_ligand_fluorescence) # observed data
-    model['bottom_complex_fluorescence'] = pymc.Normal('bottom_complex_fluorescence',
-                                                    mu=model['bottom_complex_fluorescence_model'], tau=model['precision_bottom'],
-                                                    size=[N], observed=True, value=bottom_complex_fluorescence) # observed data
-    model['bottom_ligand_fluorescence'] = pymc.Normal('bottom_ligand_fluorescence',
-                                                    mu=model['bottom_ligand_fluorescence_model'], tau=model['precision_bottom'],
-                                                    size=[N], observed=True, value=bottom_ligand_fluorescence) # observed data
+    if ligand_ex_absorbance is not None:
+        model['plate_abs_ex'] = pymc.Uniform('plate_abs_ex', lower=0.0, upper=1.0, value=ligand_ex_absorbance.min())
+        @pymc.deterministic
+        def ligand_ex_absorbance_model(Ltrue=Ltrue,
+                                       epsilon_ex=model['epsilon_ex'],
+                                       plate_abs_ex=model['plate_abs_ex']):
+            Fmodel_i = (1.0 - np.exp(-epsilon_ex*path_length*Ltrue)) + plate_abs_ex
+            return Fmodel_i
+        # Add to model.
+        model['ligand_ex_absorbance_model'] = ligand_ex_absorbance_model
+        model['ligand_ex_absorbance'] = pymc.Normal('ligand_ex_absorbance',
+                                                    mu=model['ligand_ex_absorbance_model'], tau=model['precision_abs'],
+                                                    size=[N], observed=True, value=ligand_ex_absorbance) # observed data
+
+    if ligand_em_absorbance is not None:
+        model['plate_abs_em'] = pymc.Uniform('plate_abs_em', lower=0.0, upper=1.0, value=ligand_em_absorbance.min())
+        @pymc.deterministic
+        def ligand_em_absorbance_model(Ltrue=Ltrue,
+                                       epsilon_em=model['epsilon_em'],
+                                       plate_abs_em=model['plate_abs_em']):
+            Fmodel_i = (1.0 - np.exp(-epsilon_em*path_length*Ltrue)) + plate_abs_em
+            return Fmodel_i
+        # Add to model.
+        model['ligand_em_absorbance_model'] = ligand_em_absorbance_model
+        model['ligand_em_absorbance'] = pymc.Normal('ligand_em_absorbance',
+                                                    mu=model['ligand_em_absorbance_model'], tau=model['precision_abs'],
+                                                    size=[N], observed=True, value=ligand_em_absorbance) # observed data
 
     # Promote this to a full-fledged PyMC model.
     pymc_model = pymc.Model(model)
