@@ -99,7 +99,8 @@ def make_model(Pstated, dPstated, Lstated, dLstated,
                assay_volume=100e-6, well_area=0.1586,
                epsilon_ex=None, depsilon_ex=None,
                epsilon_em=None, depsilon_em=None,
-               ligand_ex_absorbance=None, ligand_em_absorbance=None):
+               ligand_ex_absorbance=None, ligand_em_absorbance=None,
+               link_top_and_bottom_sigma=True):
     """
     Build a PyMC model for an assay that consists of N wells of protein:ligand at various concentrations and an additional N wells of ligand in buffer, with the ligand at the same concentrations as the corresponding protein:ligand wells.
 
@@ -143,6 +144,8 @@ def make_model(Pstated, dPstated, Lstated, dLstated,
        Ligand absorbance measurement for excitation wavelength.
     ligand_em_absorbance : np.array of N values, optional, default=None
        Ligand absorbance measurement for emission wavelength.
+    link_top_and_bottom_sigma : bool, optional, default=True
+       If True, will link top and bottom fluorescence uncertainty sigma.
 
     Returns
     -------
@@ -256,7 +259,11 @@ def make_model(Pstated, dPstated, Lstated, dLstated,
     model['sigma_top'] = pymc.Lambda('sigma_top', lambda log_sigma=model['log_sigma_top'] : np.exp(log_sigma) )
     model['precision_top'] = pymc.Lambda('precision_top', lambda log_sigma=model['log_sigma_top'] : np.exp(-2*log_sigma) )
 
-    model['log_sigma_bottom'] = pymc.Uniform('log_sigma_bottom', lower=-10, upper=np.log(Fmax), value=np.log(5))
+    if link_top_and_bottom_sigma:
+        # Use the same log_sigma for top and bottom fluorescence
+        model['log_sigma_bottom'] = pymc.Lambda('log_sigma_bottom', lambda log_sigma_top=model['log_sigma_top'] : log_sigma_top )
+    else:
+        model['log_sigma_bottom'] = pymc.Uniform('log_sigma_bottom', lower=-10, upper=np.log(Fmax), value=np.log(5))
     model['sigma_bottom'] = pymc.Lambda('sigma_bottom', lambda log_sigma=model['log_sigma_bottom'] : np.exp(log_sigma) )
     model['precision_bottom'] = pymc.Lambda('precision_bottom', lambda log_sigma=model['log_sigma_bottom'] : np.exp(-2*log_sigma) )
 
