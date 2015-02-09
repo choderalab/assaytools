@@ -1,3 +1,6 @@
+
+
+
 # -*- coding: utf-8 -*-
 #
 # assaytools documentation build configuration file, created by
@@ -15,8 +18,8 @@
 import sys
 import os
 
-import assaytools
-import assaytools.version
+#import assaytools
+#import assaytools.version
 
 # Use mock to make our code think that numpy and scipy are available, even though they might not be available on readthedocs
 import mock
