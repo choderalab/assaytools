@@ -249,7 +249,6 @@ def make_model(Pstated, dPstated, Lstated, dLstated,
     F_P_guess = 0.0
     F_P_guess = Fmin / Pstated.min()
     F_PL_guess = (Fmax - Fmin) / min(Pstated.max(), Lstated.max())
-    print "Fmin = %.1f, Fmax = %.1f" % (Fmin, Fmax)
 
     # Priors on fluorescence intensities of complexes (later divided by a factor of Pstated for scale).
     model['F_plate'] = pymc.Uniform('F_plate', lower=0.0, upper=Fmax, value=F_plate_guess) # plate fluorescence
@@ -273,10 +272,14 @@ def make_model(Pstated, dPstated, Lstated, dLstated,
         model['sigma_bottom'] = pymc.Lambda('sigma_bottom', lambda log_sigma=model['log_sigma_bottom'] : np.exp(log_sigma) )
         model['precision_bottom'] = pymc.Lambda('precision_bottom', lambda log_sigma=model['log_sigma_bottom'] : np.exp(-2*log_sigma) )
 
+    if top_fluorescence and bottom_fluorescence:
         # Gain that attenuates bottom fluorescence relative to top.
         # TODO: Replace this with plate absorbance?
         log_gain_guess = - np.log((top_complex_fluorescence.max() - top_complex_fluorescence.min()) / (bottom_complex_fluorescence.max() - bottom_complex_fluorescence.min()))
         model['log_gain_bottom'] = pymc.Uniform('log_gain_bottom', lower=-6.0, upper=6.0, value=log_gain_guess) # plate material absorbance at emission wavelength
+        model['gain_bottom'] = pymc.Lambda('gain_bottom', lambda log_gain_bottom=model['log_gain_bottom'] : np.exp(log_gain_bottom) )
+    elif (not top_fluorescence) and bottom_fluorescence:
+        model['log_gain_bottom'] = 0.0 # no gain
         model['gain_bottom'] = pymc.Lambda('gain_bottom', lambda log_gain_bottom=model['log_gain_bottom'] : np.exp(log_gain_bottom) )
 
     if top_fluorescence:
@@ -408,6 +411,9 @@ def map_fit(pymc_model):
     map = pymc.MAP(pymc_model)
     ncycles = 50
 
+    # DEBUG
+    ncycles = 5
+
     for cycle in range(ncycles):
         if (cycle+1)%5==0: print('MAP fitting cycle %d/%d' % (cycle+1, ncycles))
         map.fit()
@@ -436,6 +442,10 @@ def run_mcmc(pymc_model):
     nburn = nthin*10000
     niter = nthin*10000
 
+    # DEBUG
+    nburn = nthin*1000
+    niter = nthin*1000
+
     mcmc.use_step_method(pymc.Metropolis, getattr(pymc_model, 'DeltaG'), proposal_sd=1.0, proposal_distribution='Normal')
     mcmc.use_step_method(pymc.Metropolis, getattr(pymc_model, 'F_PL'), proposal_sd=10.0, proposal_distribution='Normal')
     mcmc.use_step_method(pymc.Metropolis, getattr(pymc_model, 'F_P'), proposal_sd=10.0, proposal_distribution='Normal')
@@ -450,3 +460,42 @@ def run_mcmc(pymc_model):
     mcmc.sample(iter=(nburn+niter), burn=nburn, thin=nthin, progress_bar=False, tune_throughout=False)
 
     return mcmc
+
+def show_summary(pymc_model, mcmc, map):
+    """
+    Show summary statistics of MCMC and MAP estimates.
+
+    Parameters
+    ----------
+    pymc_model : pymc model
+       The pymc model to sample.
+    map : pymc.MAP
+       The MAP fit.
+    mcmc : pymc.MCMC
+       MCMC samples
+
+    TODO
+    ----
+    * Automatically determine appropriate number of decimal places from statistical uncertainty.
+    * Automatically adjust concentration units (e.g. pM, nM, uM) depending on estimated affinity.
+
+    """
+
+    # Compute summary statistics.
+    DeltaG = map.DeltaG.value
+    dDeltaG = mcmc.DeltaG.trace().std()
+    Kd = np.exp(map.DeltaG.value)
+    dKd = np.exp(mcmc.DeltaG.trace()).std()
+    print "DeltaG = %.1f +- %.1f kT" % (DeltaG, dDeltaG)
+    if (Kd < 1e-12):
+        print "Kd = %.1f nM +- %.1f fM" % (Kd/1e-15, dKd/1e-15)
+    elif (Kd < 1e-9):
+        print "Kd = %.1f pM +- %.1f pM" % (Kd/1e-12, dKd/1e-12)
+    elif (Kd < 1e-6):
+        print "Kd = %.1f nM +- %.1f nM" % (Kd/1e-9, dKd/1e-9)
+    elif (Kd < 1e-3):
+        print "Kd = %.1f uM +- %.1f uM" % (Kd/1e-6, dKd/1e-6)
+    elif (Kd < 1):
+        print "Kd = %.1f mM +- %.1f mM" % (Kd/1e-3, dKd/1e-3)
+    else:
+        print "Kd = %.3e M +- %.3e M" % (Kd, dKd)
