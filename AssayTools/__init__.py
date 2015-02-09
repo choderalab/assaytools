@@ -4,6 +4,7 @@
 from assaytools import platereader
 from assaytools import pymcmodels
 from assaytools import bindingmodels
+from assaytools import plots
 
 def test(label='full', verbose=2):
     """Run tests for mdtraj using nose.

@@ -174,6 +174,7 @@ def make_model(Pstated, dPstated, Lstated, dLstated,
     N = len(Lstated)
 
     # Check input.
+    # TODO: Check fluorescence and absorbance measurements for correct dimensions.
     if (len(Pstated) != N):
         raise Exception('len(Pstated) [%d] must equal len(Lstated) [%d].' % (len(Pstated), len(Lstated)))
     if (len(dPstated) != N):
@@ -241,14 +242,12 @@ def make_model(Pstated, dPstated, Lstated, dLstated,
     if bottom_ligand_fluorescence is not None:
         Fmax = max(Fmax, bottom_ligand_fluorescence.max()); Fmin = min(Fmin, bottom_ligand_fluorescence.min())
 
-    # Compute initial guesses.
-    # TODO: Generalize this for top and bottom.
+    # Compute initial guesses for fluorescence quantum yield quantities.
     F_plate_guess = Fmin
     F_buffer_guess = Fmin / path_length
-    F_L_guess = (top_ligand_fluorescence.max() - top_ligand_fluorescence.min()) / Lstated.max()
+    F_L_guess = (Fmax - Fmin) / Lstated.max()
     F_P_guess = 0.0
-    if top_complex_fluorescence is not None:
-        F_P_guess = top_complex_fluorescence.min() / Pstated.min()
+    F_P_guess = Fmin / Pstated.min()
     F_PL_guess = (Fmax - Fmin) / min(Pstated.max(), Lstated.max())
     print "Fmin = %.1f, Fmax = %.1f" % (Fmin, Fmax)
 
@@ -260,12 +259,17 @@ def make_model(Pstated, dPstated, Lstated, dLstated,
     model['F_L'] = pymc.Uniform('F_L', lower=0.0, upper=2*(Fmax/Lstated).max(), value=F_L_guess) # ligand fluorescence
 
     # Unknown experimental measurement error.
-    model['log_sigma_top'] = pymc.Uniform('log_sigma_top', lower=-10, upper=np.log(Fmax), value=np.log(5))
-    model['sigma_top'] = pymc.Lambda('sigma_top', lambda log_sigma=model['log_sigma_top'] : np.exp(log_sigma) )
-    model['precision_top'] = pymc.Lambda('precision_top', lambda log_sigma=model['log_sigma_top'] : np.exp(-2*log_sigma) )
+    if top_fluorescence:
+        model['log_sigma_top'] = pymc.Uniform('log_sigma_top', lower=-10, upper=np.log(Fmax), value=np.log(5))
+        model['sigma_top'] = pymc.Lambda('sigma_top', lambda log_sigma=model['log_sigma_top'] : np.exp(log_sigma) )
+        model['precision_top'] = pymc.Lambda('precision_top', lambda log_sigma=model['log_sigma_top'] : np.exp(-2*log_sigma) )
 
     if bottom_fluorescence:
-        model['log_sigma_bottom'] = pymc.Uniform('log_sigma_bottom', lower=-10, upper=np.log(Fmax), value=np.log(5))
+        if top_fluorescence and bottom_fluorescence and link_top_and_bottom_sigma:
+            # Use the same log_sigma for top and bottom fluorescence
+            model['log_sigma_bottom'] = pymc.Lambda('log_sigma_bottom', lambda log_sigma_top=model['log_sigma_top'] : log_sigma_top )
+        else:
+            model['log_sigma_bottom'] = pymc.Uniform('log_sigma_bottom', lower=-10, upper=np.log(Fmax), value=np.log(5))
         model['sigma_bottom'] = pymc.Lambda('sigma_bottom', lambda log_sigma=model['log_sigma_bottom'] : np.exp(log_sigma) )
         model['precision_bottom'] = pymc.Lambda('precision_bottom', lambda log_sigma=model['log_sigma_bottom'] : np.exp(-2*log_sigma) )
 
@@ -280,9 +284,6 @@ def make_model(Pstated, dPstated, Lstated, dLstated,
         model['sigma_abs'] = pymc.Lambda('sigma_abs', lambda log_sigma=model['log_sigma_abs'] : np.exp(log_sigma) )
         model['precision_abs'] = pymc.Lambda('precision_abs', lambda log_sigma=model['log_sigma_abs'] : np.exp(-2*log_sigma) )
 
-    if top_fluorescence and bottom_fluorescence and link_top_and_bottom_sigma:
-        # Use the same log_sigma for top and bottom fluorescence
-        model['log_sigma_bottom'] = pymc.Lambda('log_sigma_bottom', lambda log_sigma_top=model['log_sigma_top'] : log_sigma_top )
 
     # Fluorescence model.
     from assaytools.bindingmodels import TwoComponentBindingModel
@@ -389,3 +390,63 @@ def make_model(Pstated, dPstated, Lstated, dLstated,
     # Return the pymc model
     return pymc_model
 
+def map_fit(pymc_model):
+    """
+    Find the maximum a posteriori (MAP) fit.
+
+    Parameters
+    ----------
+    pymc_model : pymc model
+       The pymc model to sample.
+
+    Returns
+    -------
+    map : pymc.MAP
+       The MAP fit.
+
+    """
+    map = pymc.MAP(pymc_model)
+    ncycles = 50
+
+    for cycle in range(ncycles):
+        if (cycle+1)%5==0: print('MAP fitting cycle %d/%d' % (cycle+1, ncycles))
+        map.fit()
+
+    return map
+
+def run_mcmc(pymc_model):
+    """
+    Sample the model with pymc using sensible defaults.
+
+    Parameters
+    ----------
+    pymc_model : pymc model
+       The pymc model to sample.
+
+    Returns
+    -------
+    mcmc : pymc.MCMC
+       The MCMC samples.
+
+    """
+
+    # Sample the model with pymc
+    mcmc = pymc.MCMC(pymc_model, db='ram', name='Sampler', verbose=True)
+    nthin = 20
+    nburn = nthin*10000
+    niter = nthin*10000
+
+    mcmc.use_step_method(pymc.Metropolis, getattr(pymc_model, 'DeltaG'), proposal_sd=1.0, proposal_distribution='Normal')
+    mcmc.use_step_method(pymc.Metropolis, getattr(pymc_model, 'F_PL'), proposal_sd=10.0, proposal_distribution='Normal')
+    mcmc.use_step_method(pymc.Metropolis, getattr(pymc_model, 'F_P'), proposal_sd=10.0, proposal_distribution='Normal')
+    mcmc.use_step_method(pymc.Metropolis, getattr(pymc_model, 'F_L'), proposal_sd=10.0, proposal_distribution='Normal')
+    mcmc.use_step_method(pymc.Metropolis, getattr(pymc_model, 'F_plate'), proposal_sd=10.0, proposal_distribution='Normal')
+    mcmc.use_step_method(pymc.Metropolis, getattr(pymc_model, 'F_buffer'), proposal_sd=10.0, proposal_distribution='Normal')
+    if hasattr(pymc_model, 'epsilon_ex'):
+        mcmc.use_step_method(pymc.Metropolis, getattr(pymc_model, 'epsilon_ex'), proposal_sd=10000.0, proposal_distribution='Normal')
+    if hasattr(pymc_model, 'epsilon_em'):
+        mcmc.use_step_method(pymc.Metropolis, getattr(pymc_model, 'epsilon_em'), proposal_sd=10000.0, proposal_distribution='Normal')
+
+    mcmc.sample(iter=(nburn+niter), burn=nburn, thin=nthin, progress_bar=False, tune_throughout=False)
+
+    return mcmc
