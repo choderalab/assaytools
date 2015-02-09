@@ -17,8 +17,14 @@ PIP_ARGS="-U"
 
 export PATH=$HOME/miniconda/bin:$PATH
 
+conda config --add channels http://conda.binstar.org/omnia
+conda create --yes -n ${python} python=${python} --file devtools/ci/requirements-conda-${python}.txt
 conda update --yes conda
-conda create --yes -n ${python} --file devtools/ci/requirements-conda-${python}.txt
 source activate $python
-$HOME/miniconda/envs/${python}/bin/pip install $PIP_ARGS -r devtools/ci/requirements-${python}.txt
 
+# Useful for debugging any issues with conda
+# conda info -a
+
+# install python pip packages
+PIP_ARGS="-U"
+$HOME/miniconda/envs/${python}/bin/pip install $PIP_ARGS -r devtools/ci/requirements-${python}.txt
