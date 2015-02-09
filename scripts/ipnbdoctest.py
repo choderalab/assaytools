@@ -10,7 +10,7 @@ The original is found in a gist under https://gist.github.com/minrk/2620735
 
 TODO: It would be nice to add some more output about failed diffs. So far I leave it this way
 """
- 
+
 import os,sys
 import base64
 import re
@@ -448,5 +448,3 @@ def entry_point():
 
 if __name__ == '__main__':
     entry_point()
-
-
