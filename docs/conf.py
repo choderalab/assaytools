@@ -1,6 +1,3 @@
-
-
-
 # -*- coding: utf-8 -*-
 #
 # assaytools documentation build configuration file, created by
