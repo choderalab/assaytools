@@ -9,6 +9,8 @@ AssayTools is a python library that allows users to model automated assays and a
 
 See the [examples](https://github.com/choderalab/assaytools/tree/master/examples).
 
+**WARNING: This is a very early experimental pre-release in development. Use at your own risk!**
+
 ## Authors
 * John D. Chodera `<john.chodera@choderalab.org>`
 * Sonya M. Hanson `<sonya.hanson@choderalab.org>`

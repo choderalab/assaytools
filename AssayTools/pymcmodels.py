@@ -181,6 +181,10 @@ def make_model(Pstated, dPstated, Lstated, dLstated,
     if (len(dLstated) != N):
         raise Exception('len(dLstated) [%d] must equal len(Lstated) [%d].' % (len(dLstated), len(Lstated)))
 
+    # Note whether we have top or bottom fluorescence measurements.
+    top_fluorescence = (top_complex_fluorescence is not None) or (top_ligand_fluorescence is not None) # True if any top fluorescence measurements provided
+    bottom_fluorescence = (bottom_complex_fluorescence is not None) or (bottom_ligand_fluorescence is not None) # True if any bottom fluorescence measurements provided
+
     # Create an empty dict to hold the model.
     model = dict()
 
@@ -243,8 +247,9 @@ def make_model(Pstated, dPstated, Lstated, dLstated,
     F_buffer_guess = Fmin / path_length
     F_L_guess = (top_ligand_fluorescence.max() - top_ligand_fluorescence.min()) / Lstated.max()
     F_P_guess = 0.0
+    if top_complex_fluorescence is not None:
+        F_P_guess = top_complex_fluorescence.min() / Pstated.min()
     F_PL_guess = (Fmax - Fmin) / min(Pstated.max(), Lstated.max())
-    log_gain_guess = - np.log((top_complex_fluorescence.max() - top_complex_fluorescence.min()) / (bottom_complex_fluorescence.max() - bottom_complex_fluorescence.min()))
     print "Fmin = %.1f, Fmax = %.1f" % (Fmin, Fmax)
 
     # Priors on fluorescence intensities of complexes (later divided by a factor of Pstated for scale).
@@ -259,20 +264,25 @@ def make_model(Pstated, dPstated, Lstated, dLstated,
     model['sigma_top'] = pymc.Lambda('sigma_top', lambda log_sigma=model['log_sigma_top'] : np.exp(log_sigma) )
     model['precision_top'] = pymc.Lambda('precision_top', lambda log_sigma=model['log_sigma_top'] : np.exp(-2*log_sigma) )
 
-    if link_top_and_bottom_sigma:
+    if bottom_fluorescence:
+        model['log_sigma_bottom'] = pymc.Uniform('log_sigma_bottom', lower=-10, upper=np.log(Fmax), value=np.log(5))
+        model['sigma_bottom'] = pymc.Lambda('sigma_bottom', lambda log_sigma=model['log_sigma_bottom'] : np.exp(log_sigma) )
+        model['precision_bottom'] = pymc.Lambda('precision_bottom', lambda log_sigma=model['log_sigma_bottom'] : np.exp(-2*log_sigma) )
+
+        # Gain that attenuates bottom fluorescence relative to top.
+        # TODO: Replace this with plate absorbance?
+        log_gain_guess = - np.log((top_complex_fluorescence.max() - top_complex_fluorescence.min()) / (bottom_complex_fluorescence.max() - bottom_complex_fluorescence.min()))
+        model['log_gain_bottom'] = pymc.Uniform('log_gain_bottom', lower=-6.0, upper=6.0, value=log_gain_guess) # plate material absorbance at emission wavelength
+        model['gain_bottom'] = pymc.Lambda('gain_bottom', lambda log_gain_bottom=model['log_gain_bottom'] : np.exp(log_gain_bottom) )
+
+    if top_fluorescence:
+        model['log_sigma_abs'] = pymc.Uniform('log_sigma_abs', lower=-10, upper=0, value=np.log(0.01))
+        model['sigma_abs'] = pymc.Lambda('sigma_abs', lambda log_sigma=model['log_sigma_abs'] : np.exp(log_sigma) )
+        model['precision_abs'] = pymc.Lambda('precision_abs', lambda log_sigma=model['log_sigma_abs'] : np.exp(-2*log_sigma) )
+
+    if top_fluorescence and bottom_fluorescence and link_top_and_bottom_sigma:
         # Use the same log_sigma for top and bottom fluorescence
         model['log_sigma_bottom'] = pymc.Lambda('log_sigma_bottom', lambda log_sigma_top=model['log_sigma_top'] : log_sigma_top )
-    else:
-        model['log_sigma_bottom'] = pymc.Uniform('log_sigma_bottom', lower=-10, upper=np.log(Fmax), value=np.log(5))
-    model['sigma_bottom'] = pymc.Lambda('sigma_bottom', lambda log_sigma=model['log_sigma_bottom'] : np.exp(log_sigma) )
-    model['precision_bottom'] = pymc.Lambda('precision_bottom', lambda log_sigma=model['log_sigma_bottom'] : np.exp(-2*log_sigma) )
-
-    model['log_gain_bottom'] = pymc.Uniform('log_gain_bottom', lower=-6.0, upper=6.0, value=log_gain_guess) # plate material absorbance at emission wavelength
-    model['gain_bottom'] = pymc.Lambda('gain_bottom', lambda log_gain_bottom=model['log_gain_bottom'] : np.exp(log_gain_bottom) )
-
-    model['log_sigma_abs'] = pymc.Uniform('log_sigma_abs', lower=-10, upper=0, value=np.log(0.01))
-    model['sigma_abs'] = pymc.Lambda('sigma_abs', lambda log_sigma=model['log_sigma_abs'] : np.exp(log_sigma) )
-    model['precision_abs'] = pymc.Lambda('precision_abs', lambda log_sigma=model['log_sigma_abs'] : np.exp(-2*log_sigma) )
 
     # Fluorescence model.
     from assaytools.bindingmodels import TwoComponentBindingModel
