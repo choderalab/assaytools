@@ -1,4 +1,5 @@
 [![Build Status](https://travis-ci.org/choderalab/assaytools.png)](https://travis-ci.org/choderalab/assaytools)
+[![ReadTheDocs Status](https://readthedocs.org/projects/assaytools/badge/?version=latest)](https://readthedocs.org/projects/assaytools/?badge=latest)
 
 assaytools
 ==========
