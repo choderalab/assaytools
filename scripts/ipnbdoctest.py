@@ -290,7 +290,7 @@ class IPyKernel(object):
 
         return commands
 
-if __name__ == '__main__':
+def entry_point():
     parser = argparse.ArgumentParser(
         description='Run all cell in an ipython notebook as a test and check whether these successfully execute and ' +
                     'compares their output to the one inside the notebook')
@@ -445,3 +445,8 @@ if __name__ == '__main__':
     else:
         tv.writeln(tv.green('all tests passed.'))
         exit(0)
+
+if __name__ == '__main__':
+    entry_point()
+
+
