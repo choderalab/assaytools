@@ -23,14 +23,9 @@ When you install AssayTools, the script will be installed under the name ``xml2p
       </h2>
       <h2 style="display: inline; float:right; margin-right:5em">
          <a href="https://github.com/choderalab/assaytools/tree/master/examples/fluorescence-binding-assay">
-..          <a href="examples/index.html">
           See it in Action</a>
       </h2>
       <div style="clear:both"></div>
-..      <h2 style="display: inline; float:left; margin-left:7em">
-..         <a href="http://discourse.mdtraj.org/">
-..          Get Help</a>
-..      </h2>
       <h2 style="display: inline; float:right; margin-right:7em">
           <a href="https://github.com/assaytools/assaytools/issues">
           Get Involved</a>
