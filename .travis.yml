@@ -20,6 +20,9 @@ script:
   - conda list -e
   # pydir=$(which python); $precmd $(dirname $pydir)/nosetests --exclude-dir=AssayTools/html --with-coverage --cover-erase -vv
 
+  # Run tests
+  - source devtools/ci/ipythontests.sh
+
 env:
   matrix:
     # Changes to CONDA_NPY needed for pymc binstar availability.

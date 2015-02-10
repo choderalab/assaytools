@@ -10,7 +10,7 @@ The original is found in a gist under https://gist.github.com/minrk/2620735
 
 TODO: It would be nice to add some more output about failed diffs. So far I leave it this way
 """
- 
+
 import os,sys
 import base64
 import re
@@ -129,13 +129,13 @@ class IPyTestConsole(TravisConsole):
             my_list.update(okay_list)
 
         if my_list[result]:
-            tv.write(self.green('ok'))
+            self.write(self.green('ok'))
             self.pass_count += 1
         else:
-            tv.write(self.red('fail'))
+            self.write(self.red('fail'))
             self.fail_count += 1
 
-        tv.writeln(' [' + result + ']')
+        self.writeln(' [' + result + ']')
         self.result_count[result] += 1
 
 
@@ -290,7 +290,7 @@ class IPyKernel(object):
 
         return commands
 
-if __name__ == '__main__':
+def entry_point():
     parser = argparse.ArgumentParser(
         description='Run all cell in an ipython notebook as a test and check whether these successfully execute and ' +
                     'compares their output to the one inside the notebook')
@@ -445,3 +445,6 @@ if __name__ == '__main__':
     else:
         tv.writeln(tv.green('all tests passed.'))
         exit(0)
+
+if __name__ == '__main__':
+    entry_point()

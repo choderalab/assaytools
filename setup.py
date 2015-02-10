@@ -33,7 +33,8 @@ if 'setuptools' in sys.modules:
     setup_kwargs['zip_safe'] = False
     setup_kwargs['entry_points'] = {'console_scripts':
               ['xml2png = assaytools.scripts.xml2png:entry_point',
-               'xml2png4scans = assaytools.scripts.xml2png4scans:entry_point']}
+               'xml2png4scans = assaytools.scripts.xml2png4scans:entry_point',
+               'ipnbdoctest = assaytools.scripts.ipnbdoctest:entry_point']}
 
     if sys.version_info[0] == 2:
         # required to fix cythoninze() for old versions of setuptools on
