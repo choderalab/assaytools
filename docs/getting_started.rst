@@ -22,18 +22,6 @@ To install MDTraj with conda, use the following commands ::
 
 .. note:: ``conda`` will automatically all of the tricky dependencies from binary packages automatically! This includes pytables / numpy / scipy / pandas / pymc! The easiest way to get conda is with the `Anaconda python distribution <https://store.continuum.io/cshop/anaconda/>`_.
 
-
-Install with Pip
-----------------
-
-On a Mac or Linux machine, just run ::
-
-  $ pip install assaytools
-
-Or, if you want the bleeding-edge source code, use ::
-
-  $ pip install git+git://github.com/choderalab/assaytools.git
-
 Install from Source
 -------------------
 Clone the source code repository from github::
@@ -100,4 +88,4 @@ Then, to run the tests, open a python shell and do ::
   >>> assaytools.test()
 
 From the source directory, you can also run the tests with ``nosetests`` on
-the command line
+the command line.

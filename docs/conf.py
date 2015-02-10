@@ -46,16 +46,33 @@ for mod_name in MOCK_MODULES:
 
 # Add any Sphinx extension module names here, as strings. They can be extensions
 # coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
-extensions = ['sphinx.ext.autodoc', 'sphinx.ext.doctest', 'sphinx.ext.intersphinx',
-              'sphinx.ext.todo', 'sphinx.ext.pngmath', 'sphinx.ext.ifconfig',
-              'numpydoc', 'sphinx.ext.inheritance_diagram',
-              'sphinx.ext.autosummary', 'sphinx.ext.extlinks', ]
+#extensions = ['sphinx.ext.autodoc', 'sphinx.ext.doctest', 'sphinx.ext.intersphinx',
+#              'sphinx.ext.todo', 'sphinx.ext.pngmath', 'sphinx.ext.ifconfig',
+#              'numpydoc', 'sphinx.ext.inheritance_diagram',
+#              'sphinx.ext.autosummary', 'sphinx.ext.extlinks', ]
 #extensions = ['sphinx.ext.mathjax', 'sphinx.ext.ifconfig', 'sphinx.ext.autosummary',
 #              'sphinx.ext.viewcode', 'sphinx.ext.autodoc', 'numpydoc',
 #              'sphinx.ext.intersphinx', 'sphinx.ext.viewcode',
 #              'IPython.sphinxext.ipython_console_highlighting',
 #              'IPython.sphinxext.ipython_directive',
 #              'matplotlib.sphinxext.plot_directive']
+# Add any Sphinx extension module names here, as strings. They can be
+# extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
+# ones.
+extensions = [
+    'sphinx.ext.autodoc',
+    'sphinx.ext.autosummary',
+    'sphinx.ext.doctest',
+    'sphinx.ext.todo',
+    'sphinx.ext.coverage',
+    'sphinx.ext.mathjax',
+    'sphinx.ext.viewcode',
+    'sphinx.ext.ifconfig',
+    'IPython.sphinxext.ipython_console_highlighting',
+    'IPython.sphinxext.ipython_directive',
+    'matplotlib.sphinxext.plot_directive',
+    'numpydoc'
+]
 
 autosummary_generate = True
 autodoc_default_flags = ['members', 'inherited-members']

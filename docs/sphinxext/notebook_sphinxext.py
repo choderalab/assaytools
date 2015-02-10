@@ -5,7 +5,7 @@
 from __future__ import print_function
 
 import time
-import os, shutil, string, glob, re
+import os, shutil, glob, re
 from sphinx.util.compat import Directive
 from docutils import nodes
 from docutils.parsers.rst import directives
@@ -75,8 +75,9 @@ class NotebookDirective(Directive):
 
         print('[NotebookDirective] Evaluating %s' % nb_filename)
         start = time.time()
-        evaluated_text = evaluate_notebook(nb_abs_path, dest_path_eval,
-                                           skip_exceptions=skip_exceptions)
+#        evaluated_text = evaluate_notebook(nb_abs_path, dest_path_eval,
+#                                           skip_exceptions=skip_exceptions)
+        evaluated_text = ''
         print('[NotebookDirective] Took %8.3fs seconds' %
               (time.time() - start))
 
@@ -91,7 +92,14 @@ class NotebookDirective(Directive):
 
         # create notebook node
         attributes = {'format': 'html', 'source': 'nb_path'}
-        nb_node = notebook_node('', evaluated_text, **attributes)
+
+        use_evaluated = False
+
+        if use_evaluated:
+            nb_node = notebook_node('', evaluated_text, **attributes)
+        else:
+            nb_node = notebook_node('', unevaluated_text, **attributes)
+
         (nb_node.source, nb_node.line) = \
             self.state_machine.get_source_and_line(self.lineno)
 
@@ -128,6 +136,10 @@ def nb_to_html(nb_path):
     header = header.replace('<style', '<style scoped="scoped"')
     header = header.replace('body {\n  overflow: visible;\n  padding: 8px;\n}\n', '')
     header = header.replace("code,pre{", "code{")
+
+    header = header.replace('\n', '')
+    comp = re.compile('<style.*?</style>', re.MULTILINE)
+    header = comp.sub('', header)
 
     # Filter out styles that conflict with the sphinx theme.
     filter_strings = [
@@ -196,6 +208,8 @@ def setup(app):
     setup.app = app
     setup.config = app.config
     setup.confdir = app.confdir
+
+    app.add_stylesheet('css/ipynb.css')
 
     app.add_node(notebook_node,
                  html=(visit_notebook_node, depart_notebook_node))
