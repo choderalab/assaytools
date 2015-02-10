@@ -22,7 +22,8 @@ When you install AssayTools, the script will be installed under the name ``xml2p
           Download the Code</a>
       </h2>
       <h2 style="display: inline; float:right; margin-right:5em">
-          <a href="examples/index.html">
+         <a href="https://github.com/choderalab/assaytools/tree/master/examples/fluorescence-binding-assay">
+..          <a href="examples/index.html">
           See it in Action</a>
       </h2>
       <div style="clear:both"></div>
@@ -56,7 +57,7 @@ Documentation
    :maxdepth: 1
 
    getting_started
-   examples/index
+..   examples/index
    whatsnew
    faq
 ..   Discussion Forums <http://discourse.mdtraj.org>
