@@ -28,14 +28,14 @@ import sys
 import os
 
 # Define extract function that extracts parameters
-def extract(taglist):
+def extract(par,taglist):
     result = []
     for p in taglist:
         print "Attempting to extract tag '%s'..." % p
         try:
-            param = parameters.xpath("*[@Name='" + p + "']")[0]
+            param = par.xpath("*[@Name='" + p + "']")[0]
             result.append( p + '=' + param.attrib['Value'])
-        except:
+        except IndexError:
             # tag not found
             result.append(None)
 
@@ -101,11 +101,11 @@ def process_files(xml_files):
 
             # Parameters are extracted slightly differently depending on Absorbance or Fluorescence read.
             if parameters[0].attrib['Value'] == "Absorbance":
-                result = extract(["Mode", "Wavelength", "Part of Plate"])
+                result = extract(parameters,["Mode", "Wavelength", "Part of Plate"])
                 title = '%s, %s, %s' % tuple(result)
 
             else:
-                result = extract(["Gain", "Excitation Wavelength", "Emission Wavelength", "Part of Plate", "Mode"])
+                result = extract(parameters,["Gain", "Excitation Wavelength", "Emission Wavelength", "Part of Plate", "Mode"])
                 title = '%s, %s, %s, \n %s, %s' % tuple(result)
 
             print "****The %sth section has the parameters:****" %i
@@ -117,14 +117,17 @@ def process_files(xml_files):
             data.append({
                     'filename' : file_name,
                     'title' : title,
-                    'dataframe' : pd.DataFrame(welllist)
+                    'dataframe' : pd.DataFrame(welllist, columns=list('ABCDEFGHIJKLMNOP'))
                     })
 
         # Make plot, complete with subfigure for each section.
+        seaborn.set_palette("Paired", 10)
+        seaborn.set_context("notebook", rc={"lines.linewidth": 2.5})
+        
         fig, axes = plt.subplots(nrows=1,ncols=len(Sections), figsize=(20,4.5))
 
         for i, sect in enumerate(data):
-            sect['dataframe'].plot(title = sect['title'], ax = axes[i], legend=False )
+            sect['dataframe'].plot(title = sect['title'], ax = axes[i])
 
         fig.tight_layout()
         fig.subplots_adjust(top=0.8)
@@ -141,4 +144,6 @@ def entry_point():
 if __name__ == '__main__':
     xml_files = sys.argv[1:]
     process_files(xml_files)
+
+
 
