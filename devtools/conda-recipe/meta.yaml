@@ -2,6 +2,9 @@ package:
   name: assaytools-dev
   version: !!str 0.1.0
 
+source:
+  path: ../..
+
 build:
   entry_points:
     - xml2png = assaytools.scripts.xml2png:entry_point
