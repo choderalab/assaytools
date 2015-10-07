@@ -30,7 +30,7 @@ script:
   - conda install --yes --quiet nose nose-timer
   - nosetests ${PACKAGENAME} --nocapture --verbosity=2 --with-doctest --with-timer
   # Run IPython notebook tests
-  - source devtools/ci/ipythontests.sh
+  - source devtools/travis-ci/ipythontests.sh
 
 env:
   matrix:
