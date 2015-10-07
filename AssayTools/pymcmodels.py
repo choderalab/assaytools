@@ -164,7 +164,7 @@ def make_model(Pstated, dPstated, Lstated, dLstated,
     >>> top_complex_fluorescence = np.array([ 689., 683., 664., 588., 207., 80., 28., 17., 10., 11., 10., 10.], np.float32)
     >>> top_ligand_fluorescence = np.array([ 174., 115., 57., 20., 7., 6., 6., 6., 6., 7., 6., 7.], np.float32)
     >>> from pymcmodels import make_model
-    >>> pymc_model = make_model(Pstated, dPstated, Lstated, dLstated, top_complex_fluorescence=top_complex_fluorescence, bottom_complex_fluorescence=bottom_complex_fluorescence)
+    >>> pymc_model = make_model(Pstated, dPstated, Lstated, dLstated, top_complex_fluorescence=top_complex_fluorescence, top_ligand_fluorescence=top_ligand_fluorescence)
 
     """
 
