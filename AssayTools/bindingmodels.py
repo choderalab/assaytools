@@ -142,7 +142,8 @@ class CompetitiveBindingModel(BindingModel):
       >>> x_R = V * 510.e-3 # receptor
       >>> x_Ln = np.array([V * 8.6e-6, 200.e-6 * 55.e-6]) # ligands
       >>> Ka_n = np.array([1./(400.e-9), 1./(2.e-11)]) # association constants
-      >>> C_PLn = equilibrium_concentrations(Ka_n, x_R, x_Ln, V)
+      >>> from bindingmodels import CompetitiveBindingModel
+      >>> C_PLn = CompetitiveBindingModel.equilibrium_concentrations(Ka_n, x_R, x_Ln, V)
 
       NOTES
 
