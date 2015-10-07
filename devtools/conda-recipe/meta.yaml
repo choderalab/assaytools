@@ -21,6 +21,8 @@ requirements:
     - matplotlib
     - seaborn
     - lxml
+    - ipython
+    - notebook
 
   run:
     - python
@@ -32,18 +34,15 @@ requirements:
     - matplotlib
     - seaborn
     - lxml
+    - ipython
+    - notebook
 
 test:
   requires:
     - nose
     - scripttest
-    - pint
-    - numpy
-    - scipy
-    - pymc
-    - matplotlib
-    - seaborn
-    - lxml
+    - ipython
+    - notebook
 
 about:
   home: http://assaytools.choderalab.org
