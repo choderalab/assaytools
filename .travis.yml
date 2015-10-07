@@ -26,10 +26,10 @@ script:
   # build the recipe
   - conda build devtools/conda-recipe
   # Install the package and test it
-  - conda install --yes --quiet $HOME/miniconda/conda-bld/linux-64/$PPACKAGENAME}-dev-*
+  - conda install --yes --quiet $HOME/miniconda/conda-bld/linux-64/${PACKAGENAME}-dev-*
   - conda install --yes --quiet nose nose-timer
   - nosetests ${PACKAGENAME} --nocapture --verbosity=2 --with-doctest --with-timer
-
+  # Run IPython notebook tests
   - source devtools/ci/ipythontests.sh
 
 env:
