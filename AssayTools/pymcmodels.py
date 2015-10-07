@@ -161,9 +161,10 @@ def make_model(Pstated, dPstated, Lstated, dLstated,
     >>> Lstated = 20.0e-6 / np.array([10**(float(i)/2.0) for i in range(N)])
     >>> dPstated = 0.10 * Pstated
     >>> dLstated = 0.08 * Lstated
-    >>> top_complex_fluoresnce = array([ 689., 683., 664., 588., 207., 80., 28., 17., 10., 11., 10., 10.])
-    >>> top_ligand_fluorescence = array([ 174., 115., 57., 20., 7., 6., 6., 6., 6., 7., 6., 7.])
-    >>> pymc_model = pymcmodels.make_model(Pstated, dPstated, Lstated, dLstated, top_complex_fluorescence=top_complex_fluorescence, bottom_complex_fluorescence=bottom_complex_fluorescence)
+    >>> top_complex_fluorescence = np.array([ 689., 683., 664., 588., 207., 80., 28., 17., 10., 11., 10., 10.], np.float32)
+    >>> top_ligand_fluorescence = np.array([ 174., 115., 57., 20., 7., 6., 6., 6., 6., 7., 6., 7.], np.float32)
+    >>> from pymcmodels import make_model
+    >>> pymc_model = make_model(Pstated, dPstated, Lstated, dLstated, top_complex_fluorescence=top_complex_fluorescence, top_ligand_fluorescence=top_ligand_fluorescence)
 
     """
 
@@ -217,8 +218,6 @@ def make_model(Pstated, dPstated, Lstated, dLstated,
     model['Ltrue_control'] = Ltrue_control
 
     # extinction coefficient
-    model['epsilon_ex'] = 0.0
-    model['epsilon_em'] = 0.0
     if use_primary_inner_filter_correction:
         if epsilon_ex:
             model['epsilon_ex'] = pymc.Lognormal('epsilon_ex', mu=np.log(epsilon_ex**2 / np.sqrt(depsilon_ex**2 + epsilon_ex**2)), tau=np.sqrt(np.log(1.0 + (depsilon_ex/epsilon_ex)**2))**(-2)) # prior is centered on measured extinction coefficient
@@ -291,12 +290,23 @@ def make_model(Pstated, dPstated, Lstated, dLstated,
     # Fluorescence model.
     from assaytools.bindingmodels import TwoComponentBindingModel
 
+
+    if hasattr(model, 'epsilon_ex'):
+        epsilon_ex = model['epsilon_ex']
+    else:
+        epsilon_ex = 0.0
+
+    if hasattr(model, 'epsilon_em'):
+        epsilon_em = model['epsilon_em']
+    else:
+        epsilon_em = 0.0
+
     if top_complex_fluorescence is not None:
         @pymc.deterministic
         def top_complex_fluorescence_model(F_plate=model['F_plate'], F_buffer=model['F_buffer'],
                                            F_PL=model['F_PL'], F_P=model['F_P'], F_L=model['F_L'],
                                            Ptrue=Ptrue, Ltrue=Ltrue, DeltaG=DeltaG,
-                                           epsilon_ex=model['epsilon_ex'], epsilon_em=model['epsilon_em']):
+                                           epsilon_ex=epsilon_ex, epsilon_em=epsilon_em):
             [P_i, L_i, PL_i] = TwoComponentBindingModel.equilibrium_concentrations(DeltaG, Ptrue[:], Ltrue[:])
             IF_i = inner_filter_effect_attenuation(epsilon_ex, epsilon_em, path_length, L_i, geometry='top')
             IF_i_plate = np.exp(-(epsilon_ex+epsilon_em)*path_length*L_i) # inner filter effect applied only to plate
@@ -313,7 +323,7 @@ def make_model(Pstated, dPstated, Lstated, dLstated,
         def top_ligand_fluorescence_model(F_plate=model['F_plate'], F_buffer=model['F_buffer'],
                                           F_L=model['F_L'],
                                           Ltrue=Ltrue,
-                                          epsilon_ex=model['epsilon_ex'], epsilon_em=model['epsilon_em']):
+                                          epsilon_ex=epsilon_ex, epsilon_em=epsilon_em):
             IF_i = inner_filter_effect_attenuation(epsilon_ex, epsilon_em, path_length, Ltrue, geometry='top')
             IF_i_plate = np.exp(-(epsilon_ex+epsilon_em)*path_length*Ltrue) # inner filter effect applied only to plate
             Fmodel_i = IF_i[:]*(F_L*Ltrue + F_buffer*path_length) + IF_i_plate*F_plate
@@ -329,7 +339,7 @@ def make_model(Pstated, dPstated, Lstated, dLstated,
         def bottom_complex_fluorescence_model(F_plate=model['F_plate'], F_buffer=model['F_buffer'],
                                               F_PL=model['F_PL'], F_P=model['F_P'], F_L=model['F_L'],
                                               Ptrue=Ptrue, Ltrue=Ltrue, DeltaG=DeltaG,
-                                              epsilon_ex=model['epsilon_ex'], epsilon_em=model['epsilon_em'],
+                                              epsilon_ex=epsilon_ex, epsilon_em=epsilon_em,
                                               log_gain_bottom=model['log_gain_bottom']):
             [P_i, L_i, PL_i] = TwoComponentBindingModel.equilibrium_concentrations(DeltaG, Ptrue[:], Ltrue[:])
             IF_i = inner_filter_effect_attenuation(epsilon_ex, epsilon_em, path_length, L_i, geometry='bottom')
@@ -347,7 +357,7 @@ def make_model(Pstated, dPstated, Lstated, dLstated,
         def bottom_ligand_fluorescence_model(F_plate=model['F_plate'], F_buffer=model['F_buffer'],
                                              F_PL=model['F_PL'], F_P=model['F_P'], F_L=model['F_L'],
                                              Ltrue=Ltrue,
-                                             epsilon_ex=model['epsilon_ex'], epsilon_em=model['epsilon_em'],
+                                             epsilon_ex=epsilon_ex, epsilon_em=epsilon_em,
                                              log_gain_bottom=model['log_gain_bottom']):
             IF_i = inner_filter_effect_attenuation(epsilon_ex, epsilon_em, path_length, Ltrue, geometry='bottom')
             IF_i_plate = np.exp(-epsilon_ex*path_length*Ltrue) # inner filter effect applied only to plate
@@ -363,8 +373,8 @@ def make_model(Pstated, dPstated, Lstated, dLstated,
         model['plate_abs_ex'] = pymc.Uniform('plate_abs_ex', lower=0.0, upper=1.0, value=ligand_ex_absorbance.min())
         @pymc.deterministic
         def ligand_ex_absorbance_model(Ltrue=Ltrue,
-                                       epsilon_ex=model['epsilon_ex'],
-                                       plate_abs_ex=model['plate_abs_ex']):
+                                       epsilon_ex=epsilon_ex,
+                                       plate_abs_ex=epsilon_em):
             Fmodel_i = (1.0 - np.exp(-epsilon_ex*path_length*Ltrue)) + plate_abs_ex
             return Fmodel_i
         # Add to model.

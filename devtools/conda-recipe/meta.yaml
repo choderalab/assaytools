@@ -2,15 +2,27 @@ package:
   name: assaytools-dev
   version: !!str 0.1.0
 
+source:
+  path: ../..
+
 build:
   entry_points:
     - xml2png = assaytools.scripts.xml2png:entry_point
 
 requirements:
   build:
-    - python
     - setuptools
+    - python
     - numpy
+    - pint
+    - pandas
+    - scipy
+    - pymc
+    - matplotlib
+    - seaborn
+    - lxml
+    - ipython
+    - notebook
 
   run:
     - python
@@ -22,18 +34,15 @@ requirements:
     - matplotlib
     - seaborn
     - lxml
+    - ipython
+    - notebook
 
 test:
   requires:
     - nose
     - scripttest
-    - pint
-    - numpy
-    - scipy
-    - pymc
-    - matplotlib
-    - seaborn
-    - lxml
+    - ipython
+    - notebook
 
 about:
   home: http://assaytools.choderalab.org

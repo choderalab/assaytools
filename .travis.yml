@@ -1,27 +1,36 @@
 language: c
+sudo: false
+addons:
+  apt:
+    sources:
+    - ubuntu-toolchain-r-test
+    packages:
+      - g++
+      - gfortran
+      - valgrind
+      - csh
+      - g++-multilib
+      - gcc-multilib
 
 branches:
   only:
     - master
 
 install:
-  - source devtools/ci/install.sh
+  - source devtools/travis-ci/install.sh
   - export PYTHONUNBUFFERED=true
-  - export CC=gcc
-  - export CXX=g++
 
 script:
-  - source deactivate
-  - conda config --add channels https://conda.binstar.org/omnia
-  - conda install --yes conda-build jinja2 binstar pip
+  # Add omnia channel
+  - conda config --add channels http://conda.anaconda.org/${ORGNAME}
+  # build the recipe
   - conda build devtools/conda-recipe
-  - source activate $python
-  - conda install --yes $HOME/miniconda/conda-bld/linux-64/assaytools-dev-*
-  - conda list -e
-  # pydir=$(which python); $precmd $(dirname $pydir)/nosetests --exclude-dir=AssayTools/html --with-coverage --cover-erase -vv
-
-  # Run tests
-  - source devtools/ci/ipythontests.sh
+  # Install the package and test it
+  - conda install --yes --quiet $HOME/miniconda/conda-bld/linux-64/${PACKAGENAME}-dev-*
+  - conda install --yes --quiet nose nose-timer
+  - nosetests ${PACKAGENAME} --nocapture --verbosity=2 --with-doctest --with-timer
+  # Run IPython notebook tests
+  - source devtools/travis-ci/ipythontests.sh
 
 env:
   matrix:
@@ -32,10 +41,12 @@ env:
     #- python=3.4  CONDA_PY=34  CONDA_NPY=18
 
   global:
+    - ORGNAME: "choderalab"
+    - PACKAGENAME: "assaytools"
     # TODO: add encrypted AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY to push documentation to S3
     # binstar
-    secure: "x/7fFUnTGXdQOiAduc8ONAiVOV63vgup1y4heemW/Z1fnhjAgNIjwIX0/9cJtV0HU7ayLXaBcMy6Bq72W49wIKZM6omvx6sazZ6ju0EUrp6GKQmZqio255cV2RA810uSTpNh2lIwkMPWfWfv2VmBzKsJyM4eKHrVdKsLUCGu7M4="
+    - secure: "x/7fFUnTGXdQOiAduc8ONAiVOV63vgup1y4heemW/Z1fnhjAgNIjwIX0/9cJtV0HU7ayLXaBcMy6Bq72W49wIKZM6omvx6sazZ6ju0EUrp6GKQmZqio255cV2RA810uSTpNh2lIwkMPWfWfv2VmBzKsJyM4eKHrVdKsLUCGu7M4="
 
 after_success:
   - echo "after_success"
-  - source devtools/ci/after_sucess.sh
+  - ./devtools/travis-ci/after_success.sh

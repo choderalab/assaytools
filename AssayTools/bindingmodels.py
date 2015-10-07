@@ -140,9 +140,10 @@ class CompetitiveBindingModel(BindingModel):
 
       >>> V = 1.4303e-3 # volume (L)
       >>> x_R = V * 510.e-3 # receptor
-      >>> x_Ln = numpy.array([V * 8.6e-6, 200.e-6 * 55.e-6]) # ligands
-      >>> Ka_n = numpy.array([1./(400.e-9), 1./(2.e-11)]) # association constants
-      >>> C_PLn = equilibrium_concentrations(Ka_n, x_R, x_Ln, V)
+      >>> x_Ln = np.array([V * 8.6e-6, 200.e-6 * 55.e-6]) # ligands
+      >>> Ka_n = np.array([1./(400.e-9), 1./(2.e-11)]) # association constants
+      >>> from bindingmodels import CompetitiveBindingModel
+      >>> C_PLn = CompetitiveBindingModel.equilibrium_concentrations(Ka_n, x_R, x_Ln, V)
 
       NOTES
 
@@ -192,7 +193,7 @@ class CompetitiveBindingModel(BindingModel):
 
       def fprime(C_RLn):
          nspecies = C_RLn.size
-         G_nm = numpy.zeros([nspecies,nspecies], numpy.float64) # G_nm[n,m] is the derivative of func[n] with respect to C_RLn[m]
+         G_nm = np.zeros([nspecies,nspecies], np.float64) # G_nm[n,m] is the derivative of func[n] with respect to C_RLn[m]
          for n in range(nspecies):
             G_nm[n,:] = - V * (x_Ln[:]/V - C_RLn[:]) * Ka_n[:]
             G_nm[n,n] -= V * (Ka_n[n] * (x_R/V - C_RLn[:].sum()) + 1.0)
@@ -206,7 +207,7 @@ class CompetitiveBindingModel(BindingModel):
 
       def sfprime(s):
          nspecies = s.size
-         G_nm = numpy.zeros([nspecies,nspecies], numpy.float64) # G_nm[n,m] is the derivative of func[n] with respect to C_RLn[m]
+         G_nm = np.zeros([nspecies,nspecies], np.float64) # G_nm[n,m] is the derivative of func[n] with respect to C_RLn[m]
          for n in range(nspecies):
             G_nm[n,:] = - V * (x_Ln[:]/V - s[:]**2) * Ka_n[:]
             G_nm[n,n] -= V * (Ka_n[n] * (x_R/V - (s[:]**2).sum()) + 1.0)
@@ -215,12 +216,12 @@ class CompetitiveBindingModel(BindingModel):
 
       # Allocate storage for complexes
       # Compute equilibrium concentrations.
-      #x0 = numpy.zeros([nspecies], numpy.float64)
+      #x0 = np.zeros([nspecies], np.float64)
       #x0 = (x_Ln / V).copy()
       #x = scipy.optimize.fsolve(func, x0, fprime=fprime)
       #C_RLn = x
 
-      #x0 = numpy.sqrt(x_Ln / V).copy()
+      #x0 = np.sqrt(x_Ln / V).copy()
       #x = scipy.optimize.fsolve(sfunc, x0, fprime=sfprime)
       #C_RLn = x**2
 
@@ -235,7 +236,7 @@ class CompetitiveBindingModel(BindingModel):
 
          return (obj, grad)
 
-      #x0 = numpy.zeros([nspecies], numpy.float64)
+      #x0 = np.zeros([nspecies], np.float64)
       #bounds = list()
       #for n in range(nspecies):
       #   m = min(C0_R, C0_Ln[n])
@@ -249,19 +250,19 @@ class CompetitiveBindingModel(BindingModel):
 
       def odegrad(c_n, t, Ka_n, x_Ln, x_R):
          N = c_n.size
-         d2c = numpy.zeros([N,N], numpy.float64)
+         d2c = np.zeros([N,N], np.float64)
          for n in range(N):
             d2c[n,:] = -Ka_n[n] * (x_Ln[n]/V - c_n[n])
             d2c[n,n] += -(Ka_n[n] * (x_R/V - c_n[:].sum()) + 1.0)
          return d2c
 
-      #if c0 is None: c0 = numpy.zeros([nspecies], numpy.float64)
+      #if c0 is None: c0 = np.zeros([nspecies], np.float64)
       #maxtime = 100.0 * (x_R/V) / Ka_n.max()
       #time = [0, maxtime / 2.0, maxtime]
       #c = scipy.integrate.odeint(ode, c0, time, Dfun=odegrad, args=(Ka_n, x_Ln, x_R))
       #C_RLn = c[-1,:]
 
-      #c = numpy.zeros([nspecies], numpy.float64)
+      #c = np.zeros([nspecies], np.float64)
       #maxtime = 1.0 / Ka_n.min()
       #maxtime = 1.0 / ((x_R/V) * Ka_n.min())
       #maxtime = 1.0
@@ -274,8 +275,8 @@ class CompetitiveBindingModel(BindingModel):
       #print "C_RLn = ", C_RLn
       #print ""
 
-      c = numpy.zeros([nspecies], numpy.float64)
-      sorted_indices = numpy.argsort(-x_Ln)
+      c = np.zeros([nspecies], np.float64)
+      sorted_indices = np.argsort(-x_Ln)
       for n in range(nspecies):
          indices = sorted_indices[0:n+1]
          #c[indices] = scipy.optimize.fsolve(ode, c[indices], fprime=odegrad, args=(0.0, Ka_n[indices], x_Ln[indices], x_R), xtol=1.0e-6, warning=False)
