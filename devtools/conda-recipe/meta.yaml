@@ -43,6 +43,7 @@ test:
     - scripttest
     - ipython
     - notebook
+    - ipynbtest
   imports:
     - assaytools
 
