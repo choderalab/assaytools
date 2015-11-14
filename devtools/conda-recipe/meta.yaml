@@ -43,6 +43,9 @@ test:
     - scripttest
     - ipython
     - notebook
+    - ipynbtest
+  imports:
+    - assaytools
 
 about:
   home: http://assaytools.choderalab.org
