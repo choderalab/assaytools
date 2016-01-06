@@ -34,6 +34,8 @@ if 'setuptools' in sys.modules:
     setup_kwargs['entry_points'] = {'console_scripts':
               ['xml2png = assaytools.scripts.xml2png:entry_point',
                'xml2png4scans = assaytools.scripts.xml2png4scans:entry_point',
+               'xml2png_5 = assaytools.scripts.xml2png_5:entry_point',
+               'xml2png_spectra = assaytools.scripts.xml2png_spectra:entry_point',
                'ipnbdoctest = assaytools.scripts.ipnbdoctest:entry_point']}
 
     if sys.version_info[0] == 2:
@@ -42,7 +44,7 @@ if 'setuptools' in sys.modules:
         m = sys.modules['setuptools.extension']
         m.Extension.__dict__ = m._Extension.__dict__
 else:
-    setup_kwargs['scripts'] = ['scripts/xml2png.py', 'scripts/xml2png4scans.py']
+    setup_kwargs['scripts'] = ['scripts/xml2png.py', 'scripts/xml2png4scans.py','scripts/xml2png_5.py', 'scripts/xml2png_spectra.py']
 
 
 ##########################
