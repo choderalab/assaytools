@@ -105,7 +105,7 @@ def process_files(xml_files):
 
             dataframe = pd.DataFrame(data, columns=['fluorescence','wavelength (nm)','Well'])
 
-            dataframe_pivot = pd.pivot_table(dataframe, rows = 'wavelength (nm)', cols= ['Well'])
+            dataframe_pivot = pd.pivot_table(dataframe, index = 'wavelength (nm)', columns = ['Well'])
 
             # Make plot, complete with separate png for each section.
             section_name = sect.attrib['Name']
