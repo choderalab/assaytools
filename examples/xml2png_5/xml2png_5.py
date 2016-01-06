@@ -21,6 +21,7 @@
 
 import numpy as np
 import matplotlib.pyplot as plt
+import seaborn
 from lxml import etree
 import pandas as pd
 import sys
@@ -125,11 +126,13 @@ for file in xml_files:
             {
                     'filename' : file_name,
                     'title' : title,
-                    'dataframe' : pd.DataFrame(welllist) 
+                    'dataframe' : pd.DataFrame(welllist, columns=list('ABCDEFGHIJKLMNOP')) 
             }
         )
 
-    # Make plot, complete with subfigure for each section. 
+    # Make plot, complete with subfigure for each section.
+    seaborn.set_palette("Paired", 10)
+    seaborn.set_context("notebook", rc={"lines.linewidth": 2.5})
 
     fig, axes = plt.subplots(nrows=1,ncols=len(Sections), figsize=(60,4.5))
 
