@@ -25,6 +25,7 @@ import matplotlib.pyplot as plt
 from lxml import etree
 import pandas as pd
 import matplotlib.cm as cm
+import seaborn
 import sys
 import os
 
@@ -52,31 +53,9 @@ def extract(taglist):
 
 ### Define an initial set of dataframes, one per each section
 
-root = etree.parse(xml_files[0])
-
-  # Define Sections.
-
-Sections = root.xpath("/*/Section")
-
-  # Extract Reads for this section.
-
-Sections = root.xpath("/*/Section")
-
-reads = root.xpath("/*/Section[@Name='" + Sections[0].attrib['Name'] + "']/*/Well")
-
-wellIDs = [read.attrib['Pos'] for read in reads]
-
-data = [(float(s.text), float(s.attrib['WL']), r.attrib['Pos'])
-         for r in reads
-         for s in r]
-
-dataframe = pd.DataFrame(data, columns=['fluorescence','wavelength (nm)','Well'])
-
-dataframe_pivot = pd.pivot_table(dataframe, index = 'wavelength (nm)', columns= ['Well'])
-
-large_dataframe1 = dataframe_pivot*0
-large_dataframe2 = dataframe_pivot*0
-large_dataframe3 = dataframe_pivot*0
+large_dataframe0 = pd.DataFrame()
+large_dataframe1 = pd.DataFrame()
+large_dataframe2 = pd.DataFrame()
 
 for file in xml_files:
 
@@ -119,14 +98,14 @@ for file in xml_files:
 
         if  parameters[0].attrib['Value'] == "Absorbance":
             result = extract(["Mode", "Wavelength Start", "Wavelength End", "Wavelength Step Size"])
-            globals()["title"+str(i+1)] = '%s, %s, %s, %s' % tuple(result)
+            globals()["title"+str(i)] = '%s, %s, %s, %s' % tuple(result)
 
         else:
             result = extract(["Gain", "Excitation Wavelength", "Emission Wavelength", "Part of Plate", "Mode"])
-            globals()["title"+str(i+1)] = '%s, %s, %s, \n %s, %s' % tuple(result)
+            globals()["title"+str(i)] = '%s, %s, %s, \n %s, %s' % tuple(result)
 
         print "****The %sth section has the parameters:****" %i
-        print globals()["title"+str(i+1)]
+        print globals()["title"+str(i)]
 
         ### Extract Reads for this section.
 
@@ -136,24 +115,40 @@ for file in xml_files:
 
         wellIDs = [read.attrib['Pos'] for read in reads]
 
-        data = [(float(s.text), float(s.attrib['WL']), r.attrib['Pos'])
+        data = [(s.text, float(s.attrib['WL']), r.attrib['Pos'])
                  for r in reads
                  for s in r]
 
         dataframe = pd.DataFrame(data, columns=['fluorescence','wavelength (nm)','Well'])
+        
+        ### dataframe_rep replaces 'OVER' (when fluorescence signal maxes out) with '3289277', an arbitrarily high number
+
+        dataframe_rep = dataframe.replace({'OVER':'3289277'})
+
+        dataframe_rep[['fluorescence']] = dataframe_rep[['fluorescence']].astype('float')
 
         ### Create large_dataframe1, large_dataframe2, and large_dataframe3 that collect data for each section
         ### as we run through cycle through sections and files.
 
-        globals()["dataframe_pivot"+str(i+1)] = pd.pivot_table(dataframe, index = 'wavelength (nm)', columns= ['Well'])
+        globals()["dataframe_pivot"+str(i)] = pd.pivot_table(dataframe_rep, index = 'wavelength (nm)', columns= ['Well'])
+        
+        print 'The max fluorescence value in this dataframe is %s'% globals()["dataframe_pivot"+str(i)].values.max()
 
-        globals()["large_dataframe"+str(i+1)] = pd.concat([globals()["large_dataframe"+str(i+1)],globals()["dataframe_pivot"+str(i+1)]])
+        globals()["large_dataframe"+str(i)] = pd.concat([globals()["large_dataframe"+str(i)],globals()["dataframe_pivot"+str(i)]])
 
 ### Plot, making a separate png for each section.
 
 for i, sect in enumerate(Sections):
 
     section_name = sect.attrib['Name']
+    
+    path = "/*/Section[@Name='" + sect.attrib['Name'] + "']/Parameters"
+    parameters = root.xpath(path)[0]
+    
+    if  parameters[0].attrib['Value'] == "Absorbance":
+        section_ylim = [0,0.2]
+    else:
+        section_ylim = [0,40000]
 
     Alphabet = ['A','B','C','D','E','F','G','H']
 
@@ -161,10 +156,10 @@ for i, sect in enumerate(Sections):
     for j,A in enumerate(Alphabet):
         for k in range(1,12):
             try:
-                globals()["large_dataframe"+str(i+1)].fluorescence.get(A + str(k)).plot(ax=axes[(j/3)%3,j%3], title=A, c=cm.hsv(k*15), ylim=[0,400])
+                globals()["large_dataframe"+str(i)].fluorescence.get(A + str(k)).plot(ax=axes[(j/3)%3,j%3], title=A, c=cm.hsv(k*15), ylim=section_ylim, xlim=[240,800])
             except:
                 print "****No row %s.****" %A
 
-    fig.suptitle('%s \n %s \n Barcode = %s' % (globals()["title"+str(i+1)], plate_type, barcode), fontsize=14)
+    fig.suptitle('%s \n %s \n Barcode = %s' % (globals()["title"+str(i)], plate_type, barcode), fontsize=14)
     fig.subplots_adjust(hspace=0.3)
     plt.savefig('%s_%s.png' % (file_name, section_name))
