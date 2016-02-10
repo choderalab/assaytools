@@ -340,10 +340,10 @@ def plot_mcmc_results(Lstated, Pstated, path_length, mcmc, subsample=10, figsize
     plt.hold(True)
     legend = list()
     if hasattr(mcmc, 'sigma_top'):
-        plt.semilogy(np.exp(mcmc.sigma_top.trace()), 'ro');
+        plt.semilogy(mcmc.sigma_top.trace(), 'ro');
         legend.append('top')
     if hasattr(mcmc, 'sigma_bottom'):
-        plt.semilogy(np.exp(mcmc.sigma_bottom.trace()), 'kv');
+        plt.semilogy(mcmc.sigma_bottom.trace(), 'kv');
         legend.append('bottom')
     plt.xlabel('MCMC sample');
     plt.ylabel('fluorescence measurement error');
@@ -353,7 +353,7 @@ def plot_mcmc_results(Lstated, Pstated, path_length, mcmc, subsample=10, figsize
         # Plot trace of absorbance measurement error.
         figure = plt.figure(figsize=figsize)
         plt.hold(True)
-        plt.plot(np.exp(mcmc.sigma_abs.trace()), 'ro');
+        plt.plot(mcmc.sigma_abs.trace(), 'ro');
         plt.xlabel('MCMC sample');
         plt.ylabel('absorbance measurement error');
 
