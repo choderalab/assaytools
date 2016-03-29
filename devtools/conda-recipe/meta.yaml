@@ -1,6 +1,6 @@
 package:
   name: assaytools-dev
-  version: !!str 0.1.0
+  version: 0.0.0
 
 source:
   path: ../..
@@ -40,6 +40,8 @@ requirements:
 test:
   requires:
     - nose
+    - pip
+    - nose-timer
     - scripttest
     - ipython
     - notebook
