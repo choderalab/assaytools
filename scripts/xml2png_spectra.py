@@ -49,6 +49,8 @@ def extract(taglist):
 large_dataframe0 = pd.DataFrame()
 large_dataframe1 = pd.DataFrame()
 large_dataframe2 = pd.DataFrame()
+large_dataframe3 = pd.DataFrame()
+large_dataframe4 = pd.DataFrame()
 
 def process_files(xml_files):
     """
