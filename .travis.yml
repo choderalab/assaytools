@@ -8,6 +8,12 @@ branches:
 install:
   - source devtools/travis-ci/install.sh
   - export PYTHONUNBUFFERED=true
+  
+before_script:
+  # Mimic X display
+  - "export DISPLAY=:99.0"
+  - "sh -e /etc/init.d/xvfb start"
+  - sleep 3 # give xvfb some time to start
 
 script:
   - conda config --add channels omnia
