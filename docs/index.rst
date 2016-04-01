@@ -52,6 +52,7 @@ Documentation
    :maxdepth: 1
 
    getting_started
+   theory
 ..   examples/index
    whatsnew
    faq
