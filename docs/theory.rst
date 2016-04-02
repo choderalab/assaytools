@@ -193,4 +193,4 @@ and eliminate :math:`[RL_n]` and :math:`[R]` to give
 
    \left( [R]_T - \sum_{n=1}^N [RL_n] \right) * ([L_n]_T - [RL_n]) - [RL_n] K_n = 0  \:\:,\:\: n = 1, \ldots, N
 
-This leads to a coupled series of equations that cannot easily be solved in closed form, but are straightforward to solve numerically using the `scipy` solver `fsolve`, starting from an initial guess that ensures the constraints remain satisfied.
+This leads to a coupled series of equations that cannot easily be solved in closed form, but are straightforward to solve numerically using the :mod:`scipy` solver :func:`fsolve`, starting from an initial guess that ensures the constraints remain satisfied.
