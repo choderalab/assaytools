@@ -13,6 +13,10 @@ Bayesian analysis
 It does this to allow the complete uncertainty---in the form of the joint distribution of all unknown parameters---to be rigorously characterized.
 The most common way to summarize these results is generally to extract confidence intervals of individual parameters, but much more sophisticated analyses---such as examining the correlation between parameters---are also possible.
 
+The Bayesian analysis scheme is intended to be modular, and the user can select whether certain effects (such as :ref:`inner filter effects <inner-filter-effects>`) are incorporated into the model.
+Below, we describe the components of the model.
+If an effect that carries unknown nuisance parameters (such as extinction coefficients for :ref:`inner filter effects <inner-filter-effects>`), these nuisance parameters carry additional prior terms along with them and are inferred as part of the inference procedure.
+
 Unknown parameters
 ------------------
 .. _parameters:
@@ -25,13 +29,16 @@ Data
 ----
 .. _data:
 
-The data are given as...
-
-.. math::
-
-   (a + b)^2 = a^2 + 2ab + b^2
-
-   (a - b)^2 = a^2 - 2ab + b^2
+For each experiment, the data is given by a set of observations for each well.
+Each well is associated with some properties
+* a volume :math:`V` of buffer filling the well
+* a total concentration :math:`[R]_T` of receptor (potentially bound) in complexes
+* a total concentration :math:`[L]_T` of ligand in the well
+* a well area :math:`A` that assumes the well is cylindrical (allowing the path length to be computed)
+and one or more experimental measurements:
+* a fluorescence measurement from the top geometry (returning toward the incident excitation light) :math:`F_{top}`
+* a fluorescence measurement from the bottom geometry (proceeding in the same direction as the incident excitation light) :math:`F_{bottom}`
+* an absorbance measurement :math:`A`
 
 Priors
 ------
@@ -43,22 +50,22 @@ Concentrations
 ^^^^^^^^^^^^^^
 
 While we design the experiment to dispense the *intended* amount of protein and ligand into each well, the true amount dispensed into the well will vary due to random pipetting error.
-The *true* concentrations of protein (`Ptrue`) and ligand (`Ltrue`) in each well are therefore unknown.
-Because we propagate the pipetting error along with the intended concentrations, we have the intended ("stated") protein concentration (`Pstated`) and its standard error (`dPstated`) as input.
-Similarly, the stated ligand concentration (`Lstated`) and its error (`dLstated`) are also known.
+The *true* concentrations of protein :math:`R_{true}` and ligand :math:`L_{true}` in each well are therefore unknown.
+Because we propagate the pipetting error along with the intended concentrations, we have the intended ("stated") protein concentration :math:`P_{stated}` and its standard error :math:`\delta P_{stated}` as input.
+Similarly, the stated ligand concentration :math:`L_{stated}` and its error :math:`\delta L_{stated}` are also known.
 
 If we assume the dispensing process is free of bias, the simplest distribution that fits the stated concentration and its standard deviation without making additional assumptions is a Gaussian.
 
-We assign these true concentrations `Ptrue` (protein) and `Ltrue` (ligand) a prior distribution.
-If `concentration_priors` is set to `gaussian`, this is precisely what is used ::
+We assign these true concentrations :math:`P_{true}` (protein) and :math:`L_{true}` (ligand) a prior distribution.
+If ``concentration_priors`` is set to ``gaussian``, this is precisely what is used ::
 
   Ptrue = pymc.Normal('Ptrue', mu=Pstated, tau=dPstated**(-2)) # protein concentration (M)
   Ltrue = pymc.Normal('Ltrue', mu=Lstated, tau=dLstated**(-2)) # ligand concentration (M)
 
-.. note:: `pymc` uses the precision `tau = sigma**(-2)` instead of the standard deviation `sigma` as a parameter of the distribution.
+.. note:: ``pymc`` uses the precision ``tau = sigma**(-2)``` instead of the standard deviation ``sigma`` as a parameter of the distribution.
 
 Gaussian priors have the unfortunate drawback that there is a small but nonzero probability that these concentrations would be negative, leading to nonsensical (unphysical) concentrations.
-To avoid this, we generally use a lognormal distribution (selected by `concentration_priors='lognormal'`.
+To avoid this, we generally use a lognormal distribution (selected by ``concentration_priors='lognormal'``).
 The lognormal priors are defined as ::
 
   Ptrue = pymc.Lognormal('Ptrue', mu=np.log(Pstated**2 / np.sqrt(dPstated**2 + Pstated**2)), tau=np.sqrt(np.log(1.0 + (dPstated/Pstated)**2))**(-2)) # protein concentration (M)
@@ -69,10 +76,29 @@ The lognormal priors are defined as ::
 Binding free energy
 ^^^^^^^^^^^^^^^^^^^
 
-The ligand binding free energy `DeltaG` is unknown.
+The ligand binding free energy :math:`\Delta G` is unknown, and presumed to either be unknown over a large uniform range with the `uniform` prior:
+
+  DeltaG = pymc.Uniform('DeltaG', lower=DG_min, upper=DG_max) # binding free energy (kT), uniform over huge range
+
+but this has the drawback that affinities near the extreme measurable ranges are simply unknown with equal likelihood out to absurd extreme values.
+
+We can attenuate the posterior probabilities at extreme affinities by using a prior inspired by the range of data recorded in `ChEMBL <https://www.ebi.ac.uk/chembl/>`_ via the `chembl` prior:
+
+  DeltaG = pymc.Normal('DeltaG', mu=0, tau=1./(12.5**2)) # binding free energy (kT), using a Gaussian prior inspired by ChEMBL
+
+Components
+----------
+
+We now discuss the various modular components of the Bayesian inference scheme.
+
+Fluorescence
+^^^^^^^^^^^^
+
+
 
 Inner filter effects
 ^^^^^^^^^^^^^^^^^^^^
+.. _inner-filter-effects:
 
 At high ligand concentrations, if the ligand has significant absorbance at the excitation wavelength, the amount of light reaching the bottom of the well is less than the light reaching the top of the well.
 This is called the *primary inner filter effect*, and has the net effect of attenuating the observed fluorescence.
