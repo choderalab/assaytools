@@ -52,6 +52,7 @@ Each unknown parameter in the model is assigned a *prior* distribution that refl
 
 Concentrations
 ^^^^^^^^^^^^^^
+.. _concentrations:
 
 While we design the experiment to dispense the *intended* amount of protein and ligand into each well, the true amount dispensed into the well will vary due to random pipetting error.
 The *true* concentrations of protein :math:`R_{true}` and ligand :math:`L_{true}` in each well are therefore unknown.
@@ -68,16 +69,16 @@ If ``concentration_priors`` is set to ``gaussian``, this is precisely what is us
    R_{true} &\sim N(R_{stated}, \delta R_{stated}) \\
    L_{true} &\sim N(L_{stated}, \delta L_{stated}) \\
 
-This is expressed in the ``pymc`` model as ::
+This is expressed in the :mod:`pymc` model as ::
 
   Ptrue = pymc.Normal('Ptrue', mu=Pstated, tau=dPstated**(-2)) # protein concentration (M)
   Ltrue = pymc.Normal('Ltrue', mu=Lstated, tau=dLstated**(-2)) # ligand concentration (M)
 
-.. note:: ``pymc`` uses the *precision* :math:`\tau \equiv \sigma^{-2}` instead of the variance :math:`\sigma^2` as a parameter of the normal distribution.
+.. note:: :mod:`pymc` uses the *precision* :math:`\tau \equiv \sigma^{-2}` instead of the variance :math:`\sigma^2` as a parameter of the normal distribution.
 
 Gaussian priors have the unfortunate drawback that there is a small but nonzero probability that these concentrations would be negative, leading to nonsensical (unphysical) concentrations.
 To avoid this, we generally use a lognormal distribution (selected by ``concentration_priors='lognormal'``).
-The lognormal priors are expressed in the ``pymc`` model as ::
+The lognormal priors are expressed in the :mod:`pymc` model as ::
 
   Ptrue = pymc.Lognormal('Ptrue', mu=np.log(Pstated**2 / np.sqrt(dPstated**2 + Pstated**2)), tau=np.sqrt(np.log(1.0 + (dPstated/Pstated)**2))**(-2)) # protein concentration (M)
   Ltrue = pymc.Lognormal('Ltrue', mu=np.log(Lstated**2 / np.sqrt(dLstated**2 + Lstated**2)), tau=np.sqrt(np.log(1.0 + (dLstated/Lstated)**2))**(-2)) # ligand concentration (M)
@@ -92,6 +93,7 @@ The lognormal priors are expressed in the ``pymc`` model as ::
 
 Binding free energy
 ^^^^^^^^^^^^^^^^^^^
+.. _binding-free-energy:
 
 The ligand binding free energy :math:`\Delta G` is unknown, and presumed to either be unknown over a large uniform range with the ``uniform`` prior
 
@@ -99,7 +101,7 @@ The ligand binding free energy :math:`\Delta G` is unknown, and presumed to eith
 
    \Delta G \sim U(-\Delta G_{min}, +\Delta G_{max})
 
-This is expressed in the ``pymc`` model as ::
+This is expressed in the :mod:`pymc` model as ::
 
   DeltaG = pymc.Uniform('DeltaG', lower=DG_min, upper=DG_max) # binding free energy (kT), uniform over huge range
 
@@ -112,12 +114,12 @@ We can attenuate the posterior probabilities at extreme affinities by using a pr
    \Delta G &\sim N(0, \sigma^2) \\
    \sigma &= 12.5 \: \mathrm{kcal/mol}
 
-This is expressed in the ``pymc`` model as ::
+This is expressed in the :mod:`pymc` model as ::
 
   DeltaG = pymc.Normal('DeltaG', mu=0, tau=1./(12.5**2)) # binding free energy (kT), using a Gaussian prior inspired by ChEMBL
 
-Components
-----------
+Modular components of the Bayesian model
+----------------------------------------
 
 We now discuss the various modular components of the Bayesian inference scheme.
 
@@ -128,39 +130,209 @@ Fluorescence
 ^^^^^^^^^^^^
 .. _fluorescence:
 
-Fluorescence can be measured from either the top (from which the plate is illuminated in the Tecan Infinite M1000PRO), bottom, or both.
-Observed fluorescence depends on the concentration of each species :math:`X_i`, the quantum efficiencies of each species at the excitation/emission wavelengths :math:`q_i(ex,em)`.
+Fluorescence model
+""""""""""""""""""
+.. _fluorescence-model:
+
+Fluorescence can be measured from either the top, bottom, or both.
+The true fluorescence depends on the concentration of each species :math:`X_i`:
 
 .. math::
 
-   F_{top} = I_0 \left[ \sum_{i} q_i(ex,em) [X_i] + l F_\mathrm{buffer} + F_\mathrm{plate} \right]
+   F_\mathrm{top} = I_{ex} \left[ \sum_{i} q_i(ex,em) [X_i] + l F_\mathrm{buffer} + F_\mathrm{plate} \right]
 
-   F_{bottom} = I_0 \left[ \sum_{i} q_i(ex,em) [X_i] + l F_\mathrm{buffer} + F_\mathrm{plate} \right]
+   F_\mathrm{bottom} = G_\mathrm{bottom} \cdot I_{ex} \left[ \sum_{i} q_i(ex,em) [X_i] + l F_\mathrm{buffer} + F_\mathrm{plate} \right]
 
-Here, :math:`I_0` is the incident excitation intensity, :math:`F_\mathrm{buffer}` is a buffer fluorescence per unit path length, and :math:`F_\mathrm{plate}` is the background fluorescence of the plate.
+Here, :math:`I_{ex}` is the incident excitation intensity, :math:`q_i(ex,em)` are the quantum efficiencies of each species at the excitation/emission wavelengths, :math:`F_\mathrm{buffer}` is a buffer fluorescence per unit path length, and :math:`F_\mathrm{plate}` is the background fluorescence of the plate.
+Notably, without :ref:`inner filter effects <inner-filter-effects>`, the only factor that causes differences between top and bottom fluorescence is the gain factor `G_\mathrm{bottom}` that captures a potential difference in detector gains between the top and bottom detectors.
+
+Observed fluorescence
+"""""""""""""""""""""
+.. _observed-fluorescence:
+
+The observed fluorescence :math:`F^\mathrm{obs}_\mathrm{top}` and :math:`F^\mathrm{obs}_\mathrm{bottom}` will differ from the true fluorescence due to detector noise.
+Because the observed fluorescence is reported as the mean of a number of detector measurements from independent flashes of the Xenon lamp, detector error will be well described by a normal distribution:
+
+.. math::
+
+   F^\mathrm{obs}_\mathrm{top} &\sim N(f_\mathrm{top}, \sigma_\mathrm{top}^2) \\
+   F^\mathrm{obs}_\mathrm{bottom} &\sim N(f_\mathrm{top}, \sigma_\mathrm{bottom}^2)
+
+The measurement errors :math:`\sigma_\mathrm{top}` and :math:`\sigma_\mathrm{bottom}` are assigned Jeffreys priors, which are uniform in :math:`\ln \sigma`
+
+.. math::
+
+   \ln \sigma &\sim U(-10, \ln F_{max})
+
+By default, the same detector error :math:`\sigma` is used for both top and bottom detectors, but separate errors can be used if ``link_top_and_bottom_sigma = False``.
+
+While the detector error is inferred separately for each experiment since the detector gain may differ from experiment.
+If multiple datasets using the same instrument configuration and detector gain are inferred together---such as the inclusion of calibration experiments with controls---this will help improve the detector error estimate.
+
+Quantum efficiencies
+""""""""""""""""""""
+.. _quantum-efficiencies:
+
+Since the quantum efficiencies :math:`q_i(ex,em)` of each species :math:`X_i` are unknown, they are inferred as `nuisance parameters <https://en.wikipedia.org/wiki/Nuisance_parameter>`_ as part of the Bayesian inference process.
+We therefore assign a uniform (informationless) priors to these, though we use the product :math:`F_i \equiv I_{ex} q_i(ex,em)` for convenience since :math:`I_{ex}` and the scaling factor to convert observed fluorescence into reported arbitrary fluorescence units is unknown:
+
+.. math::
+
+   F_i &\sim U(0, F_{i,{max}}) \\
+   F_\mathrm{plate} &\sim U(0, F_\mathrm{max}) \\
+   F_\mathrm{buffer} &\sim U(0, F_\mathrm{max}/l)
+
+For efficiency, we compute the maximum allowed values based on an upper limit of these quantities from the observed data.
+
+We also make efficient initial guesses for these quantities, which assume that:
+
+* :math:`F_\mathrm{buffer}` assumes the minimum fluorescence signal is explained by only buffer fluorescence
+* :math:`F_\mathrm{plate}` assumes the minimum fluorescence signal is explained by only plate fluorescence
+* :math:`F_L` assumes the maximum fluorescence signal increase above background is explained by the free ligand fluorescence
+* :math:`F_R` assumes the receptor fluorescence is zero
+* :math:`F_{PL}` assumes that the maximum fluorescence signal increase above background is explained by complex fluorescence with 100% complex formation
+
+These assumptions can of course be violated once the sampler starts to infer these quantities.
+
+In the :mod:`pymc` model, these priors are implemented via ::
+
+  model['F_PL'] = pymc.Uniform('F_PL', lower=0.0, upper=2*Fmax/min(Pstated.max(),Lstated.max()), value=F_PL_guess) # complex fluorescence
+  model['F_P'] = pymc.Uniform('F_P', lower=0.0, upper=2*(Fmax/Pstated).max(), value=F_P_guess) # protein fluorescence
+  model['F_L'] = pymc.Uniform('F_L', lower=0.0, upper=2*(Fmax/Lstated).max(), value=F_L_guess) # ligand fluorescence
+  model['F_plate'] = pymc.Uniform('F_plate', lower=0.0, upper=Fmax, value=F_plate_guess) # plate fluorescence
+  model['F_buffer'] = pymc.Uniform('F_buffer', lower=0.0, upper=Fmax/path_length, value=F_buffer_guess) # buffer fluorescence
+
+Top/bottom detector gain
+""""""""""""""""""""""""
+.. _detector-gain:
+
+The bottom detector relative gain factor is assigned a uniform prior over the log gain:
+
+.. math::
+
+   \ln G_\mathrm{bottom} \sim U(-6, +6)
+
+which is implemented in the :mod:`pymc` model as ::
+
+  model['log_gain_bottom'] = pymc.Uniform('log_gain_bottom', lower=-6.0, upper=6.0, value=log_gain_guess) # plate material absorbance at emission wavelength
+  model['gain_bottom'] = pymc.Lambda('gain_bottom', lambda log_gain_bottom=model['log_gain_bottom'] : np.exp(log_gain_bottom) )
 
 Absorbance
 ^^^^^^^^^^
 .. _absorbance:
 
-The absorbance is determined by the the extinction coefficient of each component (`R`, `L`, `RL` for simple two-component binding) at the excitation wavelength, as well as any intrinsic absorbance of the plate at that wavelength.
+Absorbance model
+""""""""""""""""
+.. _absorbance-model:
+
+The absorbance is determined by the the extinction coefficient of each component :math:`X_i` (`R`, `L`, `RL` for simple two-component binding) at the illumination wavelength, as well as any intrinsic absorbance of the plate at that wavelength.
 
 .. math::
 
-   A = \sum_{i \in components} \epsilon_{ex,i} l [X_i] + A_{plate}
+   A = \sum_{i} \epsilon_{i} \cdot l \cdot [X_i] + A_\mathrm{plate}
+
+The plate absorbance is a nuisance parameter that is assigned a uniform informationless prior:
+
+.. math::
+
+   A_\mathrm{plate} \sim U(0,1)
+
+Currently, ``AssayTools`` supports absorbance measurements made at either (or both) the excitation and emission wavelengths.
+Absorbance measurements performed at the excitation wavelength help constrain the extinction coefficient for :ref:`primary inner filter effects <primary-inner-filter-effect>`, while absorbance measurements at the emission wavelength help constrain the extinction coefficients for :ref:`secondary inner filter effects <secondary-inner-filter-effect>`.
+Note that even if plates that are not highly transparent in the excitation or emission wavelengths are used, this still provides useful information---this effect is corrected for by inferring the plate absorbance :math:`A_\mathrm{plate}` at the appropriate wavelengths.
+
+Observed absorbance
+"""""""""""""""""""
+.. _observed-absorbance:
+
+As the detector averages many measurements from multiple flashes of a Xenon lamp for the reported absorbance :math:`A^\mathrm{obs}`, the observed measurement can be modeled with a normal distribution
+
+.. math::
+
+   A^\mathrm{obs} \sim N(A, \sigma_\mathrm{abs}^2)
+
+The detector error :math:`\sigma_A` is assigned Jeffreys priors, which are uniform in :math:`\ln \sigma_\mathrm{abs}`
+
+.. math::
+
+   \ln \sigma_\mathrm{abs} &\sim U(-10, 0)
+
+.. note:: It is critical that if multiple datasets are inferred jointly, they all be from the same plate type.
 
 Inner filter effects
 ^^^^^^^^^^^^^^^^^^^^
 .. _inner-filter-effects:
 
+Primary inner filter effect
+"""""""""""""""""""""""""""
+.. _primary-inner-filter-effect:
+
 At high ligand concentrations, if the ligand has significant absorbance at the excitation wavelength, the amount of light reaching the bottom of the well is less than the light reaching the top of the well.
-This is called the *primary inner filter effect*, and has the net effect of attenuating the observed fluorescence.
+This is called the *primary inner filter effect*, and has the net effect of attenuating the observed absorbance and fluorescence.
+
+To see where this effect comes from, consider the permeation of light through a liquid with molar concentration :math:`c`, and extinction coefficient :math:`\epsilon`.
+
+.. figure:: _static/light-attenuation-diagram.jpg
+   :scale: 50 %
+   :alt: light attenuation diagraom
+
+   Attenuation of light passing through a liquid containing absorbing species.
+
+A slice of width :math:`\Delta l` at depth :math:`l` will absorb some of the incoming light intensity :math:`I(l)`:
+
+.. math::
+
+   \Delta I = - \epsilon \cdot \Delta l \cdot c \cdot I(l)
+
+If we shrink :math:`\Delta l` down to an infinitesimal slice, this gives us a differential equation for the intensity :math:`I(l)` at depth :math:`l`:
+
+.. math::
+
+   \frac{\partial I(l)}{\partial l} = - \epsilon \cdot c \cdot I(l)
+
+It's easy to see that the solution to this differential equation is given by
+
+.. math::
+
+   I(l) = I_0 e^{-\epsilon l c}
+
+since this satisfies the differential equation:
+
+.. math::
+
+   \frac{\partial I(l)}{\partial l} = I_0 (-\epsilon c) e^{-\epsilon l c} = - \epsilon \cdot c \cdot I(l)
+
+Secondary inner filter effect
+"""""""""""""""""""""""""""""
+.. _secondary-inner-filter-effect:
+
 Similarly, the *secondary inner filter effect* is caused by significant absorbance at the emission wavelength.
 When both effects are combined, the net attenuation effect depends on the geometry of excitation and detection:
 
-.. note:: Add figure illustrating inner filter effects.
+.. figure:: _static/inner-filter-effect-diagram.jpg
+   :scale: 50 %
+   :alt: inner filter effect diagram
 
-.. note:: Derive attenuation factors.
+   Geometry and light intensities used for inner filter effect corrections.
+
+   This figure assumes top illumination, and depicts the incident excitation light intensity :math:`I_{ex}`, transmitted light :math:`I_{ex}^\mathrm{bottom}`, and emitted fluorescent light toward the top :math:`I_{em}^\mathrm{top}` and bottom :math:`I_{em}^\mathrm{bottom}` detectors.
+   The distance from the top liquid interface is expressed in terms of the dimensionless :math:`x \in [0,1]` and the path length :math:`l = V/A`, with liquid volume :math:`V` and well area :math:`A`.
+
+Consider the shaded slice at depth :math:`x l` depicted in the figure.
+The excitation light reaching this layer has intensity
+
+.. math::
+
+   I_{ex}(xl) = I_{ex} e^{-\epsilon_{ex} \cdot x l \cdot c}
+
+where :math:`c` is the concentration of the species with extinction coefficient :math:`\epsilon_{ex}` (where we are only considering the effects from the ligand species at this point, since its concentration can be high).
+
+Extinction coefficients
+^^^^^^^^^^^^^^^^^^^^^^^
+.. _extinction-coefficients:
+
+Extinction coefficients at excitation (and possibly emission) wavelengths are needed if either :ref:`absorbance measurements <absorbance>` are made or :ref:`inner filter effects <inner-filter-effects>` are used.
+These can either be measured separately and provided by the user or inferred directly as nuisance parameters.
 
 Measured extinction coefficients
 """"""""""""""""""""""""""""""""
