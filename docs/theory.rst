@@ -86,10 +86,7 @@ The lognormal priors are expressed in the :mod:`pymc` model as ::
 .. note:: The parameters of a *lognormal distribution* differ from those of a normal distribution by the relationship `described here <https://en.wikipedia.org/wiki/Log-normal_distribution>`_. The parameters above ensure that the mean concentration is the stated concentration and the standard deviation is its experimental uncertainty.  The relationship between the mean and variance of the normal distribution :math:`\mu_N, \sigma_N^2` and the parameters for the lognormal distribution is given by:
 .. math::
 
-   \mu_{LN} &= \ln \frac{\mu_N^2}{\sqrt{\mu_N^2 + \sigma_N^2}} \\
-   \sigma^2_{LN} &= \ln \left[ 1 + \left( \frac{\sigma_N}{\mu_N}\right)^2 \right] \\
-   \tau_{LN} &= \ln \left[ 1 + \left( \frac{\sigma_N}{\mu_N}\right)^2 \right]^{-1}
-
+   \mu_{LN} = \ln \frac{\mu_N^2}{\sqrt{\mu_N^2 + \sigma_N^2}} \:\:;\:\: \sigma^2_{LN} = \ln \left[ 1 + \left( \frac{\sigma_N}{\mu_N}\right)^2 \right] \:\:;\:\: \tau_{LN} = \ln \left[ 1 + \left( \frac{\sigma_N}{\mu_N}\right)^2 \right]^{-1}
 
 Binding free energy
 ^^^^^^^^^^^^^^^^^^^
@@ -99,7 +96,9 @@ The ligand binding free energy :math:`\Delta G` is unknown, and presumed to eith
 
 .. math::
 
-   \Delta G \sim U(-\Delta G_{min}, +\Delta G_{max})
+   \Delta G \sim U(-\Delta G_\mathrm{min}, +\Delta G_\mathrm{max})
+
+where we by default take :math:`\Delta G_\mathrm{min} = \ln 10^{-15}` (femtomolar affinity) and `\Delta G_\mathrm{max} = 0` (molar affinity), where :math:`\Delta G` is in units of thermal energy :math:`k_B T`.
 
 This is expressed in the :mod:`pymc` model as ::
 
@@ -229,7 +228,11 @@ The absorbance is determined by the the extinction coefficient of each component
 
 .. math::
 
-   A = \sum_{i} \epsilon_{i} \cdot l \cdot [X_i] + A_\mathrm{plate}
+   A &= 1 - e^{-\epsilon \cdot l \cdot [L]}
+
+where :math:`\epsilon` is the extinction coefficient of the species (e.g. free ligand :math:`L`) at the illumination wavelength (excitation or emission), :math:`l` is the path length, and :math:`c` is the concentration of the species.
+
+.. note:: You may be more familiar with the linearized form of Beer's law (:math:`A = \epsilon l c`). It's easy to see that this comes from a Taylor expansion of the above equation, truncated to first order: :math:`1 - e^{-\epsilon l c} \approx 1 - \left[ 1 - \epsilon l c + \mathcal{O}(\epsilon l c)^2) \right] \approx \epsilon l c`. We use the equation above instead because it is much more accurate for larger absorbance values.
 
 The plate absorbance is a nuisance parameter that is assigned a uniform informationless prior:
 
@@ -240,6 +243,8 @@ The plate absorbance is a nuisance parameter that is assigned a uniform informat
 Currently, ``AssayTools`` supports absorbance measurements made at either (or both) the excitation and emission wavelengths.
 Absorbance measurements performed at the excitation wavelength help constrain the extinction coefficient for :ref:`primary inner filter effects <primary-inner-filter-effect>`, while absorbance measurements at the emission wavelength help constrain the extinction coefficients for :ref:`secondary inner filter effects <secondary-inner-filter-effect>`.
 Note that even if plates that are not highly transparent in the excitation or emission wavelengths are used, this still provides useful information---this effect is corrected for by inferring the plate absorbance :math:`A_\mathrm{plate}` at the appropriate wavelengths.
+
+.. note:: Currently, ``AssayTools`` only models absorbance for the ligand, using data from wells in which only ligand in buffer is present. In the future, we intend to extend this to support absorbance of all components.
 
 Observed absorbance
 """""""""""""""""""
@@ -262,6 +267,8 @@ The detector error :math:`\sigma_A` is assigned Jeffreys priors, which are unifo
 Inner filter effects
 ^^^^^^^^^^^^^^^^^^^^
 .. _inner-filter-effects:
+
+.. todo:: Need to add useful references to this section.
 
 Primary inner filter effect
 """""""""""""""""""""""""""
@@ -302,6 +309,17 @@ since this satisfies the differential equation:
 
    \frac{\partial I(l)}{\partial l} = I_0 (-\epsilon c) e^{-\epsilon l c} = - \epsilon \cdot c \cdot I(l)
 
+If only the primary inner filter effect is used, both top and bottom fluorescence are attenuated by a factor that can be computed by integrating the attenuation of incident light over the whole liquid path length:
+
+.. math::
+
+   \mathrm{IF}_\mathrm{fluorescence} = \int_0^1 dx e^{-\epsilon_{ex} \cdot x l \cdot c} = \left[ \frac{e^{-\epsilon_{ex} \cdot x l \cdot c}}{-\epsilon_{ex} \cdot l \cdot c} \right]_0^1 = \frac{1 - e^{-\epsilon_{ex} \cdot l \cdot c}}{\epsilon_{ex} \cdot l \cdot c}
+
+.. note:: When :math:`\epsilon \cdot l \cdot c \ll 1`, underflow of the exponential becomes a problem. To avoid negative attenuation factors, a fourth-order Taylor series approximation is used in computing :math:`IF_\mathrm{fluorescence}` if :math:`\epsilon \cdot l \cdot < 0.01`.
+
+.. note:: Currently, inner filter effects are only computed for the free ligand, but we plan to extend this to include a sum over the effects from all species.
+
+
 Secondary inner filter effect
 """""""""""""""""""""""""""""
 .. _secondary-inner-filter-effect:
@@ -326,6 +344,10 @@ The excitation light reaching this layer has intensity
    I_{ex}(xl) = I_{ex} e^{-\epsilon_{ex} \cdot x l \cdot c}
 
 where :math:`c` is the concentration of the species with extinction coefficient :math:`\epsilon_{ex}` (where we are only considering the effects from the ligand species at this point, since its concentration can be high).
+
+The secondary inner filter effect, because it considers absorbance at a different wavelength from the incident light, does not attenuate the absorbance.
+
+If both primary and secondary inner filter effects are
 
 Extinction coefficients
 ^^^^^^^^^^^^^^^^^^^^^^^
@@ -354,7 +376,12 @@ This is modeled in the code as ::
 Inferred extinction coefficients
 """"""""""""""""""""""""""""""""
 
-If the extinction coefficients
+If the extinction coefficients have not been measured, they are inferred as nuisance parameters, with priors assigned from a uniform distribution with a large maximum and an initial guess based on the extinction coefficient of bosutinib at 280 nm ::
+
+  model['epsilon_ex'] = pymc.Uniform('epsilon_ex', lower=0.0, upper=1000e3, value=70000.0) # extinction coefficient or molar absorptivity for ligand, units of 1/M/cm
+  model['epsilon_em'] = pymc.Uniform('epsilon_em', lower=0.0, upper=1000e3, value=0.0) # extinction coefficient or molar absorptivity for ligand, units of 1/M/cm
+
+.. todo: We should generalize the initial guesses a bit more. Zero probably works well here.
 
 Binding models
 ==============
