@@ -9,7 +9,7 @@ This section describes the theory behind the various Bayesian model fitting sche
 Bayesian analysis
 =================
 
-`AssayTools` uses `Bayesian inference `https://en.wikipedia.org/wiki/Bayesian_inference>`_ to infer unknown parameters (such as ligand binding free energies) from experimental spectroscopic data.
+`AssayTools` uses `Bayesian inference <https://en.wikipedia.org/wiki/Bayesian_inference>`_ to infer unknown parameters (such as ligand binding free energies) from experimental spectroscopic data.
 It does this to allow the complete uncertainty---in the form of the joint distribution of all unknown parameters---to be rigorously characterized.
 The most common way to summarize these results is generally to extract confidence intervals of individual parameters, but much more sophisticated analyses---such as examining the correlation between parameters---are also possible.
 
@@ -22,8 +22,8 @@ Unknown parameters
 .. _parameters:
 
 For convenience, we define the unknown parameters in the model for reference:
-* `Ltrue` - true ligand concentration in the well
-* `Ptrue` - true protein concentration in the well
+* ``Ltrue`` - true ligand concentration in the well
+* ``Ptrue`` - true protein concentration in the well
 
 Data
 ----
@@ -56,7 +56,7 @@ Similarly, the stated ligand concentration :math:`L_{stated}` and its error :mat
 
 If we assume the dispensing process is free of bias, the simplest distribution that fits the stated concentration and its standard deviation without making additional assumptions is a Gaussian.
 
-We assign these true concentrations :math:`P_{true}` (protein) and :math:`L_{true}` (ligand) a prior distribution.
+We assign these true concentrations for the receptor :math:`R_{true}` and ligand :math:`L_{true}` a prior distribution.
 If ``concentration_priors`` is set to ``gaussian``, this is precisely what is used ::
 
   Ptrue = pymc.Normal('Ptrue', mu=Pstated, tau=dPstated**(-2)) # protein concentration (M)
@@ -76,13 +76,13 @@ The lognormal priors are defined as ::
 Binding free energy
 ^^^^^^^^^^^^^^^^^^^
 
-The ligand binding free energy :math:`\Delta G` is unknown, and presumed to either be unknown over a large uniform range with the `uniform` prior:
+The ligand binding free energy :math:`\Delta G` is unknown, and presumed to either be unknown over a large uniform range with the ``uniform`` prior ::
 
   DeltaG = pymc.Uniform('DeltaG', lower=DG_min, upper=DG_max) # binding free energy (kT), uniform over huge range
 
 but this has the drawback that affinities near the extreme measurable ranges are simply unknown with equal likelihood out to absurd extreme values.
 
-We can attenuate the posterior probabilities at extreme affinities by using a prior inspired by the range of data recorded in `ChEMBL <https://www.ebi.ac.uk/chembl/>`_ via the `chembl` prior:
+We can attenuate the posterior probabilities at extreme affinities by using a prior inspired by the range of data recorded in `ChEMBL <https://www.ebi.ac.uk/chembl/>`_ via the ``chembl`` prior ::
 
   DeltaG = pymc.Normal('DeltaG', mu=0, tau=1./(12.5**2)) # binding free energy (kT), using a Gaussian prior inspired by ChEMBL
 
@@ -105,11 +105,15 @@ This is called the *primary inner filter effect*, and has the net effect of atte
 Similarly, the *secondary inner filter effect* is caused by significant absorbance at the emission wavelength.
 When both effects are combined, the net attenuation effect depends on the geometry of excitation and detection:
 
-If we are allowing for primary inner filter effects, in which incident excitation light is absorbed by the ligand, we use a lognormal distribution for the ligand extinction coefficient at the excitation wavelength `epsilon_ex` ::
+.. note:: Add figure illustrating inner filter effects.
+
+.. note:: Derive attenuation factors.
+
+If we are allowing for primary inner filter effects, in which incident excitation light is absorbed by the ligand, we use a lognormal distribution for the ligand extinction coefficient at the excitation wavelength :math:`\epsilon_{ex}` ::
 
   model['epsilon_ex'] = pymc.Lognormal('epsilon_ex', mu=np.log(epsilon_ex**2 / np.sqrt(depsilon_ex**2 + epsilon_ex**2)), tau=np.sqrt(np.log(1.0 + (depsilon_ex/epsilon_ex)**2))**(-2)) # prior is centered on measured extinction coefficient
 
-If we are allowing for secondary inner filter effects, in which emission light is absorbed by the ligand, we use a lognormal distribution for the ligand extinction coefficient at the emission wavelength `epsilon_ex` ::
+If we are allowing for secondary inner filter effects, in which emission light is absorbed by the ligand, we use a lognormal distribution for the ligand extinction coefficient at the emission wavelength :math:`\epsilon_{em}` ::
 
   model['epsilon_em'] = pymc.Lognormal('epsilon_em', mu=np.log(epsilon_em**2 / np.sqrt(depsilon_em**2 + epsilon_em**2)), tau=np.sqrt(np.log(1.0 + (depsilon_em/epsilon_em)**2))**(-2)) # prior is centered on measured extinction coefficient
 
