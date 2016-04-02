@@ -4,12 +4,14 @@
 Theory
 ******
 
-Bayesian sampling
+This section describes the theory behind the various Bayesian model fitting schemes in `AssayTools`.
+
+Bayesian analysis
 =================
 
-`AssayTools` uses a Bayesian model to infer unknown parameters (such as the free energy of ligand binding) from experimental data.
-It does this to allow the complete uncertainty---in the form of the joint distribution of all unknown parameters---to be characterized.
-The most common way to summarize these results is generally confidence intervals of individual parameters, but much more sophisticated analyses are also possible.
+`AssayTools` uses `Bayesian inference `https://en.wikipedia.org/wiki/Bayesian_inference>`_ to infer unknown parameters (such as ligand binding free energies) from experimental spectroscopic data.
+It does this to allow the complete uncertainty---in the form of the joint distribution of all unknown parameters---to be rigorously characterized.
+The most common way to summarize these results is generally to extract confidence intervals of individual parameters, but much more sophisticated analyses---such as examining the correlation between parameters---are also possible.
 
 Unknown parameters
 ------------------
@@ -24,6 +26,12 @@ Data
 .. _data:
 
 The data are given as...
+
+.. math::
+
+   (a + b)^2 = a^2 + 2ab + b^2
+
+   (a - b)^2 = a^2 - 2ab + b^2
 
 Priors
 ------
@@ -78,3 +86,85 @@ If we are allowing for primary inner filter effects, in which incident excitatio
 If we are allowing for secondary inner filter effects, in which emission light is absorbed by the ligand, we use a lognormal distribution for the ligand extinction coefficient at the emission wavelength `epsilon_ex` ::
 
   model['epsilon_em'] = pymc.Lognormal('epsilon_em', mu=np.log(epsilon_em**2 / np.sqrt(depsilon_em**2 + epsilon_em**2)), tau=np.sqrt(np.log(1.0 + (depsilon_em/epsilon_em)**2))**(-2)) # prior is centered on measured extinction coefficient
+
+Binding models
+==============
+
+`AssayTools` has a variety of binding models implemented.
+Though the user must currently specify the model to be fit to the data, we plan to include the ability to automatically select the most appropriate binding model automatically using `reversible-jump Monte Carlo (RJMC) <https://en.wikipedia.org/wiki/Reversible-jump_Markov_chain_Monte_Carlo>`_, which also permits `Bayesian hypothesis testing <https://en.wikipedia.org/wiki/Bayes_factor>`_.
+All binding models are subclasses of the :class:`BindingModel` abstract base class, and users can implement their own binding models as subclasses.
+
+Two-component binding model
+---------------------------
+
+A two-component binding model is implemented in :class:`assaytools.bindingmodels.TwoComponentBinding`.
+When it is known that receptor `R` associates with ligand `L` in a 1:1 fashion, we can write the dissociation constant :math:`K_d` in terms of the equilibrium concentrations of each species:
+
+.. math::
+
+   K_d = \frac{[R][L]}{[RL]}
+
+Incorporating conservation of mass constraints
+
+.. math::
+
+   [R]_T &= [R] + [RL] \\
+   [L]_T &= [L] + [RL]
+
+we can eliminate the unknown concentrations of free receptor :math:`[R]` and free ligand :math:`[L]` to obtain an expression for the complex concentration :math:`[RL]` in terms of fixed quantities (dissociation constant :math:`K_d` and total concentrations :math:`[R]_T` and :math:`[L]_T`):
+
+.. math::
+
+   K_d = \frac{([R]_T - [RL]) ([L]_T - [RL])}{[RL]}
+
+   [RL] K_d = ([R]_T - [RL]) ([L]_T - [RL])
+
+   0 = [RL]^2 - ([R]_T + [L]_T + K_d) [RL] + [R]_T [L]_T
+
+This quadratic equation has closed-form solution, with only one branch of the solution giving :math:`0 < [RL] < \min([R]_T, [L]_t)`:
+
+.. math::
+
+   K_d = \frac{1}{2} \left[ ([R]_T + [L]_T + K_d) - \sqrt{([R]_T + [L]_T + K_d)^2 - 4 [R]_T [L]_T} \right]
+
+Note that this form is not always numerically stable since :math:`[R]_T`, :math:`[L]_T`, and :math:`K_d` may differ by orders of magnitude, leading to slightly negative numbers inside the square-root.
+`AssayTools` uses the logarithms of these quantities instead, and guards against negative values inside the square root.
+
+Competitive binding model
+-------------------------
+
+When working with N ligands :math:`L_n` that bind a single receptor :math:`R`, we utilize a competitive binding model implemented in :class:`assaytools.bindingmodels.CompetitiveBindingModel`.
+Here, the dissociation constants :math:`K_n` are defined as
+
+.. math::
+
+   K_n = \frac{[R][L_n]}{[RL_n]}
+
+with corresponding conservation of mass constraints
+
+.. math::
+
+   [R]_T &= [R] + \sum_{n=1}^N [RL_n] \\
+   [L_n]_T &= [L_n] + [RL_n], n = 1,\ldots, N
+
+The solution must also satisfy some constraints:
+
+.. math::
+
+   0 \le [RL_n] \le \min([L_n], [R]_T) \:\:,\:\: n = 1,\ldots,N
+
+   \sum_{n=1}^N [RL_n] \le [R]_T
+
+We can rearrange these expressions to give
+
+.. math::
+
+   [R][L_n] - [RL_n] K_n = 0  \:\:,\:\: n = 1, \ldots, N
+
+and eliminate :math:`[RL_n]` and :math:`[R]` to give
+
+.. math::
+
+   \left( [R]_T - \sum_{n=1}^N [RL_n] \right) * ([L_n]_T - [RL_n]) - [RL_n] K_n = 0  \:\:,\:\: n = 1, \ldots, N
+
+This leads to a coupled series of equations that cannot easily be solved in closed form, but are straightforward to solve numerically using the `scipy` solver `fsolve`, starting from an initial guess that ensures the constraints remain satisfied.
