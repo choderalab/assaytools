@@ -54,6 +54,12 @@ extensions = ['sphinx.ext.autodoc', 'sphinx.ext.doctest', 'sphinx.ext.intersphin
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 
+intersphinx_mapping = {'python': ('http://docs.python.org/2', None),
+                       'numpy': ('http://docs.scipy.org/doc/numpy/', None),
+                       'scipy': ('http://docs.scipy.org/doc/scipy/reference/', None),
+                       'matplotlib': ('http://matplotlib.sourceforge.net/', None),
+                       'pymc': ('http://pymc-devs.github.io/pymc/', None)}
+
 autosummary_generate = True
 autodoc_default_flags = ['members', 'inherited-members']
 
