@@ -121,20 +121,23 @@ Components
 
 We now discuss the various modular components of the Bayesian inference scheme.
 
+These components generally involve models of observed spectroscopic value that are computed from concentrations of the various components :math:`[X_i]` which represent, for example, free receptor :math:`R`, complexed receptor :math:`RL`, or free ligand :math:`L`.
+These concentrations are computed from the current samples of true total concentrations and binding affinities using one of the specified :ref:`binding models <binding-models>` described below.
+
 Fluorescence
 ^^^^^^^^^^^^
 .. _fluorescence:
 
 Fluorescence can be measured from either the top (from which the plate is illuminated in the Tecan Infinite M1000PRO), bottom, or both.
-Observed fluorescence depends on the concentration of each species :math:`X_i`, the quantum efficiencies of each species at the excitation/emission wavelengths :math:`q_i(ex,em)`, and the intrinsic background fluorescence of the plate :math:`F_{plate}`
+Observed fluorescence depends on the concentration of each species :math:`X_i`, the quantum efficiencies of each species at the excitation/emission wavelengths :math:`q_i(ex,em)`.
 
 .. math::
 
-   F_{top} = I_0 \left[ \sum_{i \in components} q_i(ex,em) [X_i] + F_{plate,top} \right]
+   F_{top} = I_0 \left[ \sum_{i} q_i(ex,em) [X_i] + l F_\mathrm{buffer} + F_\mathrm{plate} \right]
 
-   F_{bottom} = I_0 \left[ \sum_{i \in components} q_i(ex,em) [X_i] + F_{plate,bottom} \right]
+   F_{bottom} = I_0 \left[ \sum_{i} q_i(ex,em) [X_i] + l F_\mathrm{buffer} + F_\mathrm{plate} \right]
 
-Here, :math:`I_0` is the incident excitation intensity.
+Here, :math:`I_0` is the incident excitation intensity, :math:`F_\mathrm{buffer}` is a buffer fluorescence per unit path length, and :math:`F_\mathrm{plate}` is the background fluorescence of the plate.
 
 Absorbance
 ^^^^^^^^^^
@@ -183,6 +186,7 @@ If the extinction coefficients
 
 Binding models
 ==============
+.. _binding-models:
 
 `AssayTools` has a variety of binding models implemented.
 Though the user must currently specify the model to be fit to the data, we plan to include the ability to automatically select the most appropriate binding model automatically using `reversible-jump Monte Carlo (RJMC) <https://en.wikipedia.org/wiki/Reversible-jump_Markov_chain_Monte_Carlo>`_, which also permits `Bayesian hypothesis testing <https://en.wikipedia.org/wiki/Bayes_factor>`_.
