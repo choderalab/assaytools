@@ -313,12 +313,11 @@ If only the primary inner filter effect is used, both top and bottom fluorescenc
 
 .. math::
 
-   \mathrm{IF}_\mathrm{fluorescence} = \int_0^1 dx e^{-\epsilon_{ex} \cdot x l \cdot c} = \left[ \frac{e^{-\epsilon_{ex} \cdot x l \cdot c}}{-\epsilon_{ex} \cdot l \cdot c} \right]_0^1 = \frac{1 - e^{-\epsilon_{ex} \cdot l \cdot c}}{\epsilon_{ex} \cdot l \cdot c}
+   \mathrm{IF}_\mathrm{top/bottom} = \int_0^1 dx e^{-\epsilon_{ex} \cdot x l \cdot c} = \left[ \frac{e^{-\epsilon_{ex} \cdot x l \cdot c}}{-\epsilon_{ex} \cdot l \cdot c} \right]_0^1 = \frac{1 - e^{-\epsilon_{ex} \cdot l \cdot c}}{\epsilon_{ex} \cdot l \cdot c}
 
-.. note:: When :math:`\epsilon \cdot l \cdot c \ll 1`, underflow of the exponential becomes a problem. To avoid negative attenuation factors, a fourth-order Taylor series approximation is used in computing :math:`IF_\mathrm{fluorescence}` if :math:`\epsilon \cdot l \cdot < 0.01`.
+.. note:: When :math:`\epsilon \cdot l \cdot c \ll 1`, numerical underflow of the exponential becomes a problem. To avoid negative attenuation factors, a fourth-order Taylor series approximation of the exponential is used in computing the attenuation factor if :math:`\epsilon \cdot l \cdot < 0.01`.
 
 .. note:: Currently, inner filter effects are only computed for the free ligand, but we plan to extend this to include a sum over the effects from all species.
-
 
 Secondary inner filter effect
 """""""""""""""""""""""""""""
@@ -347,7 +346,21 @@ where :math:`c` is the concentration of the species with extinction coefficient 
 
 The secondary inner filter effect, because it considers absorbance at a different wavelength from the incident light, does not attenuate the absorbance.
 
-If both primary and secondary inner filter effects are
+If both primary and secondary inner filter effects are utilized, fluorescence is attenuated by a factor that depends on the detection geometry.
+
+For top fluorescence, this is given by
+
+.. math::
+
+   \mathrm{IF}_\mathrm{top} = \int_0^1 dx \, e^{-\epsilon_{ex} \cdot xl \cdot c} \, e^{-\epsilon_{em} \cdot xl \cdot c} = \int_0^1 dx \, e^{-(\epsilon_{ex} + \epsilon_{em}) \cdot xl \cdot c} = \frac{1 - e^{-(\epsilon_{ex} + \epsilon_{em}) l c}}{(\epsilon_{ex} + \epsilon_{em}) l c}
+
+For bottom fluorescence measurements, the path taken to the detector is different from the incident path length, so the attenuation factor is given by
+
+.. math::
+
+   \mathrm{IF}_\mathrm{bottom} = \int_0^1 dx \, e^{-\epsilon_{ex} \cdot xl \cdot c} \, e^{-\epsilon_{em} \cdot (1-x)l \cdot c} = e^{-\epsilon_{em} l c} \int_0^1 dx \, e^{-(\epsilon_{ex} - \epsilon_{em}) \cdot xl \cdot c} = e^{-\epsilon_{em} l c} \left[\frac{1 - e^{-(\epsilon_{ex} - \epsilon_{em}) l c}}{(\epsilon_{ex} - \epsilon_{em}) l c} \right]
+
+.. note:: Just as with the :ref:`primary inner filter effect <primary-inner-filter-effect>`, when :math:`\epsilon \cdot l \cdot c \ll 1`, numerical underflow of the exponential becomes a problem. To avoid negative attenuation factors, a fourth-order Taylor series approximation of the exponential is used in computing the attenuation factor if :math:`\epsilon \cdot l \cdot < 0.01`.
 
 Extinction coefficients
 ^^^^^^^^^^^^^^^^^^^^^^^
@@ -364,11 +377,9 @@ Because extinction coefficients must be positive, we use a lognormal distirbutio
 
 .. math::
 
-  \epsilon \sim \mathrm{LN}(\mu, \tau) \\
-  \mu = \ln \frac{\epsilon^2}{\sqrt{\epsilon^2 + \delta \epsilon^2}} \\
-  \tau = \ln \left[ 1 + \left( \frac{\delta \epsilon}{\epsilon}\right)^2 \right]^{-1}
+  \epsilon \sim \mathrm{LN}(\mu, \tau) \:\:\mathrm{where}\:\: \mu = \ln \frac{\epsilon^2}{\sqrt{\epsilon^2 + \delta \epsilon^2}} \:\:,\:\: \tau = \ln \left[ 1 + \left( \frac{\delta \epsilon}{\epsilon}\right)^2 \right]^{-1}
 
-This is modeled in the code as ::
+This is implemented in the :mod:`pymc` model as ::
 
   model['epsilon_ex'] = pymc.Lognormal('epsilon_ex', mu=np.log(epsilon_ex**2 / np.sqrt(depsilon_ex**2 + epsilon_ex**2)), tau=np.sqrt(np.log(1.0 + (depsilon_ex/epsilon_ex)**2))**(-2)) # prior is centered on measured extinction coefficient
   model['epsilon_em'] = pymc.Lognormal('epsilon_em', mu=np.log(epsilon_em**2 / np.sqrt(depsilon_em**2 + epsilon_em**2)), tau=np.sqrt(np.log(1.0 + (depsilon_em/epsilon_em)**2))**(-2)) # prior is centered on measured extinction coefficient
@@ -465,3 +476,5 @@ and eliminate :math:`[RL_n]` and :math:`[R]` to give
    \left( [R]_T - \sum_{n=1}^N [RL_n] \right) * ([L_n]_T - [RL_n]) - [RL_n] K_n = 0  \:\:,\:\: n = 1, \ldots, N
 
 This leads to a coupled series of equations that cannot easily be solved in closed form, but are straightforward to solve numerically using the solver :func:`scipy.optimize.fsolve`, starting from an initial guess that ensures the constraints remain satisfied.
+
+.. todo:: Can we work with log concentrations and affinities here instead for more robust solutions?
