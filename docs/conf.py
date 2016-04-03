@@ -235,10 +235,20 @@ latex_elements = {
 #'papersize': 'letterpaper',
 
 # The font size ('10pt', '11pt' or '12pt').
-#'pointsize': '10pt',
+'pointsize': '10pt',
 
 # Additional stuff for the LaTeX preamble.
 #'preamble': '',
+# Additional stuff for the LaTeX preamble.
+    'preamble': r'''
+        \usepackage{sourcesanspro}
+        \renewcommand*\familydefault{\sfdefault} %% Only if the base font of the document is to be sans serif
+        \usepackage[T1]{fontenc}
+
+        % \usepackage{charter}
+        % \usepackage[defaultsans]{lato}
+        \usepackage{inconsolata}
+    ''',
 }
 
 # Grouping the document tree into LaTeX files. List of tuples
