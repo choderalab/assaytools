@@ -23,8 +23,8 @@ Unknown parameters
 
 For convenience, we define the unknown parameters in the model for reference:
 
-* the *true total ligand concentration* :math:`L_{true}` in the well (including all species involving the ligand)
-* the *true receptor concentration* :math:`R_{true}` (including all species involving the receptor)
+* the **true total ligand concentration** :math:`L_\mathrm{true}` in the well (including all species involving the ligand)
+* the **true receptor concentration** :math:`R_\mathrm{true}` (including all species involving the receptor)
 
 Data
 ----
@@ -33,16 +33,16 @@ Data
 For each experiment, the data is given by a set of observations for each well.
 Each well is associated with some properties:
 
-* the *volume* :math:`V` of sample in the well (mostly buffer)
-* a total concentration :math:`[R]_T` of *receptor* added to the well
-* a total concentration :math:`[L]_T` of *ligand* added to the well (or potentially multiple ligands)
-* the *well area* :math:`A` with the assumption that the well is cylindrical (allowing the path length :math:`l` to be computed)
+* the **volume** :math:`V` of sample in the well (mostly buffer)
+* a total concentration :math:`[R]_T` of **receptor** added to the well
+* a total concentration :math:`[L]_T` of **ligand** added to the well (or potentially multiple ligands)
+* the **well area** :math:`A` with the assumption that the well is cylindrical (allowing the path length :math:`l` to be computed)
 
 and one or more experimental measurements:
 
-* a *top fluorescence measurement* (returning toward the incident excitation light) :math:`F_{top}`
-* a *bottom fluorescence measurement* (proceeding in the same direction as the incident excitation light) :math:`F_{bottom}`
-* an *absorbance measurement* :math:`A`
+* a **top fluorescence measurement** (returning toward the incident excitation light) :math:`F_{top}`
+* a **bottom fluorescence measurement** (proceeding in the same direction as the incident excitation light) :math:`F_\mathrm{bottom}`
+* an **absorbance measurement** :math:`A`
 
 Priors
 ------
@@ -55,13 +55,13 @@ Concentrations
 .. _concentrations:
 
 While we design the experiment to dispense the *intended* amount of protein and ligand into each well, the true amount dispensed into the well will vary due to random pipetting error.
-The *true* concentrations of protein :math:`R_{true}` and ligand :math:`L_{true}` in each well are therefore unknown.
-Because we propagate the pipetting error along with the intended concentrations, we have the intended ("stated") protein concentration :math:`P_{stated}` and its standard error :math:`\delta P_{stated}` as input.
-Similarly, the stated ligand concentration :math:`L_{stated}` and its error :math:`\delta L_{stated}` are also known.
+The *true* concentrations of protein :math:`R_\mathrm{true}` and ligand :math:`L_\mathrm{true}` in each well are therefore unknown.
+Because we propagate the pipetting error along with the intended concentrations, we have the intended ("stated") protein concentration :math:`P_\mathrm{stated}` and its standard error :math:`\delta P_\mathrm{stated}` as input.
+Similarly, the stated ligand concentration :math:`L_\mathrm{stated}` and its error :math:`\delta L_\mathrm{stated}` are also known.
 
 If we assume the dispensing process is free of bias, the simplest distribution that fits the stated concentration and its standard deviation without making additional assumptions is a Gaussian.
 
-We assign these true concentrations for the receptor :math:`R_{true}` and ligand :math:`L_{true}` a prior distribution.
+We assign these true concentrations for the receptor :math:`R_\mathrm{true}` and ligand :math:`L_\mathrm{true}` a prior distribution.
 If ``concentration_priors`` is set to ``gaussian``, this is precisely what is used
 
 .. math::
@@ -71,17 +71,13 @@ If ``concentration_priors`` is set to ``gaussian``, this is precisely what is us
 
 This is expressed in the :mod:`pymc` model as ::
 
-  Ptrue = pymc.Normal('Ptrue', mu=Pstated, tau=dPstated**(-2)) # protein concentration (M)
-  Ltrue = pymc.Normal('Ltrue', mu=Lstated, tau=dLstated**(-2)) # ligand concentration (M)
+  Ptrue = pymc.Normal('Ptrue', mu=Pstated, tau=dPstated**(-2)) # M
+  Ltrue = pymc.Normal('Ltrue', mu=Lstated, tau=dLstated**(-2)) # M
 
-.. note:: :mod:`pymc` uses the *precision* :math:`\tau \equiv \sigma^{-2}` instead of the variance :math:`\sigma^2` as a parameter of the normal distribution.
+.. note:: :mod:`pymc` uses the **precision** :math:`\tau \equiv \sigma^{-2}` instead of the variance :math:`\sigma^2` as a parameter of the normal distribution.
 
 Gaussian priors have the unfortunate drawback that there is a small but nonzero probability that these concentrations would be negative, leading to nonsensical (unphysical) concentrations.
 To avoid this, we generally use a lognormal distribution (selected by ``concentration_priors='lognormal'``).
-The lognormal priors are expressed in the :mod:`pymc` model as ::
-
-  Ptrue = pymc.Lognormal('Ptrue', mu=np.log(Pstated**2 / np.sqrt(dPstated**2 + Pstated**2)), tau=np.sqrt(np.log(1.0 + (dPstated/Pstated)**2))**(-2)) # protein concentration (M)
-  Ltrue = pymc.Lognormal('Ltrue', mu=np.log(Lstated**2 / np.sqrt(dLstated**2 + Lstated**2)), tau=np.sqrt(np.log(1.0 + (dLstated/Lstated)**2))**(-2)) # ligand concentration (M)
 
 .. note:: The parameters of a *lognormal distribution* differ from those of a normal distribution by the relationship `described here <https://en.wikipedia.org/wiki/Log-normal_distribution>`_. The parameters above ensure that the mean concentration is the stated concentration and the standard deviation is its experimental uncertainty.  The relationship between the mean and variance of the normal distribution :math:`\mu_N, \sigma_N^2` and the parameters for the lognormal distribution is given by:
 .. math::
@@ -102,7 +98,8 @@ where we by default take :math:`\Delta G_\mathrm{min} = \ln 10^{-15}` (femtomola
 
 This is expressed in the :mod:`pymc` model as ::
 
-  DeltaG = pymc.Uniform('DeltaG', lower=DG_min, upper=DG_max) # binding free energy (kT), uniform over huge range
+  # binding free energy (kT), uniform over huge range
+  DeltaG = pymc.Uniform('DeltaG', lower=DG_min, upper=DG_max)
 
 This uniform prior has the drawback that affinities near the extreme measurable ranges are simply unknown with equal likelihood out to absurd extreme values.
 
@@ -115,7 +112,8 @@ We can attenuate the posterior probabilities at extreme affinities by using a pr
 
 This is expressed in the :mod:`pymc` model as ::
 
-  DeltaG = pymc.Normal('DeltaG', mu=0, tau=1./(12.5**2)) # binding free energy (kT), using a Gaussian prior inspired by ChEMBL
+  # binding free energy (kT), using a Gaussian prior inspired by ChEMBL
+  DeltaG = pymc.Normal('DeltaG', mu=0, tau=1./(12.5**2))
 
 Modular components of the Bayesian model
 ----------------------------------------
@@ -129,8 +127,8 @@ Fluorescence
 ^^^^^^^^^^^^
 .. _fluorescence:
 
-Fluorescence model
-""""""""""""""""""
+Fluorescence model.
+"""""""""""""""""""
 .. _fluorescence-model:
 
 Fluorescence can be measured from either the top, bottom, or both.
@@ -145,8 +143,8 @@ The true fluorescence depends on the concentration of each species :math:`X_i`:
 Here, :math:`I_{ex}` is the incident excitation intensity, :math:`q_i(ex,em)` are the quantum efficiencies of each species at the excitation/emission wavelengths, :math:`F_\mathrm{buffer}` is a buffer fluorescence per unit path length, and :math:`F_\mathrm{plate}` is the background fluorescence of the plate.
 Notably, without :ref:`inner filter effects <inner-filter-effects>`, the only factor that causes differences between top and bottom fluorescence is the gain factor `G_\mathrm{bottom}` that captures a potential difference in detector gains between the top and bottom detectors.
 
-Observed fluorescence
-"""""""""""""""""""""
+Observed fluorescence.
+""""""""""""""""""""""
 .. _observed-fluorescence:
 
 The observed fluorescence :math:`F^\mathrm{obs}_\mathrm{top}` and :math:`F^\mathrm{obs}_\mathrm{bottom}` will differ from the true fluorescence due to detector noise.
@@ -168,8 +166,8 @@ By default, the same detector error :math:`\sigma` is used for both top and bott
 While the detector error is inferred separately for each experiment since the detector gain may differ from experiment.
 If multiple datasets using the same instrument configuration and detector gain are inferred together---such as the inclusion of calibration experiments with controls---this will help improve the detector error estimate.
 
-Quantum efficiencies
-""""""""""""""""""""
+Quantum efficiencies.
+"""""""""""""""""""""
 .. _quantum-efficiencies:
 
 Since the quantum efficiencies :math:`q_i(ex,em)` of each species :math:`X_i` are unknown, they are inferred as `nuisance parameters <https://en.wikipedia.org/wiki/Nuisance_parameter>`_ as part of the Bayesian inference process.
@@ -195,14 +193,14 @@ These assumptions can of course be violated once the sampler starts to infer the
 
 In the :mod:`pymc` model, these priors are implemented via ::
 
-  model['F_PL'] = pymc.Uniform('F_PL', lower=0.0, upper=2*Fmax/min(Pstated.max(),Lstated.max()), value=F_PL_guess) # complex fluorescence
-  model['F_P'] = pymc.Uniform('F_P', lower=0.0, upper=2*(Fmax/Pstated).max(), value=F_P_guess) # protein fluorescence
-  model['F_L'] = pymc.Uniform('F_L', lower=0.0, upper=2*(Fmax/Lstated).max(), value=F_L_guess) # ligand fluorescence
-  model['F_plate'] = pymc.Uniform('F_plate', lower=0.0, upper=Fmax, value=F_plate_guess) # plate fluorescence
-  model['F_buffer'] = pymc.Uniform('F_buffer', lower=0.0, upper=Fmax/path_length, value=F_buffer_guess) # buffer fluorescence
+  model['F_PL'] = pymc.Uniform('F_PL', lower=0.0, upper=2*Fmax/min(Pstated.max(),Lstated.max()), value=F_PL_guess)
+  model['F_P'] = pymc.Uniform('F_P', lower=0.0, upper=2*(Fmax/Pstated).max(), value=F_P_guess)
+  model['F_L'] = pymc.Uniform('F_L', lower=0.0, upper=2*(Fmax/Lstated).max(), value=F_L_guess)
+  model['F_plate'] = pymc.Uniform('F_plate', lower=0.0, upper=Fmax, value=F_plate_guess)
+  model['F_buffer'] = pymc.Uniform('F_buffer', lower=0.0, upper=Fmax/path_length, value=F_buffer_guess)
 
-Top/bottom detector gain
-""""""""""""""""""""""""
+Top/bottom detector gain.
+"""""""""""""""""""""""""
 .. _detector-gain:
 
 The bottom detector relative gain factor is assigned a uniform prior over the log gain:
@@ -213,15 +211,14 @@ The bottom detector relative gain factor is assigned a uniform prior over the lo
 
 which is implemented in the :mod:`pymc` model as ::
 
-  model['log_gain_bottom'] = pymc.Uniform('log_gain_bottom', lower=-6.0, upper=6.0, value=log_gain_guess) # plate material absorbance at emission wavelength
-  model['gain_bottom'] = pymc.Lambda('gain_bottom', lambda log_gain_bottom=model['log_gain_bottom'] : np.exp(log_gain_bottom) )
+  model['log_gain_bottom'] = pymc.Uniform('log_gain_bottom', lower=-6.0, upper=6.0, value=log_gain_guess)
 
 Absorbance
 ^^^^^^^^^^
 .. _absorbance:
 
-Absorbance model
-""""""""""""""""
+Absorbance model.
+"""""""""""""""""
 .. _absorbance-model:
 
 The absorbance is determined by the the extinction coefficient of each component :math:`X_i` (`R`, `L`, `RL` for simple two-component binding) at the illumination wavelength, as well as any intrinsic absorbance of the plate at that wavelength.
@@ -246,8 +243,8 @@ Note that even if plates that are not highly transparent in the excitation or em
 
 .. note:: Currently, ``AssayTools`` only models absorbance for the ligand, using data from wells in which only ligand in buffer is present. In the future, we intend to extend this to support absorbance of all components.
 
-Observed absorbance
-"""""""""""""""""""
+Observed absorbance.
+""""""""""""""""""""
 .. _observed-absorbance:
 
 As the detector averages many measurements from multiple flashes of a Xenon lamp for the reported absorbance :math:`A^\mathrm{obs}`, the observed measurement can be modeled with a normal distribution
@@ -270,8 +267,8 @@ Inner filter effects
 
 .. todo:: Need to add useful references to this section.
 
-Primary inner filter effect
-"""""""""""""""""""""""""""
+Primary inner filter effect.
+""""""""""""""""""""""""""""
 .. _primary-inner-filter-effect:
 
 At high ligand concentrations, if the ligand has significant absorbance at the excitation wavelength, the amount of light reaching the bottom of the well is less than the light reaching the top of the well.
@@ -319,8 +316,8 @@ If only the primary inner filter effect is used, both top and bottom fluorescenc
 
 .. note:: Currently, inner filter effects are only computed for the free ligand, but we plan to extend this to include a sum over the effects from all species.
 
-Secondary inner filter effect
-"""""""""""""""""""""""""""""
+Secondary inner filter effect.
+""""""""""""""""""""""""""""""
 .. _secondary-inner-filter-effect:
 
 Similarly, the *secondary inner filter effect* is caused by significant absorbance at the emission wavelength.
@@ -360,7 +357,7 @@ For bottom fluorescence measurements, the path taken to the detector is differen
 
    \mathrm{IF}_\mathrm{bottom} = \int_0^1 dx \, e^{-\epsilon_{ex} \cdot xl \cdot c} \, e^{-\epsilon_{em} \cdot (1-x)l \cdot c} = e^{-\epsilon_{em} l c} \int_0^1 dx \, e^{-(\epsilon_{ex} - \epsilon_{em}) \cdot xl \cdot c} = e^{-\epsilon_{em} l c} \left[\frac{1 - e^{-(\epsilon_{ex} - \epsilon_{em}) l c}}{(\epsilon_{ex} - \epsilon_{em}) l c} \right]
 
-.. note:: Just as with the :ref:`primary inner filter effect <primary-inner-filter-effect>`, when :math:`\epsilon \cdot l \cdot c \ll 1`, numerical underflow of the exponential becomes a problem. To avoid negative attenuation factors, a fourth-order Taylor series approximation of the exponential is used in computing the attenuation factor if :math:`\epsilon \cdot l \cdot < 0.01`.
+.. note:: Just as with the :ref:`primary inner filter effect <primary-inner-filter-effect>`, when :math:`\epsilon l c \ll 1`, numerical underflow of the exponential becomes a problem. To avoid negative attenuation factors, a fourth-order Taylor series approximation of the exponential is used in computing the attenuation factor if :math:`\epsilon l c < 0.01`.
 
 Extinction coefficients
 ^^^^^^^^^^^^^^^^^^^^^^^
@@ -369,28 +366,23 @@ Extinction coefficients
 Extinction coefficients at excitation (and possibly emission) wavelengths are needed if either :ref:`absorbance measurements <absorbance>` are made or :ref:`inner filter effects <inner-filter-effects>` are used.
 These can either be measured separately and provided by the user or inferred directly as nuisance parameters.
 
-Measured extinction coefficients
-""""""""""""""""""""""""""""""""
+Measured extinction coefficients.
+"""""""""""""""""""""""""""""""""
 
 If the extinction coefficients have been measured, we have a measurement :math:`\epsilon` and corresponding standard error :math:`\delta \epsilon` available.
 Because extinction coefficients must be positive, we use a lognormal distirbution to model the true extinction coefficients about the measured value
 
 .. math::
 
-  \epsilon \sim \mathrm{LN}(\mu, \tau) \:\:\mathrm{where}\:\: \mu = \ln \frac{\epsilon^2}{\sqrt{\epsilon^2 + \delta \epsilon^2}} \:\:,\:\: \tau = \ln \left[ 1 + \left( \frac{\delta \epsilon}{\epsilon}\right)^2 \right]^{-1}
+  \epsilon \sim \mathrm{LN}(\mu, \tau) \:\:\mathrm{where}\:\: \mu = \ln \frac{\epsilon^2}{\sqrt{\epsilon^2 + \delta^2 \epsilon}} \:\:,\:\: \tau = \ln \left[ 1 + \left( \frac{\delta \epsilon}{\epsilon}\right)^2 \right]^{-1}
 
-This is implemented in the :mod:`pymc` model as ::
-
-  model['epsilon_ex'] = pymc.Lognormal('epsilon_ex', mu=np.log(epsilon_ex**2 / np.sqrt(depsilon_ex**2 + epsilon_ex**2)), tau=np.sqrt(np.log(1.0 + (depsilon_ex/epsilon_ex)**2))**(-2)) # prior is centered on measured extinction coefficient
-  model['epsilon_em'] = pymc.Lognormal('epsilon_em', mu=np.log(epsilon_em**2 / np.sqrt(depsilon_em**2 + epsilon_em**2)), tau=np.sqrt(np.log(1.0 + (depsilon_em/epsilon_em)**2))**(-2)) # prior is centered on measured extinction coefficient
-
-Inferred extinction coefficients
-""""""""""""""""""""""""""""""""
+Inferred extinction coefficients.
+"""""""""""""""""""""""""""""""""
 
 If the extinction coefficients have not been measured, they are inferred as nuisance parameters, with priors assigned from a uniform distribution with a large maximum and an initial guess based on the extinction coefficient of bosutinib at 280 nm ::
 
-  model['epsilon_ex'] = pymc.Uniform('epsilon_ex', lower=0.0, upper=1000e3, value=70000.0) # extinction coefficient or molar absorptivity for ligand, units of 1/M/cm
-  model['epsilon_em'] = pymc.Uniform('epsilon_em', lower=0.0, upper=1000e3, value=0.0) # extinction coefficient or molar absorptivity for ligand, units of 1/M/cm
+  model['epsilon_ex'] = pymc.Uniform('epsilon_ex', lower=0.0, upper=1000e3, value=70000.0) # 1/M/cm
+  model['epsilon_em'] = pymc.Uniform('epsilon_em', lower=0.0, upper=1000e3, value=0.0) # 1/M/cm
 
 .. todo: We should generalize the initial guesses a bit more. Zero probably works well here.
 
@@ -429,7 +421,13 @@ we can eliminate the unknown concentrations of free receptor :math:`[R]` and fre
 
    0 = [RL]^2 - ([R]_T + [L]_T + K_d) [RL] + [R]_T [L]_T
 
-This quadratic equation has closed-form solution, with only one branch of the solution giving :math:`0 < [RL] < \min([R]_T, [L]_t)`:
+This quadratic equation has closed-form solution, with only one branch of the solution where we require
+
+.. math::
+
+   0 < [RL] < \min([R]_T, [L]_t)
+
+which gives
 
 .. math::
 
@@ -473,7 +471,7 @@ and eliminate :math:`[RL_n]` and :math:`[R]` to give
 
 .. math::
 
-   \left( [R]_T - \sum_{n=1}^N [RL_n] \right) * ([L_n]_T - [RL_n]) - [RL_n] K_n = 0  \:\:,\:\: n = 1, \ldots, N
+   \left( [R]_T - \sum_{n=1}^N [RL_n] \right) \cdot ([L_n]_T - [RL_n]) - [RL_n] K_n = 0  \:\:,\:\: n = 1, \ldots, N
 
 This leads to a coupled series of equations that cannot easily be solved in closed form, but are straightforward to solve numerically using the solver :func:`scipy.optimize.fsolve`, starting from an initial guess that ensures the constraints remain satisfied.
 
