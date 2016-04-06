@@ -385,7 +385,7 @@ class GeneralBindingModel(BindingModel):
       from scipy.optimize import root
       X = np.zeros([nspecies], np.float64)
       sol = root(ftarget, X, jac=True)
-      if (sol.success = False):
+      if (sol.success == False):
           msg  = "root-finder failed to converge:\n"
           msg += str(sol)
           raise Exception(msg)
