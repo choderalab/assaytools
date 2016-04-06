@@ -8,7 +8,7 @@ branches:
 install:
   - source devtools/travis-ci/install.sh
   - export PYTHONUNBUFFERED=true
-  
+
 before_script:
   # Mimic X display
   - "export DISPLAY=:99.0"
@@ -21,7 +21,8 @@ script:
   - conda build devtools/conda-recipe
   - source activate _test
   # Run nosetests
-  - cd devtools && nosetests $PACKAGENAME --nocapture --verbosity=2 --with-doctest --with-timer && cd ..
+  - cd devtools && nosetests $PACKAGENAME --nocapture --verbosity=2 --with-doctest --with-timer
+  - cd ..
   # Run IPython notebook tests
   - source devtools/travis-ci/ipythontests.sh
 

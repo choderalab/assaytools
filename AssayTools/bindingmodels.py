@@ -391,6 +391,4 @@ class GeneralBindingModel(BindingModel):
           raise Exception(msg)
 
       log_concentrations = { all_species[index] : sol.x[index] for index in range(nspecies) }
-      print(ftarget(sol.x))
-
       return log_concentrations
