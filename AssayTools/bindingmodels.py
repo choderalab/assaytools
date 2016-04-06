@@ -284,3 +284,117 @@ class CompetitiveBindingModel(BindingModel):
       C_RLn = c
 
       return C_RLn
+
+
+#=============================================================================================
+# General robust competitive binding model
+#=============================================================================================
+
+class GeneralBindingModel(BindingModel):
+   """
+   General robust binding model for one protein and arbitrary number of competitive ligands.
+
+   """
+
+   @classmethod
+   def equilibrium_concentrations(cls, reactions, conservation_equations):
+      """
+      Compute the equilibrium concentrations of each complex species for a general set of binding reactions.
+
+      Parameters
+      ----------
+      reactions : list
+          List of binding reactions.
+          Each binding reaction is encoded as a tuple of (log equilibrium constant, dict of stoichiometry)
+          Example: K_d = [RL] / ([R] [L]) becomes [ (-10, {'RL': -1, 'R' : +1, 'L' : +1}) ]
+      conservation_equations : list
+          List of mass conservation laws.
+          Each mass conservation law is encoded as a tuple of (log total concentration, dict of stoichiometry of all species)
+          Example: [R]tot = 10^-6 M = [RL] + [R] and [L]tot = 10^-6 M = [RL] + [L] becomes [ (-6, {'RL' : +1, 'R' : +1}), (-6, {'RL' : +1, 'L' : +1}) ]
+
+      Returns
+      -------
+      log_concentrations : dict of str : float
+          log_concentrations[species] is the log concentration of specified species
+
+      Examples
+      --------
+
+      Simple 1:1 association
+
+      >>> reactions = [ (-10, {'RL': -1, 'R' : +1, 'L' : +1}) ]
+      >>> conservation_equations = [ (-6, {'RL' : +1, 'R' : +1}), (-6, {'RL' : +1, 'L' : +1}) ]
+      >>> log_concentrations = GeneralBindingModel.equilibrium_concentrations(reactions, conservation_equations)
+
+     Competitive 1:1 association
+
+      >>> reactions = [ (-10, {'RL': -1, 'R' : +1, 'L' : +1}), (-5, {'RP' : -1, 'R' : +1, 'P' : +1}) ]
+      >>> conservation_equations = [ (-6, {'RL' : +1, 'RP' : +1, 'R' : +1}), (-6, {'RL' : +1, 'L' : +1}), (-5, {'RP' : +1, 'P' : +1}) ]
+      >>> log_concentrations = GeneralBindingModel.equilibrium_concentrations(reactions, conservation_equations)
+
+      """
+
+      nreactions = len(reactions)
+      nconservation = len(conservation_equations)
+      nequations = nreactions + nconservation
+
+      # Determine names of all species.
+      all_species = set()
+      for (log_equilibrium_constant, reaction) in reactions:
+          for species in reaction.keys():
+              all_species.add(species)
+      all_species = list(all_species) # order is now fixed
+      print all_species
+      nspecies = len(all_species)
+
+      # Construct function with appropriate roots.
+      def ftarget(X):
+          target = np.zeros([nequations], np.float64)
+          jacobian = np.zeros([nequations, nspecies], np.float64)
+          equation_index = 0
+          # Reactions
+          for (log_equilibrium_constant, reaction) in reactions:
+              target[equation_index] = - log_equilibrium_constant
+              for (species_index, species) in enumerate(all_species):
+                  if species in reaction:
+                      stoichiometry = reaction[species]
+                      target[equation_index] += stoichiometry * X[species_index]
+                      jacobian[equation_index][species_index] = stoichiometry
+              equation_index += 1
+          # Conservation of mass
+          from scipy.misc import logsumexp
+          for (log_total_concentration, conservation_equation) in conservation_equations:
+              target[equation_index] = - log_total_concentration
+              log_concentrations = list()
+              for (species_index, species) in enumerate(all_species):
+                  if species in conservation_equation:
+                      stoichiometry = conservation_equation[species]
+                      log_concentrations.append(X[species_index] + np.log(stoichiometry))
+              log_concentrations = np.array(log_concentrations)
+              logsum = logsumexp(log_concentrations)
+              target[equation_index] += logsum
+              for (species_index, species) in enumerate(all_species):
+                  log_concentrations = list()
+                  if species in conservation_equation:
+                      stoichiometry = conservation_equation[species]
+                      jacobian[equation_index, species_index] = stoichiometry * np.exp(X[species_index] - logsum)
+              equation_index += 1
+          print ""
+          print "X = "
+          print X
+          print "target = "
+          print target
+          print "jacobian = "
+          print jacobian
+
+          return (target, jacobian)
+
+      # Solve
+      from scipy.optimize import root
+      X = np.zeros([nspecies], np.float64)
+      sol = root(ftarget, X, jac=True, tol=1.0e-10)
+      print(sol)
+      log_concentrations = { all_species[index] : sol.x[index] for index in range(nspecies) }
+      print(ftarget(sol.x))
+
+      return log_concentrations
