@@ -344,7 +344,6 @@ class GeneralBindingModel(BindingModel):
           for species in reaction.keys():
               all_species.add(species)
       all_species = list(all_species) # order is now fixed
-      print all_species
       nspecies = len(all_species)
 
       # Construct function with appropriate roots.
@@ -379,21 +378,18 @@ class GeneralBindingModel(BindingModel):
                       stoichiometry = conservation_equation[species]
                       jacobian[equation_index, species_index] = stoichiometry * np.exp(X[species_index] - logsum)
               equation_index += 1
-          print ""
-          print "X = "
-          print X
-          print "target = "
-          print target
-          print "jacobian = "
-          print jacobian
 
           return (target, jacobian)
 
       # Solve
       from scipy.optimize import root
       X = np.zeros([nspecies], np.float64)
-      sol = root(ftarget, X, jac=True, tol=1.0e-10)
-      print(sol)
+      sol = root(ftarget, X, jac=True)
+      if (sol.success = False):
+          msg  = "root-finder failed to converge:\n"
+          msg += str(sol)
+          raise Exception(msg)
+
       log_concentrations = { all_species[index] : sol.x[index] for index in range(nspecies) }
       print(ftarget(sol.x))
 
