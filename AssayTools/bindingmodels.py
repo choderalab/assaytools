@@ -297,7 +297,7 @@ class GeneralBindingModel(BindingModel):
    """
 
    @classmethod
-   def equilibrium_concentrations(cls, reactions, conservation_equations):
+   def equilibrium_concentrations(cls, reactions, conservation_equations, tol=1.0e-10):
       """
       Compute the equilibrium concentrations of each complex species for a general set of binding reactions.
 
@@ -311,6 +311,8 @@ class GeneralBindingModel(BindingModel):
           List of mass conservation laws.
           Each mass conservation law is encoded as a tuple of (log total concentration, dict of stoichiometry of all species)
           Example: [R]tot = 10^-6 M = [RL] + [R] and [L]tot = 10^-6 M = [RL] + [L] becomes [ (-6, {'RL' : +1, 'R' : +1}), (-6, {'RL' : +1, 'L' : +1}) ]
+      tol : float, optional, default=1.0e-8
+          Solution tolerance.
 
       Returns
       -------
@@ -384,7 +386,7 @@ class GeneralBindingModel(BindingModel):
       # Solve
       from scipy.optimize import root
       X = np.zeros([nspecies], np.float64)
-      sol = root(ftarget, X, jac=True)
+      sol = root(ftarget, X, jac=True, tol=tol)
       if (sol.success == False):
           msg  = "root-finder failed to converge:\n"
           msg += str(sol)
