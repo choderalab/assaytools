@@ -482,7 +482,7 @@ General binding model
 
 A more general binding model is available in :class:`assaytools.bindingmodels.GeneralBindingModel`.
 
-A general series of :math:`N` equilibrium reactions involving the interconversion of :math:`K` components have the form
+A general series of :math:`N` equilibrium reactions involving the interconversion of :math:`K` components :math:`X_j`, which may represent individual species or complexes, and have the form
 
 .. math::
 
@@ -496,9 +496,50 @@ with corresponding conservation of mass constraints
 
 This problem can be specified in terms of
 
+* an :math:`N-vector` equilibrium constant vector :math:`K \equiv (K_n)`
 * an :math:`N \times K` stoichiometry matrix :math:`S \equiv (s_{nj})`
 * an :math:`M \times K` mass conservation matrix :math:`C \equiv (c_{mj})`
 * an :math:`M`-vector :math:`Q \equiv (q_{m})` of total concentrations across all species
+
+For example, for a simple binding reaction :math:`R + L \Leftrightarrow RL`, the species :math:`X_j` are (R, L, RL), and we have
+
+.. math::
+
+   K &= [K_d] \\
+   S &= \begin{bmatrix}
+   +1 & +1 & -1
+   \end{bmatrix} \\
+   C &= \begin{bmatrix}
+   +1 &  0 & +1 \\
+    0 & +1 & 0
+   \end{bmatrix} \\
+   Q &= \begin{bmatrix}
+   [R]_\mathrm{tot} \\
+   [L]_\mathrm{tot}
+   \end{bmatrix}
+
+A competitive binding reaction :math:`R + L \Leftrightarrow RL` and `R + P \Leftrightarrow RP` with species (R, L, P, RL, RP), we have
+
+.. math::
+
+   K &= \begin{bmatrix}
+   K_1 \\
+   K_2 \\
+   \end{bmatrix} \\
+   S &= \begin{bmatrix}
+   +1 & +1 &  0 & -1 &  0 \\
+   +1 &  0 & +1 &  0 & -1 \\
+   \end{bmatrix} \\
+   C &= \begin{bmatrix}
+   +1 &  0 &  0 & +1 & +1 \\
+    0 & +1 &  0 & +1 &  0 \\
+    0 &  0 &  + &  0 & +1 \\
+   \end{bmatrix} \\
+   Q &= \begin{bmatrix}
+   [R]_\mathrm{tot} \\
+   [L]_\mathrm{tot} \\
+   [P]_\mathrm{tot}
+   \end{bmatrix}
 
 Because the equilibrium constants :math:`K_n` and concentrations :math:`[X_j]` must be positive but can range over many orders of magnitude, we represent these quantities by their logarithms, resulting in the equations
 
