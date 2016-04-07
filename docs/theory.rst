@@ -501,7 +501,7 @@ This problem can be specified in terms of
 * an :math:`M \times K` mass conservation matrix :math:`C \equiv (c_{mj})`
 * an :math:`M`-vector :math:`Q \equiv (q_{m})` of total concentrations across all species
 
-For example, for a simple binding reaction :math:`R + L \Leftrightarrow RL`, the species :math:`X_j` are (R, L, RL), and we have
+For example, for a simple binding reaction :math:`R + L \rightleftharpoons RL`, the species :math:`X_j` are :math:`\{R, L, RL\}`, and we have
 
 .. math::
 
@@ -518,7 +518,7 @@ For example, for a simple binding reaction :math:`R + L \Leftrightarrow RL`, the
    [L]_\mathrm{tot}
    \end{bmatrix}
 
-A competitive binding reaction :math:`R + L \Leftrightarrow RL` and `R + P \Leftrightarrow RP` with species (R, L, P, RL, RP), we have
+A competitive binding reaction :math:`R + L \rightleftharpoons RL` and :math:`R + P \rightleftharpoons RP` with species :math:`\{R, L, P, RL, RP\}`, we have
 
 .. math::
 
