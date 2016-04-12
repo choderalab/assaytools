@@ -1,0 +1,237 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Report>
+  <SWVersion>3.0.2</SWVersion>
+  <FileVersion>2</FileVersion>
+  <Protocol>C:\Users\Thermo\Documents\HP D300\Protocols\LRL_Src_Bos_2rows_1_2.hpdd</Protocol>
+  <Simulated>True</Simulated>
+  <StartTime>2015-09-11T10:48:34.808-04:00</StartTime>
+  <EndTime>2015-09-11T10:48:55.635-04:00</EndTime>
+  <DispenseOrder>LastPriority</DispenseOrder>
+  <Fluids>
+    <Fluid Index="0">
+      <Name>Bosutinib</Name>
+      <Concentration>10</Concentration>
+      <ConcentrationUnit>mM</ConcentrationUnit>
+      <ClassID>0</ClassID>
+      <DispenseClassID>0</DispenseClassID>
+    </Fluid>
+    <Fluid Index="1">
+      <Name>DMSO normalization</Name>
+      <IsNormalization>True</IsNormalization>
+      <ClassID>0</ClassID>
+      <DispenseClassID>0</DispenseClassID>
+    </Fluid>
+  </Fluids>
+  <Plates>
+    <Plate Index="0">
+      <Type>Default96</Type>
+      <DLLName>96 Default</DLLName>
+      <ID>row 1 and 2</ID>
+      <Rows>8</Rows>
+      <Cols>12</Cols>
+      <AssayVolume>100000</AssayVolume>
+      <DMSOLimit>0.01</DMSOLimit>
+      <AqueousLimit>0.05</AqueousLimit>
+    </Plate>
+  </Plates>
+  <Cassettes>
+    <Cassette Index="0">
+      <Type>T8</Type>
+      <ID>row 1 and 2</ID>
+    </Cassette>
+  </Cassettes>
+  <DispenseHeads>
+    <DispenseHead Type="T8" Cassette="0" Head="0" Fluid="0">
+      <LoadVolume>2000</LoadVolume>
+      <DispenseVolume>737.8</DispenseVolume>
+    </DispenseHead>
+    <DispenseHead Type="T8" Cassette="0" Head="1" Fluid="1">
+      <LoadVolume>4972.53337532661</LoadVolume>
+      <DispenseVolume>4062.4</DispenseVolume>
+    </DispenseHead>
+  </DispenseHeads>
+  <Dispensed VolumeUnit="nL">
+    <Plate Index="0">
+      <Well R="0" C="0">
+        <Fluid Index="0" TotalVolume="200">
+          <Detail Time="2015-09-11T10:48:54.002-04:00" Cassette="0" Head="0" Volume="200" />
+        </Fluid>
+      </Well>
+      <Well R="0" C="1">
+        <Fluid Index="0" TotalVolume="91.6">
+          <Detail Time="2015-09-11T10:48:54.006-04:00" Cassette="0" Head="0" Volume="91.6" />
+        </Fluid>
+        <Fluid Index="1" TotalVolume="108.4">
+          <Detail Time="2015-09-11T10:48:55.567-04:00" Cassette="0" Head="1" Volume="108.4" />
+        </Fluid>
+      </Well>
+      <Well R="0" C="2">
+        <Fluid Index="0" TotalVolume="42">
+          <Detail Time="2015-09-11T10:48:54.008-04:00" Cassette="0" Head="0" Volume="42" />
+        </Fluid>
+        <Fluid Index="1" TotalVolume="158">
+          <Detail Time="2015-09-11T10:48:55.568-04:00" Cassette="0" Head="1" Volume="158" />
+        </Fluid>
+      </Well>
+      <Well R="0" C="3">
+        <Fluid Index="0" TotalVolume="19.2">
+          <Detail Time="2015-09-11T10:48:54.009-04:00" Cassette="0" Head="0" Volume="19.2" />
+        </Fluid>
+        <Fluid Index="1" TotalVolume="180.8">
+          <Detail Time="2015-09-11T10:48:55.570-04:00" Cassette="0" Head="1" Volume="180.8" />
+        </Fluid>
+      </Well>
+      <Well R="0" C="4">
+        <Fluid Index="0" TotalVolume="8.8">
+          <Detail Time="2015-09-11T10:48:54.011-04:00" Cassette="0" Head="0" Volume="8.8" />
+        </Fluid>
+        <Fluid Index="1" TotalVolume="191.2">
+          <Detail Time="2015-09-11T10:48:55.572-04:00" Cassette="0" Head="1" Volume="191.2" />
+        </Fluid>
+      </Well>
+      <Well R="0" C="5">
+        <Fluid Index="0" TotalVolume="4">
+          <Detail Time="2015-09-11T10:48:54.013-04:00" Cassette="0" Head="0" Volume="4" />
+        </Fluid>
+        <Fluid Index="1" TotalVolume="196">
+          <Detail Time="2015-09-11T10:48:55.574-04:00" Cassette="0" Head="1" Volume="196" />
+        </Fluid>
+      </Well>
+      <Well R="0" C="6">
+        <Fluid Index="0" TotalVolume="1.82">
+          <Detail Time="2015-09-11T10:48:54.015-04:00" Cassette="0" Head="0" Volume="1.82" />
+        </Fluid>
+        <Fluid Index="1" TotalVolume="198">
+          <Detail Time="2015-09-11T10:48:55.575-04:00" Cassette="0" Head="1" Volume="198" />
+        </Fluid>
+      </Well>
+      <Well R="0" C="7">
+        <Fluid Index="0" TotalVolume="0.84">
+          <Detail Time="2015-09-11T10:48:54.017-04:00" Cassette="0" Head="0" Volume="0.84" />
+        </Fluid>
+        <Fluid Index="1" TotalVolume="199.2">
+          <Detail Time="2015-09-11T10:48:55.577-04:00" Cassette="0" Head="1" Volume="199.2" />
+        </Fluid>
+      </Well>
+      <Well R="0" C="8">
+        <Fluid Index="0" TotalVolume="0.38">
+          <Detail Time="2015-09-11T10:48:54.019-04:00" Cassette="0" Head="0" Volume="0.38" />
+        </Fluid>
+        <Fluid Index="1" TotalVolume="199.6">
+          <Detail Time="2015-09-11T10:48:55.579-04:00" Cassette="0" Head="1" Volume="199.6" />
+        </Fluid>
+      </Well>
+      <Well R="0" C="9">
+        <Fluid Index="0" TotalVolume="0.18">
+          <Detail Time="2015-09-11T10:48:54.021-04:00" Cassette="0" Head="0" Volume="0.18" />
+        </Fluid>
+        <Fluid Index="1" TotalVolume="200">
+          <Detail Time="2015-09-11T10:48:55.581-04:00" Cassette="0" Head="1" Volume="200" />
+        </Fluid>
+      </Well>
+      <Well R="0" C="10">
+        <Fluid Index="0" TotalVolume="0.08">
+          <Detail Time="2015-09-11T10:48:54.023-04:00" Cassette="0" Head="0" Volume="0.08" />
+        </Fluid>
+        <Fluid Index="1" TotalVolume="200">
+          <Detail Time="2015-09-11T10:48:55.582-04:00" Cassette="0" Head="1" Volume="200" />
+        </Fluid>
+      </Well>
+      <Well R="0" C="11">
+        <Fluid Index="1" TotalVolume="200">
+          <Detail Time="2015-09-11T10:48:55.563-04:00" Cassette="0" Head="1" Volume="200" />
+        </Fluid>
+      </Well>
+      <Well R="1" C="0">
+        <Fluid Index="0" TotalVolume="200">
+          <Detail Time="2015-09-11T10:48:54.004-04:00" Cassette="0" Head="0" Volume="200" />
+        </Fluid>
+      </Well>
+      <Well R="1" C="1">
+        <Fluid Index="0" TotalVolume="91.6">
+          <Detail Time="2015-09-11T10:48:54.043-04:00" Cassette="0" Head="0" Volume="91.6" />
+        </Fluid>
+        <Fluid Index="1" TotalVolume="108.4">
+          <Detail Time="2015-09-11T10:48:55.612-04:00" Cassette="0" Head="1" Volume="108.4" />
+        </Fluid>
+      </Well>
+      <Well R="1" C="2">
+        <Fluid Index="0" TotalVolume="42">
+          <Detail Time="2015-09-11T10:48:54.040-04:00" Cassette="0" Head="0" Volume="42" />
+        </Fluid>
+        <Fluid Index="1" TotalVolume="158">
+          <Detail Time="2015-09-11T10:48:55.608-04:00" Cassette="0" Head="1" Volume="158" />
+        </Fluid>
+      </Well>
+      <Well R="1" C="3">
+        <Fluid Index="0" TotalVolume="19.2">
+          <Detail Time="2015-09-11T10:48:54.038-04:00" Cassette="0" Head="0" Volume="19.2" />
+        </Fluid>
+        <Fluid Index="1" TotalVolume="180.8">
+          <Detail Time="2015-09-11T10:48:55.602-04:00" Cassette="0" Head="1" Volume="180.8" />
+        </Fluid>
+      </Well>
+      <Well R="1" C="4">
+        <Fluid Index="0" TotalVolume="8.8">
+          <Detail Time="2015-09-11T10:48:54.037-04:00" Cassette="0" Head="0" Volume="8.8" />
+        </Fluid>
+        <Fluid Index="1" TotalVolume="191.2">
+          <Detail Time="2015-09-11T10:48:55.598-04:00" Cassette="0" Head="1" Volume="191.2" />
+        </Fluid>
+      </Well>
+      <Well R="1" C="5">
+        <Fluid Index="0" TotalVolume="4">
+          <Detail Time="2015-09-11T10:48:54.035-04:00" Cassette="0" Head="0" Volume="4" />
+        </Fluid>
+        <Fluid Index="1" TotalVolume="196">
+          <Detail Time="2015-09-11T10:48:55.595-04:00" Cassette="0" Head="1" Volume="196" />
+        </Fluid>
+      </Well>
+      <Well R="1" C="6">
+        <Fluid Index="0" TotalVolume="1.82">
+          <Detail Time="2015-09-11T10:48:54.033-04:00" Cassette="0" Head="0" Volume="1.82" />
+        </Fluid>
+        <Fluid Index="1" TotalVolume="198">
+          <Detail Time="2015-09-11T10:48:55.592-04:00" Cassette="0" Head="1" Volume="198" />
+        </Fluid>
+      </Well>
+      <Well R="1" C="7">
+        <Fluid Index="0" TotalVolume="0.84">
+          <Detail Time="2015-09-11T10:48:54.031-04:00" Cassette="0" Head="0" Volume="0.84" />
+        </Fluid>
+        <Fluid Index="1" TotalVolume="199.2">
+          <Detail Time="2015-09-11T10:48:55.590-04:00" Cassette="0" Head="1" Volume="199.2" />
+        </Fluid>
+      </Well>
+      <Well R="1" C="8">
+        <Fluid Index="0" TotalVolume="0.38">
+          <Detail Time="2015-09-11T10:48:54.029-04:00" Cassette="0" Head="0" Volume="0.38" />
+        </Fluid>
+        <Fluid Index="1" TotalVolume="199.6">
+          <Detail Time="2015-09-11T10:48:55.588-04:00" Cassette="0" Head="1" Volume="199.6" />
+        </Fluid>
+      </Well>
+      <Well R="1" C="9">
+        <Fluid Index="0" TotalVolume="0.18">
+          <Detail Time="2015-09-11T10:48:54.027-04:00" Cassette="0" Head="0" Volume="0.18" />
+        </Fluid>
+        <Fluid Index="1" TotalVolume="200">
+          <Detail Time="2015-09-11T10:48:55.586-04:00" Cassette="0" Head="1" Volume="200" />
+        </Fluid>
+      </Well>
+      <Well R="1" C="10">
+        <Fluid Index="0" TotalVolume="0.08">
+          <Detail Time="2015-09-11T10:48:54.025-04:00" Cassette="0" Head="0" Volume="0.08" />
+        </Fluid>
+        <Fluid Index="1" TotalVolume="200">
+          <Detail Time="2015-09-11T10:48:55.584-04:00" Cassette="0" Head="1" Volume="200" />
+        </Fluid>
+      </Well>
+      <Well R="1" C="11">
+        <Fluid Index="1" TotalVolume="200">
+          <Detail Time="2015-09-11T10:48:55.565-04:00" Cassette="0" Head="1" Volume="200" />
+        </Fluid>
+      </Well>
+    </Plate>
+  </Dispensed>
+</Report>
