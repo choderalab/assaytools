@@ -31,7 +31,7 @@ import os
 
 ### Define extract function that extracts parameters
 
-def extract(taglist):
+def extract(taglist, parameters): #["Mode", "Wavelength Start", "Wavelength End", "Wavelength Step Size"]
     result = []
     for p in taglist:
         print "Attempting to extract tag '%s'..." % p
@@ -104,11 +104,11 @@ def process_files(xml_files):
             # Attach these to title1, title2, or title3, depending on section which will be the same for all 4 files.
 
             if  parameters[0].attrib['Value'] == "Absorbance":
-                result = extract(["Mode", "Wavelength Start", "Wavelength End", "Wavelength Step Size"])
+                result = extract(["Mode", "Wavelength Start", "Wavelength End", "Wavelength Step Size"], parameters)
                 globals()["title"+str(i)] = '%s, %s, %s, %s' % tuple(result)
 
             else:
-                result = extract(["Gain", "Excitation Wavelength", "Emission Wavelength", "Part of Plate", "Mode"])
+                result = extract(["Gain", "Excitation Wavelength", "Emission Wavelength", "Part of Plate", "Mode"], parameters)
                 globals()["title"+str(i)] = '%s, %s, %s, \n %s, %s' % tuple(result)
 
             print "****The %sth section has the parameters:****" %i
