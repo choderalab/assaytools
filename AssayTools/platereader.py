@@ -11,7 +11,6 @@ Tools for assisting in reading and manipulating data from plate readers.
 
 import numpy as np
 import re
-import pint
 from lxml import etree
 
 #=============================================================================================
