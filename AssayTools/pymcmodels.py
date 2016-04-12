@@ -11,7 +11,6 @@ A test of pymc for ITC.
 
 import numpy as np
 import pymc
-import pint
 
 #=============================================================================================
 # Physical constants
