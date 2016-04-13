@@ -1,3 +1,9 @@
+"""
+Initial crude example of new general analysis API that facilitates analysis of multiple experiments, competition assays, spectral assays, etc.
+
+NOTE: This is just an initial crude long-form draft. All of the reusable components will be organized into tools to make general usage convenient.
+"""
+
 from autoprotocol.container import Well, WellGroup, Container
 from autoprotocol.container_type import ContainerType
 from autoprotocol.unit import Unit
@@ -16,21 +22,23 @@ well_diameter = Unit(6.30, "millimeters")
 well_area = np.pi * (well_diameter/2)**2
 container_type = ContainerType(name='4titude 4ti-0223', is_tube=False, well_count=96, well_depth_mm=Unit(11.15, 'millimeter'), well_volume_ul=Unit(300, 'milliliter'), well_coating='polystyrene', sterile=False, capabilities=capabilities, shortname='4ti-0223', col_count=12, dead_volume_ul=Unit(20,'milliliter'), safe_min_volume_ul=Unit(50, 'milliliter'))
 
-# Generate a unique container ID
+# Generate the container a unique container ID
+# This might come from a barcode in the future.
 import uuid
 id = str(uuid.uuid4())
 
 # Define the container
 container = Container(name="assay-plate", id=id, container_type=container_type)
 
-# Initialize well properties.
+# Initialize well properties for this container
 for well in container.all_wells():
     well.set_volume(Unit(0.0, 'microliters')) # well starts empty
     well.set_properties({'contents' : dict()}) # contains the contents
     well.set_properties({'area' : well_area})
 
 #
-# Load DMSO stocks
+# Load information about DMSO stocks
+# In future, this might come from a database query that returns JSON.
 #
 
 import csv
@@ -45,10 +53,11 @@ with open(dmso_stocks_csv_filename, 'rb') as csvfile:
             dmso_stocks[row['id']] = row
 
 #
-# Define solutions
+# Define simple solutions
+# Solutions are the fundamental liquids that have concentrations (and concentration uncertainties) for a single species.
+# In future, we will associate densities, allow mixing of solutions, propagate uncertainty.
+# Solutions have unknown *true* concentrations, except for buffer solutions which have exactly zero concentration.
 #
-
-# TODO: Refine this manner of defining solutions.
 
 class Solution(object):
     """A solution with a defined concentration and uncertainty.
@@ -67,14 +76,16 @@ class BufferSolution(Solution):
         self.uncertainty = 0.0
 
 class ProteinSolution(Solution):
-    """A protein solution prepared spectrophotometrically.
+    """A protein solution in buffer prepared spectrophotometrically.
     """
-    def __init__(self, name, absorbance, extinction_coefficient, molecular_weight, ul_protein_stock, ml_buffer):
+    def __init__(self, name, buffer, absorbance, extinction_coefficient, molecular_weight, ul_protein_stock, ml_buffer):
         """
         Parameters
         ----------
         protein_name : str
             Name of the protein
+        buffer : BufferSolution
+            The corresponding buffer solution.
         absorbance : float
             Absorbance for 1 cm equivalent path length
         extinction_coefficient : float
@@ -87,14 +98,15 @@ class ProteinSolution(Solution):
             Milliliters of buffer added to make solution
 
         """
-        self.name = name
+        self.name = name + ' in ' + buffer.name
         concentration = (absorbance / extinction_coefficient) * (ul_protein_stock/1000.0) / ml_buffer # M
         spectrophotometer_CV = 0.10 # TODO: Specify in assumptions YAML file
         self.concentration = Unit(concentration, 'moles/liter')
         self.uncertainty = spectrophotometer_CV * self.concentration # TODO: Compute more precisely
+        self.buffer = buffer
 
 class DMSOStockSolution(Solution):
-    """A DMSO stock solution.
+    """A stock solution representing a compound dissolved in DMSO.
     """
     def __init__(self, dmso_stock):
         """
@@ -111,8 +123,8 @@ class DMSOStockSolution(Solution):
         self.uncertainty = mass_uncertainty * concentration
 
 solutions = dict()
-solutions['Abl'] = ProteinSolution(name='1 uM Abl', absorbance=4.24, extinction_coefficient=49850, molecular_weight=41293.2, ul_protein_stock=165.8, ml_buffer=14.0)
-solutions['Abl'] = BufferSolution('20 mM Tris buffer')
+solutions['buffer'] = BufferSolution('20 mM Tris buffer')
+solutions['Abl'] = ProteinSolution(name='1 uM Abl', buffer=solutions['buffer'], absorbance=4.24, extinction_coefficient=49850, molecular_weight=41293.2, ul_protein_stock=165.8, ml_buffer=14.0)
 solutions['BOS'] = DMSOStockSolution(dmso_stocks['BOS001'])
 solutions['BSI'] = DMSOStockSolution(dmso_stocks['BOI001'])
 solutions['GEF'] = DMSOStockSolution(dmso_stocks['GEF001'])
