@@ -11,7 +11,6 @@ Various ligand binding models for use in assays.
 
 import numpy as np
 import copy
-import pint
 
 import scipy.optimize
 import scipy.integrate
