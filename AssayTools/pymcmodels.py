@@ -1,7 +1,5 @@
-#!/usr/bin/env python
-
 """
-A test of pymc for ITC.
+pymc models for the analysis of fluorescence assay data.
 
 """
 
@@ -195,7 +193,7 @@ def make_model(Pstated, dPstated, Lstated, dLstated,
     elif DG_prior == 'chembl':
         DeltaG = pymc.Normal('DeltaG', mu=0, tau=1./(12.5**2)) # binding free energy (kT), using a Gaussian prior inspured by ChEMBL
     else:
-        raise Exception("DG_prior = '%s' unknown. Must be one of 'DeltaG' or 'chembl'." % DG_prior)
+        raise Exception("DG_prior = '%s' unknown. Must be one of 'uniform' or 'chembl'." % DG_prior)
     # Add to model.
     model['DeltaG'] = DeltaG
 

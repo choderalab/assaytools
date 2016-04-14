@@ -72,8 +72,8 @@ class BufferSolution(Solution):
     """
     def __init__(self, name):
         self.name = name
-        self.concentration = 0.0
-        self.uncertainty = 0.0
+        self.concentration = Unit(0.0, 'moles/liter')
+        self.uncertainty = 0.0 * self.concentration
 
 class ProteinSolution(Solution):
     """A protein solution in buffer prepared spectrophotometrically.
@@ -120,7 +120,7 @@ class DMSOStockSolution(Solution):
         mass_uncertainty = 0.01 # TODO: Calculate from balance precision
         concentration = dmso_stock['compound mass (mg)'] / 1000 * dmso_stock['molecular weight'] * dmso_stock['purity'] / (dmso_stock['solvent mass (g)'] * dmso_density / 1000) # mol/liter
         self.concentration = Unit(concentration, 'moles/liter')
-        self.uncertainty = mass_uncertainty * concentration
+        self.uncertainty = mass_uncertainty * self.concentration
 
 solutions = dict()
 solutions['buffer'] = BufferSolution('20 mM Tris buffer')
@@ -129,6 +129,8 @@ solutions['BOS'] = DMSOStockSolution(dmso_stocks['BOS001'])
 solutions['BSI'] = DMSOStockSolution(dmso_stocks['BOI001'])
 solutions['GEF'] = DMSOStockSolution(dmso_stocks['GEF001'])
 solutions['ERL'] = DMSOStockSolution(dmso_stocks['ERL001'])
+receptor_name = 'Abl'
+ligand_names = ['bosutinib', 'bosutinib isomer', 'gefinitib', 'erlotinib']
 
 #
 # Dispense protein solution
@@ -209,18 +211,32 @@ for well in container.all_wells():
 
     # Attach plate reader data
     for wavelength in ['280', '350', '480']:
-        well.set_properties({' absorbance_' + wavelength + 'nm' : data['Abs_' + wavelength]['well_data'][well_name] })
+        # Absorbance read
+        dataname = 'Abs_' + wavelength
+        if dataname in data:
+            well.set_properties({' absorbance_' + wavelength + 'nm' : data[dataname]['well_data'][well_name] })
     emission_wavelength = '480'
     for excitation_wavelength in ['280', '350']:
-        well.set_properties({'fluorescence_top_ex' + excitation_wavelength + 'nm_em' + emission_wavelength + 'nm' : data[excitation_wavelength + '_TopRead']['well_data'][well_name]})
-        well.set_properties({'fluorescence_bottom_ex' + excitation_wavelength + 'nm_em' + emission_wavelength + 'nm' : data[excitation_wavelength + '_BottomRead']['well_data'][well_name]})
+        # Top fluorescence read
+        dataname = excitation_wavelength + '_TopRead'
+        if dataname in data:
+            well.set_properties({'fluorescence_top_ex' + excitation_wavelength + 'nm_em' + emission_wavelength + 'nm' : data[dataname]['well_data'][well_name]})
+        # Bottom fluorescence read
+        dataname = excitation_wavelength + '_BottomRead'
+        if dataname in data:
+            well.set_properties({'fluorescence_bottom_ex' + excitation_wavelength + 'nm_em' + emission_wavelength + 'nm' : data[dataname]['well_data'][well_name]})
+
+# Define a well group to analyze
+well_group = container.all_wells()
 
 # TODO: Analyze the well group.
 # This is just a non-working stub for now.
 # Create a model
-#from assaytools.analysis import CompetitiveBindingAnalysis
-#model = CompetitiveBindingAnalysis(wells=well_group, receptor=receptor_name, ligands=[ligand_name])
+from assaytools.analysis import CompetitiveBindingAnalysis
+experiment = CompetitiveBindingAnalysis(solutions=solutions, wells=well_group, receptor_name=receptor_name, ligand_names=ligand_names)
+import pymc
+from assaytools import pymcmodels
 # fit the maximum a posteriori (MAP) estimate
-#map = model.map_fit()
+map_fit = experiment.map_fit()
 # run some MCMC sampling and return the MCMC object
-#mcmc = model.run_mcmc()
+mcmc = experiment.run_mcmc()
