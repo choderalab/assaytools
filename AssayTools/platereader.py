@@ -90,9 +90,19 @@ def read_icontrol_xml(filename):
         # Process all wells into data.
         well_data = dict()
         for well_node in well_nodes:
-            well_name = well_node.get('Pos')
-            value = well_node.xpath("string()")
-            well_data[well_name] = float(value)
+            if well_node.get('Type') == 'Single':
+                well_name = well_node.get('Pos')
+                value = well_node.xpath("string()")
+                well_data[well_name] = float(value)
+            else:
+                for well_node in well_nodes:
+                    well_name = well_node.get('Pos')
+                    wavelength_data = dict()
+                    for wave in well_node:
+                        wavelength = wave.attrib['WL']
+                        wavelength_data[wavelength] = wave.text
+                    well_data[well_name] = dict()
+                    well_data[well_name] = wavelength_data
 
         return well_data
 
