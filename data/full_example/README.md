@@ -66,6 +66,19 @@ solutions['buffer'] = BufferSolution(name='20 mM Tris buffer')
 solutions['Abl'] = ProteinSolution(name='1 uM Abl', buffer=solutions['buffer'], absorbance=4.24, extinction_coefficient=49850, molecular_weight=41293.2, ul_protein_stock=165.8, ml_buffer=14.0)
 solutions['BOS'] = DMSOStockSolution(dmso_stocks['BOS001'])
 ```
+where the `dmso_stocks` dictionary is auto-populated from a DMSO stock inventory spreadsheet (read here in CSV format):
+```python
+import csv
+dmso_stocks_csv_filename = 'DMSOstocks-Sheet1.csv'
+dmso_stocks = dict()
+with open(dmso_stocks_csv_filename, 'rb') as csvfile:
+     csvreader = csv.DictReader(csvfile, delimiter=',', quotechar='|')
+     for row in csvreader:
+         if row['id'] != '':
+            for key in ['compound mass (mg)', 'purity', 'solvent mass (g)', 'molecular weight']:
+                row[key] = float(row[key])
+            dmso_stocks[row['id']] = row
+```
 
 ### Specifying wells
 
@@ -100,7 +113,7 @@ Absorbance measurements are specified with the corresponding wavelength
 from autoprotocol.unit import Unit
 well.properties['measurements']['absorbance'] = { '280:nanometers' : 0.437 }
 ```
-***NOTE: `Unit` objects, such as `Unit(280, 'nanometers')`, cannot be used as not unique keys, so we are forced to use the string representations, such as '280:nanometers', as keys.***
+***NOTE: `Unit` objects, such as `Unit(280, 'nanometers')`, cannot be used as not unique keys, so we are forced to use the string representations, such as `'280:nanometers'`, as keys.***
 
 ##### Fluorescence measurements
 
@@ -113,9 +126,21 @@ well.properties['measurements']['fluorescence'] = {
     }
 ```
 
-#### Analysis
+#### Well Properties
 
-Well properties may therefore look like this:
+Once fully populated, the overall `properties` attribute of a given `Well` may therefore look like this:
 ```python
-{'measurements': {'absorbance': {'480:nanometers': 0.0413, '350:nanometers': 0.0723, '280:nanometers': 0.639}, 'fluorescence': {('280:nanometers', '450:nanometers', 'bottom'): 17775.0, ('350:nanometers', '450:nanometers', 'top'): 89.0, ('280:nanometers', '450:nanometers', 'top'): 8671.0, ('350:nanometers', '450:nanometers', 'bottom'): 172.0}}, 'contents': {'buffer': Unit(100.0, 'microliter'), 'DMSO': Unit(300.0, 'nanoliter'), 'IMA001': Unit(100.0, 'nanoliter')}, 'area': Unit(31.1724531052, 'millimeter ** 2')}
+{
+  'measurements': {
+    'absorbance': {'480:nanometers': 0.0413, '350:nanometers': 0.0723, '280:nanometers': 0.639},
+    'fluorescence': {
+      ('280:nanometers', '450:nanometers', 'bottom'): 17775.0,
+      ('350:nanometers', '450:nanometers', 'top'): 89.0,
+      ('280:nanometers', '450:nanometers', 'top'): 8671.0,
+      ('350:nanometers', '450:nanometers', 'bottom'): 172.0
+      }
+    },
+  'contents': {'buffer': Unit(100.0, 'microliter'), 'DMSO': Unit(300.0, 'nanoliter'), 'IMA001': Unit(100.0, 'nanoliter')},
+  'area': Unit(31.1724531052, 'millimeter ** 2')
+}
 ```
