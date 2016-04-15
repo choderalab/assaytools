@@ -123,7 +123,7 @@ class DMSOStockSolution(Solution):
         self.uncertainty = mass_uncertainty * self.concentration
 
 solutions = dict()
-solutions['buffer'] = BufferSolution('20 mM Tris buffer')
+solutions['buffer'] = BufferSolution(name='20 mM Tris buffer')
 solutions['Abl'] = ProteinSolution(name='1 uM Abl', buffer=solutions['buffer'], absorbance=4.24, extinction_coefficient=49850, molecular_weight=41293.2, ul_protein_stock=165.8, ml_buffer=14.0)
 solutions['BOS'] = DMSOStockSolution(dmso_stocks['BOS001'])
 solutions['BSI'] = DMSOStockSolution(dmso_stocks['BOI001'])
