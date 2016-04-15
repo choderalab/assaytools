@@ -11,6 +11,7 @@ Tools for assisting in reading and manipulating data from plate readers.
 
 import numpy as np
 import re
+import string
 from lxml import etree
 
 #=============================================================================================
@@ -85,87 +86,80 @@ def read_icontrol_xml(filename):
     for (section_name, section_node) in section_nodes.iteritems():
         well_data = extract_well_data(section_node)
         sections[section_name] = dict()
-        sections[section_name]['well_data'] = well_data
+        sections[section_name] = well_data
 
     return sections
 
-def identify_rows_and_cols(well_data):
+def extract_data(filename,section_name,selection,*args,**kwargs):
     """
-    Build a sorted list of unique rows and columns.
-
+    Read a Tecan iControl XML-formatted file and extract a particular part (row, column, 
+    well, or well selection) for a particular section.
     Parameters
     ----------
-    well_data : dict
-       well_data[well_name] is the value associated with well_name (e.g. well_data['D7'] = 423)
-
+    filename : str
+       The name of the XML file to be read.
+    section_name : str
+       The 'Name' attribute of the section to read.
+    selection : str
+       The selection to extract, for example 'A', '1', or ['A1'].
+    wavelength (optional arg): str
+       The wavelength to extract, for example '480'.
     Returns
     -------
-    rows : list of str
-       Sorted list of unique rows.
-    cols : list of str
-       Sorted listof unique columns.
-
+    data : list of lists 
+       or list of dictionaries if spectra with no wavelength selected
+       data[0] is data and data[1] is the selection (e.g. [[471.0, 418.0], ['A1', 'A2']])
     Examples
     --------
-
-    >>> well_data = { 'A1' : 1, 'A2' : 2, 'A3' : 3, 'B1' : 4, 'B2' : 5, 'B3', 6 }
-    >>> [rows, cols] = identify_rows_and_cols(well_data)
-
+    >>> gefitinib_abl_singlet_A1 = extract_data(singlet_file, '350_TopRead', ['A1'])
+    >>> gefitinib_abl_singlet_A = extract_data(singlet_file, '350_TopRead', 'A')
+    >>> gefitinib_abl_singlet_1 = extract_data(singlet_file, '350_TopRead', '1')
+    >>> bosutinib_abl_spectra_A1 = extract_data(spectra_file, 'em280', ['A1'])
+    >>> bosutinib_abl_spectra_A_480 = extract_data(spectra_file, 'em280', 'A', wavelength='480')
     """
+    wavelength = kwargs.get('wavelength', None)
+    
+    #construct all possible wells and columns for 96 or 384 well plate
+    rows =[]
+    cols =[]
+    for i in string.ascii_uppercase:
+        rows.append('%s' % i)
+    for i in range(1,25):
+        cols.append('%s' % i)
+    
+    # import data from section
+    well_data = read_icontrol_xml(filename)
+    section_data = well_data[section_name]
+    
+    # extract selection
+    data = []
+    for select in selection:
+        if select in section_data:                          # if individual wells
+            data = [section_data[sele] for sele in selection]
+        elif any([selection == r for r in rows]):           # if row
+            for col in cols:
+                try:
+                    data.append(section_data[selection + col])
+                except KeyError:
+                    continue
+        elif any([selection == c for c in cols]):            # if column
+            for row in rows:
+                try:
+                    data.append(section_data[row + selection])
+                except KeyError:
+                    continue
+        else:
+            print 'bad selection'
 
-    rows = set()
-    cols = set()
-
-    for (well_name, value) in well_data.iteritems():
-        # Parse well names like 'A7' and 'D8'
-        m = re.match(r"([A-Z]+)([0-9]+)", well_name)
-
-        row = m.group(1)
-        col = int(m.group(2))
-
-        rows.add(row)
-        cols.add(col)
-
-    rows = sorted(list(rows))
-    cols = [ '%s' % entry for entry in sorted(list(cols)) ] # convert back to str after sorting numerically
-
-    return [rows, cols]
-
-def extract_rows(well_data, rows, cols):
-    """
-    Examples
-    --------
-
-    >>> well_data = { 'A1' : 1, 'A2' : 2, 'A3' : 3, 'B1' : 4, 'B2' : 5, 'B3', 6 }
-    >>> [rows, cols] = identify_rows_and_cols(well_data)
-    >>> row_data = extract_rows(well_data, rows, cols)
-
-    """
-
-    row_data = dict()
-    for row in rows:
-        row_data[row] = np.zeros([len(cols)], np.float64)
-        for (index, col) in enumerate(cols):
-            row_data[row][index] = well_data[row + col]
-    return row_data
-
-def extract_cols(well_data, rows, cols):
-    """
-    Examples
-    --------
-
-    >>> well_data = { 'A1' : 1, 'A2' : 2, 'A3' : 3, 'B1' : 4, 'B2' : 5, 'B3', 6 }
-    >>> [rows, cols] = identify_rows_and_cols(well_data)
-    >>> col_data = extract_cols(well_data, rows, cols)
-
-    """
-
-    col_data = dict()
-    for col in cols:
-        col_data[col] = np.zeros([len(rows)], np.float64)
-        for (index, row) in enumerate(rows):
-            col_data[col][index] = well_data[row + col]
-    return col_data
+    # extract wavelength (only relevant for spectra)
+    # if you don't include wavelength for spectra, data[0] will be a dict of all wavelengths
+    if type(data[0]) == dict and wavelength != None:
+        new_data = []
+        for i in range( len(data) ):
+            new_data.append(data[i][wavelength])
+        data = new_data
+            
+    return [data,selection]
 
 def read_emission_spectra_text(filename):
     """
