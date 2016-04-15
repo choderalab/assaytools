@@ -52,19 +52,23 @@ mcmc = experiment.run_mcmc()
 
 `Solution` objects describe the main source solution stocks from which wells are filled.
 `Solution` objects specify at most the concentration of a *single* component (such as protein or ligand) and its corresponding uncertainty.
-Each `Solution` has a `name`, `concentration`, and concentration `uncertainty`.
+Each `Solution` has a `name`, a `species` that is dissolved in a `buffer` at a given `concentration`, and concentration `uncertainty`.
 
 There are three types of `Solution`:
-* `BufferSolution`: A buffer that contains no compound species.
+* `Buffer`: A buffer that contains no compound species.
 * `ProteinSolution`: A single protein species prepared spectrophotometrically from a high-concentration stock solution whose `absorbance` measurement was taken, with corresponding concentration calculated automatically from `extinction_coefficient` and `molecular_weight`. A quantity `ul_protein_stock` microliters of high-concentration stock solution is added to `ml_buffer` milliliters of buffer, with the source `BufferSolution` specified as the `buffer` attribute.
 * `DMSOStockSolution`: A DMSO stock solution prepared graviemetrically. This is currently constructed from a `dict` object specifying a compound stock solution through a number of required parameters (`{'compound name', 'compound mass (mg)', 'molecular weight', 'purity', 'solvent mass (g)'}`)
 
 The `solutions` argument of `CompetitiveBindingAnalysis` is a `dict` specifying a solution key associated with a `Solution` object, such as
 ```python
 solutions = dict()
-solutions['buffer'] = BufferSolution(name='20 mM Tris buffer')
-solutions['Abl'] = ProteinSolution(name='1 uM Abl', buffer=solutions['buffer'], absorbance=4.24, extinction_coefficient=49850, molecular_weight=41293.2, ul_protein_stock=165.8, ml_buffer=14.0)
+solutions['buffer'] = Buffer(name='20 mM Tris buffer')
+solutions['Abl'] = ProteinSolution(name='1 uM Abl', species='Abl', buffer=solutions['buffer'], absorbance=4.24, extinction_coefficient=49850, molecular_weight=41293.2, ul_protein_stock=165.8, ml_buffer=14.0)
 solutions['BOS'] = DMSOStockSolution(dmso_stocks['BOS001'])
+solutions['BSI'] = DMSOStockSolution(dmso_stocks['BOI001'])
+solutions['GEF'] = DMSOStockSolution(dmso_stocks['GEF001'])
+solutions['ERL'] = DMSOStockSolution(dmso_stocks['ERL001'])
+
 ```
 where the `dmso_stocks` dictionary is auto-populated from a DMSO stock inventory spreadsheet (read here in CSV format):
 ```python
