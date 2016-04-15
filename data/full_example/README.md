@@ -98,9 +98,9 @@ Supported measurements include:
 Absorbance measurements are specified with the corresponding wavelength
 ```python
 from autoprotocol.unit import Unit
-well.properties['measurements']['absorbance'] = { Unit(280, 'nanometers') : 0.437 }
+well.properties['measurements']['absorbance'] = { '280:nanometers' : 0.437 }
 ```
-***NOTE: The `Unit(280, 'nanometers')` objects are not unique keys, so things like `{ Unit(280, 'nanometers') : 0.437, Unit(280, 'nanometers') : 0.123 }` are allowed.***
+***NOTE: `Unit` objects, such as `Unit(280, 'nanometers')`, cannot be used as not unique keys, so we are forced to use the string representations, such as '280:nanometers', as keys.***
 
 ##### Fluorescence measurements
 
@@ -108,7 +108,7 @@ Fluorescence measurements are specified with the corresponding excitation wavele
 ```python
 from autoprotocol.unit import Unit
 well.properties['measurements']['fluorescence'] = {
-    (Unit(280, 'nanometers'), Unit(450, 'nanometers'), 'top') : 12425,
-    (Unit(280, 'nanometers'), Unit(380, 'nanometers'), 'bottom') : 1425
+    ('280:nanometers', '450:nanometers', 'top') : 12425,
+    ('280:nanometers', '450:nanometers', 'bottom') : 1425
     }
 ```

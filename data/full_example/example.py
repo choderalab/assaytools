@@ -210,21 +210,27 @@ for well in container.all_wells():
     well_name = well.humanize()
 
     # Attach plate reader data
-    for wavelength in ['280', '350', '480']:
-        # Absorbance read
-        dataname = 'Abs_' + wavelength
-        if dataname in data:
-            well.set_properties({' absorbance_' + wavelength + 'nm' : data[dataname]['well_data'][well_name] })
-    emission_wavelength = '480'
-    for excitation_wavelength in ['280', '350']:
-        # Top fluorescence read
-        dataname = excitation_wavelength + '_TopRead'
-        if dataname in data:
-            well.set_properties({'fluorescence_top_ex' + excitation_wavelength + 'nm_em' + emission_wavelength + 'nm' : data[dataname]['well_data'][well_name]})
-        # Bottom fluorescence read
-        dataname = excitation_wavelength + '_BottomRead'
-        if dataname in data:
-            well.set_properties({'fluorescence_bottom_ex' + excitation_wavelength + 'nm_em' + emission_wavelength + 'nm' : data[dataname]['well_data'][well_name]})
+    measurements = dict()
+    for key in data:
+        if key.startswith('Abs_'):
+            # absorbance
+            [prefix, wavelength] = key.split('_')
+            wavelength = wavelength + ':nanometers'
+            if 'absorbance' not in measurements:
+                measurements['absorbance'] = dict()
+            measurements['absorbance'][wavelength] = float(data[key]['well_data'][well_name])
+        elif (key.endswith('_TopRead') or key.endswith('_BottomRead')):
+            # top fluorescence read
+            [wavelength, suffix] = key.split('_')
+            excitation_wavelength = wavelength + ':nanometers'
+            emission_wavelength = '450:nanometers'
+            if key.endswith('_TopRead'):
+                geometry = 'top'
+            else:
+                geometry = 'bottom'
+            if 'fluorescence' not in measurements:
+                measurements['fluorescence'] = dict()
+            measurements['fluorescence'][(excitation_wavelength, emission_wavelength, geometry)] = float(data[key]['well_data'][well_name])
 
 # Define a well group to analyze
 well_group = container.all_wells()
