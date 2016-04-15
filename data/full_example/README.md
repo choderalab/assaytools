@@ -140,7 +140,11 @@ Once fully populated, the overall `properties` attribute of a given `Well` may t
       ('350:nanometers', '450:nanometers', 'bottom'): 172.0
       }
     },
-  'contents': {'buffer': Unit(100.0, 'microliter'), 'DMSO': Unit(300.0, 'nanoliter'), 'IMA001': Unit(100.0, 'nanoliter')},
+  'contents': {
+    'buffer': Unit(100.0, 'microliter'),
+    'DMSO': Unit(300.0, 'nanoliter'),
+    'IMA001': Unit(100.0, 'nanoliter')
+    },
   'area': Unit(31.1724531052, 'millimeter ** 2')
 }
 ```
