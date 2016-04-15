@@ -232,6 +232,8 @@ for well in container.all_wells():
                 measurements['fluorescence'] = dict()
             measurements['fluorescence'][(excitation_wavelength, emission_wavelength, geometry)] = float(data[key]['well_data'][well_name])
 
+    well.properties['measurements'] = measurements
+
 # Define a well group to analyze
 well_group = container.all_wells()
 
