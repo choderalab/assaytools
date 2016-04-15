@@ -59,31 +59,52 @@ with open(dmso_stocks_csv_filename, 'rb') as csvfile:
 # Solutions have unknown *true* concentrations, except for buffer solutions which have exactly zero concentration.
 #
 
-class Solution(object):
-    """A solution with a defined concentration and uncertainty.
-    """
-    def __init__(self, name, concentration, uncertainty):
+class Buffer(object):
+    def __init__(self, name):
+        """
+        """
         self.name = name
+        self.component = None
+        self.concentration = Unit(0.0, 'moles/liter')
+        self.uncertainty = Unit(0.0, 'moles/liter')
+
+DMSO = Buffer('DMSO')
+
+class Solution(object):
+    """A solution of a single component with a defined concentration and uncertainty.
+    """
+    def __init__(self, name, species, buffer, concentration, uncertainty):
+        """
+        Parameters
+        ----------
+        name : str
+            A descrptive name for the solution.
+        species : str
+            The name of the species dissolved in buffer.
+        buffer : Buffer
+            The buffer the solution is prepared in.
+        concentration : Unit
+            The concentration of the species in the solution.
+        uncertainty : Unit
+            The concentration uncertainty of the species in the solution.
+        """
+        self.name = name
+        self.component = component
+        self.buffer = buffer
         self.concentration = concentration
         self.uncertainty = uncertainty
-
-class BufferSolution(Solution):
-    """A pure buffer solution.
-    """
-    def __init__(self, name):
-        self.name = name
-        self.concentration = Unit(0.0, 'moles/liter')
-        self.uncertainty = 0.0 * self.concentration
 
 class ProteinSolution(Solution):
     """A protein solution in buffer prepared spectrophotometrically.
     """
-    def __init__(self, name, buffer, absorbance, extinction_coefficient, molecular_weight, ul_protein_stock, ml_buffer):
+    def __init__(self, name, species, buffer, absorbance, extinction_coefficient, molecular_weight, ul_protein_stock, ml_buffer):
         """
         Parameters
         ----------
         protein_name : str
-            Name of the protein
+            A descreptive name of the solution.
+        species : str
+            The protein name
         buffer : BufferSolution
             The corresponding buffer solution.
         absorbance : float
@@ -99,11 +120,12 @@ class ProteinSolution(Solution):
 
         """
         self.name = name + ' in ' + buffer.name
+        self.species = species
+        self.buffer = buffer
         concentration = (absorbance / extinction_coefficient) * (ul_protein_stock/1000.0) / ml_buffer # M
         spectrophotometer_CV = 0.10 # TODO: Specify in assumptions YAML file
         self.concentration = Unit(concentration, 'moles/liter')
         self.uncertainty = spectrophotometer_CV * self.concentration # TODO: Compute more precisely
-        self.buffer = buffer
 
 class DMSOStockSolution(Solution):
     """A stock solution representing a compound dissolved in DMSO.
@@ -116,21 +138,26 @@ class DMSOStockSolution(Solution):
             The dictionary containing 'id', 'compound_name', 'compound mass (mg)', 'molecular weight', 'purity', 'solvent_mass'
         """
         self.name = '10 mM ' + dmso_stock['compound name'] + ' DMSO stock'
+        self.species = dmso_stock['compound name']
         dmso_density = 1.1004 # g/cm3
         mass_uncertainty = 0.01 # TODO: Calculate from balance precision
         concentration = dmso_stock['compound mass (mg)'] / 1000 * dmso_stock['molecular weight'] * dmso_stock['purity'] / (dmso_stock['solvent mass (g)'] * dmso_density / 1000) # mol/liter
         self.concentration = Unit(concentration, 'moles/liter')
         self.uncertainty = mass_uncertainty * self.concentration
+        self.buffer = DMSO
 
 solutions = dict()
-solutions['buffer'] = BufferSolution(name='20 mM Tris buffer')
-solutions['Abl'] = ProteinSolution(name='1 uM Abl', buffer=solutions['buffer'], absorbance=4.24, extinction_coefficient=49850, molecular_weight=41293.2, ul_protein_stock=165.8, ml_buffer=14.0)
+solutions['buffer'] = Buffer(name='20 mM Tris buffer')
+solutions['Abl'] = ProteinSolution(name='1 uM Abl', species='Abl', buffer=solutions['buffer'], absorbance=4.24, extinction_coefficient=49850, molecular_weight=41293.2, ul_protein_stock=165.8, ml_buffer=14.0)
 solutions['BOS'] = DMSOStockSolution(dmso_stocks['BOS001'])
 solutions['BSI'] = DMSOStockSolution(dmso_stocks['BOI001'])
 solutions['GEF'] = DMSOStockSolution(dmso_stocks['GEF001'])
 solutions['ERL'] = DMSOStockSolution(dmso_stocks['ERL001'])
 receptor_name = 'Abl'
-ligand_names = ['bosutinib', 'bosutinib isomer', 'gefinitib', 'erlotinib']
+ligand_names = list()
+for solution in solutions:
+    if isinstance(solution, DMSOStockSolution):
+        ligand_names.append(solution.species)
 
 #
 # Dispense protein solution
