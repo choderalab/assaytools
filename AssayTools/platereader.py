@@ -106,9 +106,9 @@ def extract_data(filename,section_name,selection,*args,**kwargs):
        The wavelength to extract, for example '480'.
     Returns
     -------
-    data : list of lists 
-       or list of dictionaries if spectra with no wavelength selected
-       data[0] is data and data[1] is the selection (e.g. [[471.0, 418.0], ['A1', 'A2']])
+    data : dictionary
+       or dictionary of dictionaries if spectra with no wavelength selected
+       (e.g. {'A1': 471.0, 'A2': 418.0})
     Examples
     --------
     >>> gefitinib_abl_singlet_A1 = extract_data(singlet_file, '350_TopRead', ['A1'])
@@ -132,34 +132,34 @@ def extract_data(filename,section_name,selection,*args,**kwargs):
     section_data = well_data[section_name]
     
     # extract selection
-    data = []
+    data = dict()
     for select in selection:
         if select in section_data:                          # if individual wells
-            data = [section_data[sele] for sele in selection]
+            data[select] = section_data[select]
         elif any([selection == r for r in rows]):           # if row
             for col in cols:
                 try:
-                    data.append(section_data[selection + col])
+                    data[selection + col] = section_data[selection + col]
                 except KeyError:
                     continue
         elif any([selection == c for c in cols]):            # if column
             for row in rows:
                 try:
-                    data.append(section_data[row + selection])
+                    data[row + selection] = section_data[row + selection]
                 except KeyError:
                     continue
         else:
             print 'bad selection'
 
     # extract wavelength (only relevant for spectra)
-    # if you don't include wavelength for spectra, data[0] will be a dict of all wavelengths
-    if type(data[0]) == dict and wavelength != None:
-        new_data = []
-        for i in range( len(data) ):
-            new_data.append(data[i][wavelength])
+    # if you don't include wavelength for spectra, data will be a dict of all wavelengths
+    if type(data.itervalues().next()) == dict and wavelength != None:
+        new_data = dict()
+        for key in data.keys():
+            new_data[key] = data[key][wavelength]
         data = new_data
             
-    return [data,selection]
+    return data
 
 def read_emission_spectra_text(filename):
     """
