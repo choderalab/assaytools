@@ -112,3 +112,10 @@ well.properties['measurements']['fluorescence'] = {
     ('280:nanometers', '450:nanometers', 'bottom') : 1425
     }
 ```
+
+#### Analysis
+
+Well properties may therefore look like this:
+```python
+{'measurements': {'absorbance': {'480:nanometers': 0.0413, '350:nanometers': 0.0723, '280:nanometers': 0.639}, 'fluorescence': {('280:nanometers', '450:nanometers', 'bottom'): 17775.0, ('350:nanometers', '450:nanometers', 'top'): 89.0, ('280:nanometers', '450:nanometers', 'top'): 8671.0, ('350:nanometers', '450:nanometers', 'bottom'): 172.0}}, 'contents': {'buffer': Unit(100.0, 'microliter'), 'DMSO': Unit(300.0, 'nanoliter'), 'IMA001': Unit(100.0, 'nanoliter')}, 'area': Unit(31.1724531052, 'millimeter ** 2')}
+```
