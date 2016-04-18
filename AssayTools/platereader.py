@@ -55,7 +55,11 @@ def read_icontrol_xml(filename):
         Returns
         -------
         well_data : dict
-           well_data[well_name] is the value associated with well_name (e.g. well_data['D7'] = 423)
+           Returns all values for each section as a dictionary of dictionaries
+           (e.g. well_data['280_TopRead'] is {'A1': 62213.0,'A10': 10505.0,...})
+           Above is an example return for singlet data xml file, if input is a spectra data 
+           xml file well_data will also include a dictionary for each well where the keys are the wavelength
+           (e.g. well_data['em280'] is {'A1': {'280': '3216344', '285': '2587710'...}...})
 
         """
 
@@ -90,7 +94,7 @@ def read_icontrol_xml(filename):
 
     return sections
 
-def extract_data(filename,section_name,selection,*args,**kwargs):
+def select_data(filename,section_name,selection,*args,**kwargs):
     """
     Read a Tecan iControl XML-formatted file and extract a particular part (row, column, 
     well, or well selection) for a particular section.
@@ -107,15 +111,16 @@ def extract_data(filename,section_name,selection,*args,**kwargs):
     Returns
     -------
     data : dictionary
-       or dictionary of dictionaries if spectra with no wavelength selected
        (e.g. {'A1': 471.0, 'A2': 418.0})
+       or dictionary of dictionaries if spectra with no wavelength selected
+       (e.g. {'A1': {'280': '3216344','285': '2587710'...}}
     Examples
     --------
-    >>> gefitinib_abl_singlet_A1 = extract_data(singlet_file, '350_TopRead', ['A1'])
-    >>> gefitinib_abl_singlet_A = extract_data(singlet_file, '350_TopRead', 'A')
-    >>> gefitinib_abl_singlet_1 = extract_data(singlet_file, '350_TopRead', '1')
-    >>> bosutinib_abl_spectra_A1 = extract_data(spectra_file, 'em280', ['A1'])
-    >>> bosutinib_abl_spectra_A_480 = extract_data(spectra_file, 'em280', 'A', wavelength='480')
+    gefitinib_abl_singlet_A1 = select_data(singlet_file, '350_TopRead', ['A1'])
+    gefitinib_abl_singlet_A = select_data(singlet_file, '350_TopRead', 'A')
+    gefitinib_abl_singlet_1 = select_data(singlet_file, '350_TopRead', '1')
+    bosutinib_abl_spectra_A1 = select_data(spectra_file, 'em280', ['A1'])
+    bosutinib_abl_spectra_A_480 = select_data(spectra_file, 'em280', 'A', wavelength='480')
     """
     wavelength = kwargs.get('wavelength', None)
     
