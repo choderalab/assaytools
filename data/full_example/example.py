@@ -231,6 +231,7 @@ for well in wells:
 filename = "Abl Gef gain 120 bw1020 2016-01-19 15-59-53_plate_1.xml"
 from assaytools import platereader
 data = platereader.read_icontrol_xml(filename)
+print data
 
 # Define wells for fluorescence assay (the verbose way; we'd provide convenience methods to format the plate)
 for well in container.all_wells():
@@ -245,7 +246,7 @@ for well in container.all_wells():
             wavelength = wavelength + ':nanometers'
             if 'absorbance' not in measurements:
                 measurements['absorbance'] = dict()
-            measurements['absorbance'][wavelength] = float(data[key]['well_data'][well_name])
+            measurements['absorbance'][wavelength] = float(data[key][well_name])
         elif (key.endswith('_TopRead') or key.endswith('_BottomRead')):
             # top fluorescence read
             [wavelength, suffix] = key.split('_')
@@ -257,7 +258,7 @@ for well in container.all_wells():
                 geometry = 'bottom'
             if 'fluorescence' not in measurements:
                 measurements['fluorescence'] = dict()
-            measurements['fluorescence'][(excitation_wavelength, emission_wavelength, geometry)] = float(data[key]['well_data'][well_name])
+            measurements['fluorescence'][(excitation_wavelength, emission_wavelength, geometry)] = float(data[key][well_name])
 
     well.properties['measurements'] = measurements
 
