@@ -71,8 +71,9 @@ def read_icontrol_xml(filename):
         for well_node in well_nodes:
             if well_node.get('Type') == 'Single':
                 well_name = well_node.get('Pos')
-                value = well_node.xpath("string()")
-                well_data[well_name] = float(value)
+                for r in well_node:
+                    read = r.text
+                well_data[well_name] = read
             else:
                 for well_node in well_nodes:
                     well_name = well_node.get('Pos')
