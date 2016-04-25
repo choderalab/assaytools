@@ -94,10 +94,15 @@ Each [`Well`](http://pythonhosted.org/autoprotocol/autoprotocol.html#autoprotoco
 
 #### Specifying well contents
 
-The `well.properties['contents']` is a `dict` specifying how much of each `Solution` was added to the well:
+The `well.properties['contents']` is a `dict` specifying how much of each `Solution` was added to the well using `(volume, stderr)`:
 ```python
 from autoprotocol.unit import Unit
-well.properties['contents'] = { 'Abl' : Unit(100, 'microliters'), 'BOS' : Unit(2, 'microliters')}
+CV_D300 = 0.08 # CV of D300 dispensing
+CV_EVO = 0.004 # CV of EVO dispensing 100 uL
+well.properties['contents'] = {
+   'Abl' : (Unit(100, 'microliters'), CV_EVO * Unit(100, 'microliters')),
+   'BOS' : (Unit(2, 'microliters'), CV_D300 * Unit(2, 'microliters'))
+   }
 ```
 Solutions that were not added need to be specified.
 
