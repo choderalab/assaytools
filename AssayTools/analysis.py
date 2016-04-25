@@ -63,24 +63,34 @@ class CompetitiveBindingAnalysis(object):
         # Create the PyMC model
         model = dict()
 
-        # Model solution concentrations
+        # Keep track of parameter name groups
+        self.parameter_names = dict()
+
+        # Construct priors on true solution concentrations
+        self.parameter_names['concentrations'] = list()
+        concentration_unit = 'moles/liter'
         for (name, solution) in solutions.iteritems():
             name += ' concentration'
-            mu = solution.concentration.to('moles/liter').magnitude # M, gaussian mean
-            sigma = solution.uncertainty.to('moles/liter').magnitude # M, gaussian mean
+            mu = solution.concentration.m_as(concentration_unit) # M, gaussian mean
+            sigma = solution.uncertainty.m_as(concentration_unit) # M, gaussian mean
             if (mu == 0.0):
                 true_concentration = 0.0
             else:
                 true_concentration = pymc.Lognormal(name, mu=np.log(mu**2 / np.sqrt(sigma**2 + mu**2)), tau=np.sqrt(np.log(1.0 + (sigma/mu)**2))**(-2)) # protein concentration (M)
             model[name] = true_concentration
+            self.parameter_names['concentrations'].append(name)
 
-        # Construct reactions
+        # Construct binding reactions for competition assay and assign priors to binding affinities
+        self.parameter_names['DeltaGs'] = list()
         from bindingmodels import GeneralBindingModel
-        reactions = list()
+        self.complex_names = list()
+        self.reactions = list()
         for ligand_name in ligand_names:
-            # Create the DeltaG prior.
+            # Create complex name
             complex_name = receptor_name + ':' + ligand_name
-            name = 'DeltaG ' + complex_name
+            self.complex_names.append(complex_name)
+            # Create the DeltaG prior
+            name = 'DeltaG (%s + %s -> %s)' % (receptor_name, ligand_name, complex_name) # form the name of the pymc variable
             if DeltaG_prior == 'uniform':
                 DeltaG = pymc.Uniform(name, lower=DG_min, upper=DG_max) # binding free energy (kT), uniform over huge range
             elif DeltaG_prior == 'chembl':
@@ -91,11 +101,36 @@ class CompetitiveBindingAnalysis(object):
             # Create the reaction
             reaction = (DeltaG, {complex_name : -1, receptor_name : +1, ligand_name : +1})
             # Append reactions.
-            reactions.append(reaction)
+            self.reactions.append(reaction)
+            self.parameter_names['DeltaGs'].append(name)
 
+        # Construct priors dispensed volumes in each well
+        volume_unit = 'liters' # volume unit used throughout
+        self.parameter_names['dispensed_volumes'] = list()
+        self.parameter_names['well_volumes'] = list()
+        for well in wells:
+            component_variables= list()
+            component_coefficients = list()
+            for component in well.properties['contents']:
+                name = 'volume of %s dispensed into well %s' % (component, well.humanize()) # TODO: Use plate name as well in case we may have well spanning multiple plates
+                (volume, error) = well.properties['contents'][component]
+                mu = volume.m_as(volume_unit)
+                sigma = error.m_as(volume_unit)
+                volume_dispensed = pymc.Lognormal(name, mu=np.log(mu**2 / np.sqrt(sigma**2 + mu**2)), tau=np.sqrt(np.log(1.0 + (sigma/mu)**2))**(-2)) # uL
+                model[name] = volume_dispensed
+                self.parameter_names['dispensed_volumes'].append(name)
 
+                component_variables.append(volume_dispensed)
+                component_coefficients.append(+1.0)
 
+            name = 'volume of well %s' % well.humanize() # TODO: Use plate name too in case wells span multiple plates
+            model[name] = pymc.LinearCombination(name, component_coefficients, component_variables)
+            self.parameter_names['well_volumes'].append(name)
+
+        # Create the PyMC Model object.
         self.model = pymc.Model(model)
+
+        print('Model has %d stochastics and %d deterministics...' % (len(self.model.stochastics), len(self.model.deterministics)))
 
     def map_fit(self):
         """
@@ -112,12 +147,16 @@ class CompetitiveBindingAnalysis(object):
         """
         map = pymc.MAP(self.model)
         ncycles = 50
+        nshow = 5
 
         # DEBUG
         ncycles = 5
+        nshow = 1
 
+        # Perform MAP fit
+        print('Performing MAP fit...')
         for cycle in range(ncycles):
-            if (cycle+1)%5==0: print('MAP fitting cycle %d/%d' % (cycle+1, ncycles))
+            if (cycle+1)%nshow==0: print('MAP fitting cycle %d/%d' % (cycle+1, ncycles))
             map.fit()
 
         return map
@@ -149,6 +188,7 @@ class CompetitiveBindingAnalysis(object):
         for stochastic in self.model.stochastics:
             mcmc.use_step_method(pymc.Metropolis, stochastic, proposal_sd=1.0, proposal_distribution='Normal')
 
+        print('Running MCMC...')
         mcmc.sample(iter=(nburn+niter), burn=nburn, thin=nthin, progress_bar=False, tune_throughout=False)
 
         return mcmc
@@ -171,21 +211,11 @@ class CompetitiveBindingAnalysis(object):
 
         """
 
-        # Compute summary statistics.
-        DeltaG = map.DeltaG.value
-        dDeltaG = mcmc.DeltaG.trace().std()
-        Kd = np.exp(map.DeltaG.value)
-        dKd = np.exp(mcmc.DeltaG.trace()).std()
-        print "DeltaG = %.1f +- %.1f kT" % (DeltaG, dDeltaG)
-        if (Kd < 1e-12):
-            print "Kd = %.1f nM +- %.1f fM" % (Kd/1e-15, dKd/1e-15)
-        elif (Kd < 1e-9):
-            print "Kd = %.1f pM +- %.1f pM" % (Kd/1e-12, dKd/1e-12)
-        elif (Kd < 1e-6):
-            print "Kd = %.1f nM +- %.1f nM" % (Kd/1e-9, dKd/1e-9)
-        elif (Kd < 1e-3):
-            print "Kd = %.1f uM +- %.1f uM" % (Kd/1e-6, dKd/1e-6)
-        elif (Kd < 1):
-            print "Kd = %.1f mM +- %.1f mM" % (Kd/1e-3, dKd/1e-3)
-        else:
-            print "Kd = %.3e M +- %.3e M" % (Kd, dKd)
+        # Compute summary statistics
+        alpha = 0.95 # confidence interval width
+        from scipy.stats import bayes_mvs
+        for name in self.parameter_names['DeltaGs']:
+            mle = getattr(map, name).value
+            mean_cntr, var_cntr, std_cntr = bayes_mvs(getattr(mcmc, name).trace(), alpha=alpha)
+            (center, (lower, upper)) = mean_cntr
+            print("%64s : %5.1f [%5.1f, %5.1f] kT" % (mle, lower, upper))

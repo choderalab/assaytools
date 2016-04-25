@@ -149,28 +149,27 @@ class DMSOStockSolution(Solution):
 solutions = dict()
 solutions['buffer'] = Buffer(name='20 mM Tris buffer')
 solutions['Abl'] = ProteinSolution(name='1 uM Abl', species='Abl', buffer=solutions['buffer'], absorbance=4.24, extinction_coefficient=49850, molecular_weight=41293.2, ul_protein_stock=165.8, ml_buffer=14.0)
+solutions['DMSO'] = DMSO
 solutions['BOS'] = DMSOStockSolution(dmso_stocks['BOS001'])
 solutions['BSI'] = DMSOStockSolution(dmso_stocks['BOI001'])
 solutions['GEF'] = DMSOStockSolution(dmso_stocks['GEF001'])
 solutions['ERL'] = DMSOStockSolution(dmso_stocks['ERL001'])
 receptor_name = 'Abl'
-ligand_names = list()
-for solution in solutions:
-    if isinstance(solution, DMSOStockSolution):
-        ligand_names.append(solution.species)
+ligand_names = ['BOS', 'BSI', 'GEF', 'ERL']
 
 #
 # Dispense protein solution
 #
 
+Tecan_EVO_CV = 0.004 # for 100 uL volume; TODO: read these from YAML file
 assay_volume = Unit(100.0, 'microliters')
 for well in container.all_wells():
     well_name = well.humanize()
     contents = well.properties['contents']
     if well_name[0] in ['A', 'C', 'E', 'G']:
-        contents['Abl'] = assay_volume
+        contents['Abl'] = (assay_volume, Tecan_EVO_CV * assay_volume) # volume, error
     else:
-        contents['buffer'] = assay_volume
+        contents['buffer'] = (assay_volume, Tecan_EVO_CV * assay_volume) # volume, error
     well.set_volume(well.volume + assay_volume)
 
 #
@@ -202,6 +201,7 @@ def humanize_d300_well(row, column):
 dispensed = root.findall('./Dispensed')[0]
 volume_unit = dispensed.attrib['VolumeUnit'] # dispensed volume unit
 wells = dispensed.findall('Plate/Well')
+HP_D300_CV = 0.08 # CV for HP D300; TODO: Read this from a YAML file
 for well in wells:
     row = int(well.attrib['R'])
     column = int(well.attrib['C'])
@@ -221,7 +221,7 @@ for well in wells:
         well_name = humanize_d300_well(row, column)
         well = container.well(well_name)
         contents = well.properties['contents']
-        contents[fluid_name] = dispensed_volume
+        contents[fluid_name] = (dispensed_volume, HP_D300_CV * dispensed_volume) # (volume, error)
         well.set_volume(well.volume + dispensed_volume)
 
 #
@@ -231,7 +231,6 @@ for well in wells:
 filename = "Abl Gef gain 120 bw1020 2016-01-19 15-59-53_plate_1.xml"
 from assaytools import platereader
 data = platereader.read_icontrol_xml(filename)
-print data
 
 # Define wells for fluorescence assay (the verbose way; we'd provide convenience methods to format the plate)
 for well in container.all_wells():
@@ -258,21 +257,27 @@ for well in container.all_wells():
                 geometry = 'bottom'
             if 'fluorescence' not in measurements:
                 measurements['fluorescence'] = dict()
-            measurements['fluorescence'][(excitation_wavelength, emission_wavelength, geometry)] = float(data[key][well_name])
+            measurements['fluorescence'][(excitation_wavelength, emission_wavelength, geometry)] = float(data[key] [well_name])
 
     well.properties['measurements'] = measurements
 
 # Define a well group to analyze
 well_group = container.all_wells()
 
-# TODO: Analyze the well group.
-# This is just a non-working stub for now.
+#
+# Analyze the well group.
+#
+
 # Create a model
 from assaytools.analysis import CompetitiveBindingAnalysis
 experiment = CompetitiveBindingAnalysis(solutions=solutions, wells=well_group, receptor_name=receptor_name, ligand_names=ligand_names)
 import pymc
 from assaytools import pymcmodels
-# fit the maximum a posteriori (MAP) estimate
+# Fit the maximum a posteriori (MAP) estimate
 map_fit = experiment.map_fit()
-# run some MCMC sampling and return the MCMC object
+# Run some MCMC sampling and return the MCMC object
 mcmc = experiment.run_mcmc()
+# Show summary
+experiment.show_summary(mcmc)
+# Generate plots
+#mcmc.generate_plots()
