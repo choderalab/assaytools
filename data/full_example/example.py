@@ -154,8 +154,9 @@ solutions['BOS'] = DMSOStockSolution(dmso_stocks['BOS001'])
 solutions['BSI'] = DMSOStockSolution(dmso_stocks['BOI001'])
 solutions['GEF'] = DMSOStockSolution(dmso_stocks['GEF001'])
 solutions['ERL'] = DMSOStockSolution(dmso_stocks['ERL001'])
+solutions['IMA'] = DMSOStockSolution(dmso_stocks['IMA001'])
 receptor_name = 'Abl'
-ligand_names = ['BOS', 'BSI', 'GEF', 'ERL']
+ligand_names = ['BOS', 'IMA']
 
 #
 # Dispense protein solution
@@ -187,8 +188,8 @@ root = tree.getroot()
 fluids = root.findall('./Fluids/Fluid')
 
 # TODO: Rewrite fluid names to match stock names.
-fluids[0].attrib['Name'] = 'BOS001'
-fluids[1].attrib['Name'] = 'IMA001'
+fluids[0].attrib['Name'] = 'BOS'
+fluids[1].attrib['Name'] = 'IMA'
 fluids[2].attrib['Name'] = 'DMSO'
 
 def humanize_d300_well(row, column):
@@ -270,7 +271,7 @@ well_group = container.all_wells()
 
 # Create a model
 from assaytools.analysis import CompetitiveBindingAnalysis
-experiment = CompetitiveBindingAnalysis(solutions=solutions, wells=well_group, receptor_name=receptor_name, ligand_names=ligand_names)
+experiment = CompetitiveBindingAnalysis(solutions=solutions, wells=well_group, receptor_name=receptor_name, ligand_names=['Bosutinib', 'Imatinib'])
 import pymc
 from assaytools import pymcmodels
 # Fit the maximum a posteriori (MAP) estimate
@@ -278,6 +279,6 @@ map_fit = experiment.map_fit()
 # Run some MCMC sampling and return the MCMC object
 mcmc = experiment.run_mcmc()
 # Show summary
-experiment.show_summary(mcmc)
+experiment.show_summary(mcmc, map_fit)
 # Generate plots
 #mcmc.generate_plots()
