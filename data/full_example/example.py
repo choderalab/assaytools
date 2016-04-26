@@ -188,7 +188,7 @@ root = tree.getroot()
 fluids = root.findall('./Fluids/Fluid')
 
 # TODO: Rewrite fluid names to match stock names.
-fluids[0].attrib['Name'] = 'BOS'
+fluids[0].attrib['Name'] = 'GEF'
 fluids[1].attrib['Name'] = 'IMA'
 fluids[2].attrib['Name'] = 'DMSO'
 
@@ -199,6 +199,7 @@ def humanize_d300_well(row, column):
     return chr(row + 97) + str(column+1)
 
 # Read dispensed volumes
+# TODO: Read only one plate
 dispensed = root.findall('./Dispensed')[0]
 volume_unit = dispensed.attrib['VolumeUnit'] # dispensed volume unit
 wells = dispensed.findall('Plate/Well')
@@ -272,8 +273,6 @@ well_group = container.all_wells()
 # Create a model
 from assaytools.analysis import CompetitiveBindingAnalysis
 experiment = CompetitiveBindingAnalysis(solutions=solutions, wells=well_group, receptor_name=receptor_name, ligand_names=['Bosutinib', 'Imatinib'])
-import pymc
-from assaytools import pymcmodels
 # Fit the maximum a posteriori (MAP) estimate
 map_fit = experiment.map_fit()
 # Run some MCMC sampling and return the MCMC object
@@ -281,4 +280,4 @@ mcmc = experiment.run_mcmc()
 # Show summary
 experiment.show_summary(mcmc, map_fit)
 # Generate plots
-#mcmc.generate_plots()
+#experiment.generate_plots(mcmc)

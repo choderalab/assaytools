@@ -32,6 +32,8 @@ Compound stocks used:
    * For the competition assay GEF999 and IMA001 were used
    * For the spectra assay BOS001, BOI001, GEF001, and ERL001 were used.
 
+See [this IPython notebook](https://github.com/choderalab/assaytools/blob/master/examples/ipynbs/data-analysis/competition/Competition-Assay-Analysis.ipynb) for competition assay.
+
 ## API NOTES
 
 `example.py` contains a verbose example of using the new general `assaytoos.analysis.CompetitiveBindingAnalysis` API to analyze spectroscopic measurements using one or more components.
