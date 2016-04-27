@@ -263,21 +263,44 @@ for well in container.all_wells():
 
     well.properties['measurements'] = measurements
 
-# Define a well group to analyze
-well_group = container.all_wells()
+#
+# Actual API example
+#
 
-#
-# Analyze the well group.
-#
+from assaytools.experiments import DMSOStockSolutions, BufferSolution, ProteinSolution, AssayPlate
+from assaytools.analysis import CompetitiveBindingAnalysis
+
+# Read DMSO stock solutions from inventory CSV file
+dmso_stocks_csv_filename = 'DMSOstocks-Sheet1.csv'
+solutions = DMSOStockSolutions(dmso_stocks_csv_filename)
+ligand_solutions = (solutions['BOS001'], solutions['BSI001'], solutions['GEF001'], solutions['GEF001'])
+
+# Define receptor and ligand species names.
+receptor_species = 'Abl(D382N)'
+ligand_species = [ ligand_solutions.species for solution in ligand_solutions ]
+
+# Add buffer and protein stock solutions
+solutions['buffer'] = Buffer(name='20 mM Tris buffer')
+solutions[receptor_species] = ProteinSolution(name='1 uM Abl D382N', species=receptor_species, buffer=solutions['buffer'], absorbance=4.24, extinction_coefficient=49850, molecular_weight=41293.2, ul_protein_stock=165.8, ml_buffer=14.0)
+
+# Populate the Container data structure with well contents and measurements
+d300_xml_filename = 'LRL_Src_Bos_2rows_1_2 2015-09-11 1048.DATA.xml'
+infinite_xml_filename = 'Abl_D382N_Bos_20160311_132205.xml'
+plate = AssayPlate(protein_solution=solutions['Abl'], buffer_solution=solutions['buffer'], ligand_solutions=ligand_solutions,
+    d300_xml_filename=d300_xml_filename, infinite_xml_filename=infinite_xml_filename)
 
 # Create a model
-from assaytools.analysis import CompetitiveBindingAnalysis
-experiment = CompetitiveBindingAnalysis(solutions=solutions, wells=well_group, receptor_name=receptor_name, ligand_names=['Bosutinib', 'Imatinib'])
+experiment = CompetitiveBindingAnalysis(solutions=solutions, wells=plate.all_wells(), receptor_species=receptor_species, ligand_species=ligand_species)
+
 # Fit the maximum a posteriori (MAP) estimate
 map_fit = experiment.map_fit()
+
 # Run some MCMC sampling and return the MCMC object
 mcmc = experiment.run_mcmc()
+
 # Show summary
 experiment.show_summary(mcmc, map_fit)
+
 # Generate plots
-#experiment.generate_plots(mcmc)
+plots_filename = 'plots.pdf'
+experiment.generate_plots(mcmc, pdf_filename=plots_filename)
