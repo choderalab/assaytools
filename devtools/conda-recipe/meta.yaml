@@ -16,12 +16,14 @@ requirements:
     - numpy
     - pandas
     - scipy
-    - pymc
+    - pymc ==2.3.4
     - matplotlib
     - seaborn
     - lxml
     - ipython
     - notebook
+    - autoprotocol
+    - mock
 
   run:
     - python
@@ -35,6 +37,8 @@ requirements:
     - lxml
     - ipython
     - notebook
+    - autoprotocol
+    - libgfortran ==1.0.0 [linux]
 
 test:
   requires:

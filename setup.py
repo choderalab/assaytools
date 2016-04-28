@@ -87,11 +87,12 @@ setup(name='assaytools',
       cmdclass={'build_ext': build_ext},
       package_data={'assaytools.html': ['static/*']},
       install_requires=[
-#        'numpy',
-#        'pandas',
-#        'pymc',
-#        'matplotlib',
-#        'seaborn',
-#        'lxml'
+        'numpy',
+        'pandas',
+        'pymc',
+        'matplotlib',
+        'seaborn',
+        'lxml',
+        'autoprotocol'
         ],
       **setup_kwargs)

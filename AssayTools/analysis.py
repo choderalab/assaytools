@@ -65,7 +65,7 @@ class CompetitiveBindingAnalysis(object):
         self.solutions = solutions
         self.wells = wells
         self.receptor_name = receptor_name
-        self.ligand_names = ligand_names
+        self.ligand_names = list(ligand_names)
 
         # Create the PyMC model
         model = dict()
