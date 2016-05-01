@@ -71,8 +71,9 @@ def read_icontrol_xml(filename):
         for well_node in well_nodes:
             if well_node.get('Type') == 'Single':
                 well_name = well_node.get('Pos')
-                value = well_node.xpath("string()")
-                well_data[well_name] = float(value)
+                for r in well_node:
+                    read = r.text
+                well_data[well_name] = read
             else:
                 for well_node in well_nodes:
                     well_name = well_node.get('Pos')
@@ -94,14 +95,14 @@ def read_icontrol_xml(filename):
 
     return sections
 
-def select_data(filename,section_name,selection,*args,**kwargs):
+def select_data(file_data,section_name,selection,*args,**kwargs):
     """
     Read a Tecan iControl XML-formatted file and extract a particular part (row, column, 
     well, or well selection) for a particular section.
     Parameters
     ----------
-    filename : str
-       The name of the XML file to be read.
+    input : str or dict
+       EITHER the name of the XML file to be read OR the dict of an XML file made by read_icontrol_xml
     section_name : str
        The 'Name' attribute of the section to read.
     selection : str
@@ -132,8 +133,13 @@ def select_data(filename,section_name,selection,*args,**kwargs):
     for i in range(1,25):
         cols.append('%s' % i)
     
-    # import data from section
-    well_data = read_icontrol_xml(filename)
+    # read data from xml or dict
+    
+    if type(file_data) == dict:
+        well_data = file_data
+    else:
+        well_data = read_icontrol_xml(file_data)
+
     section_data = well_data[section_name]
     
     # extract selection
