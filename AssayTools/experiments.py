@@ -353,3 +353,98 @@ def read_infinite(container, xml_filename):
                 if 'fluorescence' not in measurements:
                     measurements['fluorescence'] = dict()
                 measurements['fluorescence'][(excitation_wavelength, emission_wavelength, geometry)] = float(data[key] [well_name])
+
+
+class Assay(object):
+    """
+    Assay base class
+    """
+    pass
+
+params = {
+    'd300_xml_filename' : 'Src_Bos_Ima_96well_Mar2015 2015-03-07 1736.DATA.xml' # HP D300 dispense simulated DATA file
+    'infinite_xml_filename' : 'Abl Gef gain 120 bw1020 2016-01-19 15-59-53_plate_1.xml' # Tecan Infinite plate reader output data
+    'dmso_stocks_csv_filename' : 'DMSOstocks-Sheet1.csv' # CSV file of DMSO stock inventory
+    'hpd300_fluids' : ['GEF001', 'IMA001', 'DMSO'] # uuid of DMSO stocks from dmso_stocks_csv_filename (or 'DMSO' for pure DMSO) used to define HP D300 XML <Fluids> block
+    'receptor_species' = 'Abl(D382N)' # receptor name (just used for convenience)
+    'protein_absorbance' = 4.24 # absorbance reading of concentrated protein stock before dilution
+    'protein_extinction_coefficient' = Unit(49850, '1/molar/centimeter') # 1/M/cm extinction coefficient for protein
+    'protein_molecular_weight' = Unit(41293.2, 'daltons') # g/mol protein molecular weight
+    'protein_stock_volume' = Unit(165.8, 'microliters') # uL protein stock solution used to make 1 uM protein stock
+    'buffer_volume' = Unit(14.0, 'milliliters') # mL buffer used to make 1 uM protein stock
+    'rows_to_analyze' = ['A', 'B'] # rows to analyze
+    'assay_volume' = Unit(100.0, 'microliters') # quantity of protein or buffer dispensed into plate
+}
+
+class SingletAssay(Assay):
+    def __init__(self,
+        d300_xml_filename,
+        infinite_xml_filename,
+        dmso_stocks_csv_filename,
+        hpd300_fluids,
+        receptor_species,
+        protein_absorbance,
+        protein_extinction_coefficient,
+        protein_molecular_weight,
+        protein_stock_volume,
+        buffer_volume,
+        rows_to_analyze,
+        assay_volume):
+        """
+        Set up a single-point assay.
+
+        Parameters
+        ----------
+        d300_xml_filename : str
+            HP D300 dispense simulated DATA file
+        infinite_xml_filename : str
+            Tecan Infinite plate reader output data, e.g. 'Abl Gef gain 120 bw1020 2016-01-19 15-59-53_plate_1.xml'
+        dmso_stocks_csv_filename : str
+            CSV file of DMSO stock inventory, e.g. 'DMSOstocks-Sheet1.csv'
+        hpd300_fluids : list of str
+            uuids of DMSO stocks from dmso_stocks_csv_filename (or 'DMSO' for pure DMSO) used to define HP D300 XML <Fluids> block, e.g. ['GEF001', 'IMA001', 'DMSO']
+        receptor_species
+            Name of receptor species, e.g. 'Abl(D382N)'
+        protein_absorbance
+            Absorbance reading of concentrated protein stock before dilution
+        protein_extinction_coefficient : Unit compatible with 1/molar/centimeters
+            Extinction coefficient for protein, e.g. Unit(49850, '1/molar/centimeter')
+        protein_molecular_weight : Unit compatible with daltons
+            Protein molecular weight
+        protein_stock_volume : Unit compatible with microliters
+            Volume of high-concentration protein stock solution used to make 1 uM protein stock
+        buffer_volume : Unit compatible with milliliters
+            Volume of buffer used to make ~1 uM protein stock used to fill wells
+        rows_to_analyze : list
+            Rows to analyze, e.g. ['A', 'B']
+        assay_volume : Unit compatible with microliters
+            Quantity of protein or buffer dispensed into plate
+
+        """
+        # Read DMSO stock solutions from inventory CSV file
+        from assaytools.experiments import DMSOStockSolutions, DMSO, Buffer, ProteinSolution
+        solutions = DMSOStockSolutions(dmso_stocks_csv_filename) # all solutions from DMSO stocks inventory
+
+        # Enumerate all ligand species from DMSO stocks.
+        ligand_species = set( [ solution.species for solution in solutions.values() if (solution.species != None)] )
+
+        # Add buffer and protein stock solutions
+        solutions['buffer'] = Buffer(name='20 mM Tris buffer')
+        solutions[receptor_species] = ProteinSolution(name='1 uM %s' % receptor_species, species=receptor_species, buffer=solutions['buffer'],
+        absorbance=protein_absorbance, extinction_coefficient=protein_extinction_coefficient, molecular_weight=protein_molecular_weight, ul_protein_stock=ul_protein_stock, ml_buffer=ml_buffer)
+
+        # Populate the Container data structure with well contents and measurements
+        from assaytools.experiments import provision_assay_plate, dispense_evo, dispense_hpd300, read_infinite
+        plate = provision_assay_plate(name='assay-plate', plate_type='4titude 4ti-0223')
+        dispense_evo(plate, solution=solutions[receptor_species], volume=assay_volume, rows=['A', 'C', 'E', 'G'])
+        dispense_evo(plate, solution=solutions['buffer'], volume=assay_volume, rows=['B', 'D', 'F', 'H'])
+        dispense_hpd300(plate, solutions=[solutions[id] for id in hpd300_fluids], xml_filename=d300_xml_filename)
+        read_infinite(plate, xml_filename=infinite_xml_filename)
+
+        # Select specified rows for analysis.
+        from autoprotocol import WellGroup
+        well_group = WellGroup([well for well in plate.all_wells() if (well.humanize()[0] in rows_to_analyze)])
+
+        # Create a model
+        from assaytools.analysis import CompetitiveBindingAnalysis
+        self.experiment = CompetitiveBindingAnalysis(solutions=solutions, wells=well_group, receptor_name=receptor_species, ligand_names=ligand_species)
