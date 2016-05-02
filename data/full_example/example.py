@@ -1,5 +1,5 @@
 """
-Analyze Abl:Gefinitinib singlet assay.
+Analyze Abl:Gefinitinib singlet (single fluorescent inhibitor) assay.
 
 """
 
@@ -41,7 +41,3 @@ assay.experiment.show_summary(mcmc, map_fit)
 # Generate plots
 plots_filename = 'plots.pdf'
 assay.experiment.generate_plots(mcmc, pdf_filename=plots_filename)
-
-#
-# This is all boilerplate analysis for singlet assays, and can be wrapped into a helper function
-#
