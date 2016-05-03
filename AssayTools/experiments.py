@@ -12,27 +12,36 @@ import random, string
 #
 
 class Buffer(object):
-    def __init__(self, name):
+    def __init__(self, shortname, description):
         """
+        Parameters
+        ----------
+        shortname : str
+            A short name for the solution. (e.g. 'buffer')
+        description:
+            A descriptive name for the solution (e.g. '20 mM Tris 50 mM NaCl')
         """
-        self.name = name
+        self.shortname = shortname
+        self.description = description
         self.species = None
         self.concentration = Unit(0.0, 'moles/liter')
         self.uncertainty = Unit(0.0, 'moles/liter')
 
-DMSO = Buffer('DMSO')
+DMSO = Buffer('DMSO', 'DMSO')
 
 class Solution(object):
     """A solution of a single component with a defined concentration and uncertainty.
     """
-    def __init__(self, name, species, buffer, concentration, uncertainty):
+    def __init__(self, shortname, description, species, buffer, concentration, uncertainty):
         """
         Parameters
         ----------
-        name : str
-            A descrptive name for the solution.
+        shortname : str
+            A short name for the solution. (e.g. 'bosutinib-stock')
+        description:
+            A descriptive name for the solution (e.g. '10 mM bosutinib in DMSO')
         species : str
-            The name of the species dissolved in buffer.
+            The name of the species dissolved in buffer (e.g. 'bosutinib')
         buffer : Buffer
             The buffer the solution is prepared in.
         concentration : Unit
@@ -40,7 +49,7 @@ class Solution(object):
         uncertainty : Unit
             The concentration uncertainty of the species in the solution.
         """
-        self.name = name
+        self.shortname = shortname
         self.species = species
         self.buffer = buffer
         self.concentration = concentration
@@ -49,12 +58,14 @@ class Solution(object):
 class ProteinSolution(Solution):
     """A protein solution in buffer prepared spectrophotometrically.
     """
-    def __init__(self, name, species, buffer, absorbance, extinction_coefficient, molecular_weight, protein_stock_volume, buffer_volume, spectrophotometer_CV=0.10):
+    def __init__(self, shortname, description, species, buffer, absorbance, extinction_coefficient, molecular_weight, protein_stock_volume, buffer_volume, spectrophotometer_CV=0.10):
         """
         Parameters
         ----------
-        protein_name : str
-            A descreptive name of the solution.
+        shortname : str
+            A short name for the solution (e.g. 'protein')
+        description:
+            A descriptive name for the solution (e.g. '1 uM Abl')
         species : str
             The protein name
         buffer : BufferSolution
@@ -73,7 +84,8 @@ class ProteinSolution(Solution):
             CV for spectrophotometer readings
 
         """
-        self.name = name + ' in ' + buffer.name
+        self.shortname = shortname
+        self.description = description
         self.species = species
         self.buffer = buffer
         path_length = Unit(1.0, 'centimeter')
@@ -90,12 +102,13 @@ class DMSOStockSolution(Solution):
         dmso_stock : dict
             The dictionary containing 'id', 'compound_name', 'compound mass (mg)', 'molecular weight', 'purity', 'solvent_mass'
         """
-        self.name = '10 mM ' + dmso_stock['compound name'] + ' DMSO stock'
+        self.shortname = dmso_stock['id']
         self.species = dmso_stock['compound name']
-        dmso_density = 1.1004 # g/cm3
+        self.description = '10 mM ' + dmso_stock['compound name'] + ' DMSO stock'
+        dmso_density = Unit(1.1004, 'grams/milliliter')
         mass_uncertainty = 0.01 # TODO: Calculate from balance precision
-        concentration = dmso_stock['compound mass (mg)'] / 1000 * dmso_stock['molecular weight'] * dmso_stock['purity'] / (dmso_stock['solvent mass (g)'] * dmso_density / 1000) # mol/liter
-        self.concentration = Unit(concentration, 'moles/liter')
+        concentration = Unit(dmso_stock['compound mass (mg)'], 'milligrams') * dmso_stock['purity'] / Unit(dmso_stock['molecular weight'], 'grams/mole') / (Unit(dmso_stock['solvent mass (g)'], 'grams') / dmso_density) # mol/liter
+        self.concentration = concentration.to('moles/liter')
         self.uncertainty = mass_uncertainty * self.concentration
         self.buffer = DMSO
 
@@ -233,7 +246,7 @@ def dispense_evo(container, solution, volume, rows):
 
         well_name = well.humanize()
         if well_name[0] in rows:
-            contents[solution.name] = (volume, CV * volume) # volume, error
+            contents[solution.shortname] = (volume, CV * volume) # volume, error
             well.set_volume(well.volume + volume)
 
 def dispense_hpd300(container, solutions, xml_filename, plate_index=0):
@@ -265,7 +278,7 @@ def dispense_hpd300(container, solutions, xml_filename, plate_index=0):
     print fluids
     print solutions
     for (index, solution) in enumerate(solutions):
-        fluids[index].attrib['Name'] = solution.name
+        fluids[index].attrib['Name'] = solution.shortname
 
     def humanize_d300_well(row, column):
         """
@@ -386,15 +399,15 @@ class SingletAssay(Assay):
         infinite_xml_filename : str
             Tecan Infinite plate reader output data, e.g. 'Abl Gef gain 120 bw1020 2016-01-19 15-59-53_plate_1.xml'
         dmso_stocks_csv_filename : str
-            CSV file of DMSO stock inventory, e.g. 'DMSOstocks-Sheet1.csv'
+            CSV file of DMSO stock inventory, e.g. 'dmso'stocks-Sheet1.csv'
         hpd300_fluids : list of str
             uuids of DMSO stocks from dmso_stocks_csv_filename (or 'DMSO' for pure DMSO) used to define HP D300 XML <Fluids> block, e.g. ['GEF001', 'IMA001', 'DMSO']
         receptor_species
             Name of receptor species, e.g. 'Abl(D382N)'
         protein_absorbance
             Absorbance reading of concentrated protein stock before dilution
-        protein_extinction_coefficient : Unit compatible with 1/molar/centimeters
-            Extinction coefficient for protein, e.g. Unit(49850, '1/molar/centimeter')
+        protein_extinction_coefficient : Unit compatible with 1/(moles/liter)/centimeters
+            Extinction coefficient for protein, e.g. Unit(49850, '1/(moles/liter)/centimeter')
         protein_molecular_weight : Unit compatible with daltons
             Protein molecular weight
         protein_stock_volume : Unit compatible with microliters
@@ -415,14 +428,14 @@ class SingletAssay(Assay):
         ligand_species = set( [ solution.species for solution in solutions.values() if (solution.species != None)] )
 
         # Add buffer and protein stock solutions
-        solutions['buffer'] = Buffer(name='20 mM Tris buffer')
-        solutions[receptor_species] = ProteinSolution(name='1 uM %s' % receptor_species, species=receptor_species, buffer=solutions['buffer'],
+        solutions['buffer'] = Buffer(shortname='buffer', description='20 mM Tris buffer')
+        solutions['protein'] = ProteinSolution(shortname='protein', description='1 uM %s' % receptor_species, species=receptor_species, buffer=solutions['buffer'],
         absorbance=protein_absorbance, extinction_coefficient=protein_extinction_coefficient, molecular_weight=protein_molecular_weight, protein_stock_volume=protein_stock_volume, buffer_volume=buffer_volume)
 
         # Populate the Container data structure with well contents and measurements
         from assaytools.experiments import provision_assay_plate, dispense_evo, dispense_hpd300, read_infinite
         plate = provision_assay_plate(name='assay-plate', plate_type='4titude 4ti-0223')
-        dispense_evo(plate, solution=solutions[receptor_species], volume=assay_volume, rows=['A', 'C', 'E', 'G'])
+        dispense_evo(plate, solution=solutions['protein'], volume=assay_volume, rows=['A', 'C', 'E', 'G'])
         dispense_evo(plate, solution=solutions['buffer'], volume=assay_volume, rows=['B', 'D', 'F', 'H'])
         dispense_hpd300(plate, solutions=[solutions[id] for id in hpd300_fluids], xml_filename=d300_xml_filename)
         read_infinite(plate, xml_filename=infinite_xml_filename)

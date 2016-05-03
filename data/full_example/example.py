@@ -18,7 +18,7 @@ params = {
     'hpd300_fluids' : ['GEF001', 'IMA001', 'DMSO'], # uuid of DMSO stocks from dmso_stocks_csv_filename (or 'DMSO' for pure DMSO) used to define HP D300 XML <Fluids> block
     'receptor_species' : 'Abl(D382N)', # receptor name (just used for convenience)
     'protein_absorbance' : 4.24, # absorbance reading of concentrated protein stock before dilution
-    'protein_extinction_coefficient' : Unit(49850, '1/molar/centimeter'), # 1/M/cm extinction coefficient for protein
+    'protein_extinction_coefficient' : Unit(49850, '1/(moles/liter)/centimeter'), # 1/M/cm extinction coefficient for protein
     'protein_molecular_weight' : Unit(41293.2, 'daltons'), # g/mol protein molecular weight
     'protein_stock_volume' : Unit(165.8, 'microliters'), # uL protein stock solution used to make 1 uM protein stock
     'buffer_volume' : Unit(14.0, 'milliliters'), # mL buffer used to make 1 uM protein stock
