@@ -49,7 +49,7 @@ class Solution(object):
 class ProteinSolution(Solution):
     """A protein solution in buffer prepared spectrophotometrically.
     """
-    def __init__(self, name, species, buffer, absorbance, extinction_coefficient, molecular_weight, ul_protein_stock, ml_buffer):
+    def __init__(self, name, species, buffer, absorbance, extinction_coefficient, molecular_weight, protein_stock_volume, buffer_volume, spectrophotometer_CV=0.10):
         """
         Parameters
         ----------
@@ -61,23 +61,24 @@ class ProteinSolution(Solution):
             The corresponding buffer solution.
         absorbance : float
             Absorbance for 1 cm equivalent path length
-        extinction_coefficient : float
+        extinction_coefficient : Unit
             Extinction coefficient (1/M/cm)
-        molecular_weight : float
+        molecular_weight : Unit
             Molecular weight (g/mol or Daltons)
-        ul_protein_stock : float
-            Microliters of protein stock added to make solution
-        ml_buffer : float
-            Milliliters of buffer added to make solution
+        protein_stock_volume : Unit
+            Volume of protein stock added to make solution
+        buffer_volume : Unit
+            Volume of buffer added to make solution
+        spectrophotometer_CV : float, optional, default=0.10
+            CV for spectrophotometer readings
 
         """
         self.name = name + ' in ' + buffer.name
         self.species = species
         self.buffer = buffer
-        concentration = (absorbance / extinction_coefficient) * (ul_protein_stock/1000.0) / ml_buffer # M
-        spectrophotometer_CV = 0.10 # TODO: Specify in assumptions YAML file
-        self.concentration = Unit(concentration, 'moles/liter')
-        self.uncertainty = spectrophotometer_CV * self.concentration # TODO: Compute more precisely
+        path_length = Unit(1.0, 'centimeter')
+        self.concentration = (absorbance / (extinction_coefficient * path_length)) * (protein_stock_volume / buffer_volume) # M
+        self.uncertainty = spectrophotometer_CV * self.concentration
 
 class DMSOStockSolution(Solution):
     """A stock solution representing a compound dissolved in DMSO.
@@ -416,7 +417,7 @@ class SingletAssay(Assay):
         # Add buffer and protein stock solutions
         solutions['buffer'] = Buffer(name='20 mM Tris buffer')
         solutions[receptor_species] = ProteinSolution(name='1 uM %s' % receptor_species, species=receptor_species, buffer=solutions['buffer'],
-        absorbance=protein_absorbance, extinction_coefficient=protein_extinction_coefficient, molecular_weight=protein_molecular_weight, ul_protein_stock=ul_protein_stock, ml_buffer=ml_buffer)
+        absorbance=protein_absorbance, extinction_coefficient=protein_extinction_coefficient, molecular_weight=protein_molecular_weight, protein_stock_volume=protein_stock_volume, buffer_volume=buffer_volume)
 
         # Populate the Container data structure with well contents and measurements
         from assaytools.experiments import provision_assay_plate, dispense_evo, dispense_hpd300, read_infinite
