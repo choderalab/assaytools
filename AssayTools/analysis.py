@@ -149,12 +149,11 @@ class CompetitiveBindingAnalysis(object):
         self.solutions = solutions
 
         self.parameter_names['solution concentrations'] = list()
-        concentration_unit = 'moles/liter'
         for solution in solutions.values():
             if solution.species is None:
                 continue # skip buffers or pure solvents
             name = 'log concentration of %s' % solution.shortname
-            self.model[name] = LogNormalWrapper(name, mean=solution.concentration.m_as(concentration_unit), stddev=solution.uncertainty.m_as(concentration_unit))
+            self.model[name] = LogNormalWrapper(name, mean=solution.concentration.to_base_units().m, stddev=solution.uncertainty.to_base_units().m)
             self.parameter_names['solution concentrations'].append(name)
 
     def _create_dispensing_model(self):
@@ -166,7 +165,6 @@ class CompetitiveBindingAnalysis(object):
         * parameter_names['well_volumes'] : actual well total volumes
         *
         """
-        volume_unit = 'liters' # volume unit used throughout
         self.parameter_names['dispensed volumes'] = list() # pymc variable names associated with dispensed volumes
         self.parameter_names['well volumes'] = list() # pymc variable names associated with well volumes
         self.parameter_names['well concentrations'] = list()
@@ -177,7 +175,7 @@ class CompetitiveBindingAnalysis(object):
             for component in well.properties['contents']:
                 name = 'log volume of %s dispensed into well %s' % (component, wellname(well))
                 (volume, error) = well.properties['contents'][component]
-                log_volume_dispensed = LogNormalWrapper(name, mean=volume.m_as(volume_unit), stddev=error.m_as(volume_unit))
+                log_volume_dispensed = LogNormalWrapper(name, mean=volume.to_base_units().m, stddev=error.to_base_units().m)
                 self.model[name] = log_volume_dispensed
                 self.parameter_names['dispensed volumes'].append(name)
                 log_volumes.append(log_volume_dispensed)
@@ -469,9 +467,9 @@ class CompetitiveBindingAnalysis(object):
             self.parameter_names['extinction coefficients'] = list()
             for species in self.all_species:
                 for wavelength in self.all_wavelengths:
-                    name = 'extinction coefficient of %s at wavelength %s' % (species, wavelength)
-                    extinction_coefficient = pymc.Uniform(name, lower=0.0, upper=MAX_EXTINCTION_COEFFICIENT) # extinction coefficient or molar absorptivity for ligand, units of 1/M/cm
-                    self.model[name] = extinction_coefficient
+                    name = 'log extinction coefficient of %s at wavelength %s' % (species, wavelength)
+                    log_extinction_coefficient = pymc.Uniform(name, lower=0.0, upper=np.log(MAX_EXTINCTION_COEFFICIENT.to_base_units().m)) # extinction coefficient or molar absorptivity for ligand, units of 1/M/cm
+                    self.model[name] = log_extinction_coefficient
                     self.parameter_names['extinction coefficients'].append(name)
 
     def _create_absorbance_model(self):
@@ -514,26 +512,18 @@ class CompetitiveBindingAnalysis(object):
             if 'absorbance' in measurements:
                 for wavelength in measurements['absorbance'].keys():
                     # Compile all parameters needed for absorbance model
-                    extinction_coefficients = list()
-                    log_concentrations = list()
-                    for species in all_equilibrium_species_in_well:
-                        extinction_coefficients.append( self.model['extinction coefficient of %s at wavelength %s' % (species, wavelength)] )
-                        log_concentrations.append( self.model['log concentration of %s in well %s' % (species, wellname(well))] )
+                    extinction_coefficients = [ self.model['log extinction coefficient of %s at wavelength %s' % (species, wavelength)] for species in all_equilibrium_species_in_well ]
+                    log_concentrations = [ self.model['log extinction coefficient of %s at wavelength %s' % (species, wavelength)] for species in all_equilibrium_species_in_well ]
                     plate_absorbance = self.model['plate absorbance at wavelength %s' % wavelength]
 
                     # Add computed absorbance model
                     name = 'computed absorbance of well %s at wavelength %s' % (wellname(well), wavelength)
                     @pymc.deterministic(name=name)
-                    def absorbance_model(log_concentrations=log_concentrations, extinction_coefficients=extinction_coefficients, plate_absorbance=plate_absorbance, log_well_volume=log_well_volume):
-                        well_volume = Unit(np.exp(log_well_volume), 'liters')
-                        well_area = well.container.container_type.well_area
-                        path_length = well_volume / well_area
-
+                    def absorbance_model(log_concentrations=log_concentrations, log_extinction_coefficients=log_extinction_coefficients, plate_absorbance=plate_absorbance, log_well_volume=log_well_volume):
+                        log_path_length = log_well_volume - np.log(well.container.container_type.well_area.to_base_units().m)
                         absorbance = 0.0
-                        for (extinction_coefficient, log_concentration) in zip(extinction_coefficients, log_concentrations):
-                            extinction_coefficient = Unit(extinction_coefficient, '1/(moles/liter)/centimeter')
-                            concentration = Unit(np.exp(log_concentration), 'moles/liter')
-                            absorbance += extinction_coefficient * path_length * concentration
+                        for (log_extinction_coefficient, log_concentration) in zip(log_extinction_coefficients, log_concentrations):
+                            absorbance += np.exp(log_extinction_coefficient + log_path_length + log_concentration)
                         absorbance += plate_absorbance
                         return absorbance
                     self.model[name] = absorbance_model
@@ -617,51 +607,34 @@ class CompetitiveBindingAnalysis(object):
             if 'fluorescence' in measurements:
                 for (excitation_wavelength, emission_wavelength, geometry) in measurements['fluorescence'].keys():
                     # Extract extinction coefficients and concentrations for all species in well and pack them into lists
-                    quantum_yields = list()
-                    excitation_extinction_coefficients = list()
-                    emission_extinction_coefficients = list()
-                    log_concentrations = list()
-                    for species in self._all_equilibrium_species_in_well(well):
-                        quantum_yields.append( self.model['quantum yield of %s for fluorescence excitation at %s and emission at %s' % (species, excitation_wavelength, emission_wavelength)] )
-                        excitation_extinction_coefficients.append( self.model['extinction coefficient of %s at wavelength %s' % (species, excitation_wavelength)] )
-                        emission_extinction_coefficients.append( self.model['extinction coefficient of %s at wavelength %s' % (species, emission_wavelength)] )
-                        log_concentrations.append( self.model['log concentration of %s in well %s' % (species, wellname(well))] )
+                    all_species = self._all_equilibrium_species_in_well(well)
+                    quantum_yields = [ self.model['quantum yield of %s for fluorescence excitation at %s and emission at %s' % (species, excitation_wavelength, emission_wavelength)] for species in all_species ]
+                    log_excitation_extinction_coefficients = [ self.model['log extinction coefficient of %s at wavelength %s' % (species, excitation_wavelength)] for species in all_species ]
+                    log_emission_extinction_coefficients = [ self.model['log extinction coefficient of %s at wavelength %s' % (species, emission_wavelength)] for species in all_species ]
+                    log_concentrations = [ self.model['log concentration of %s in well %s' % (species, wellname(well))] for species in all_species ]
                     plate_fluorescence = self.model['plate background fluorescence for fluorescence excitation at %s and emission at %s' % (excitation_wavelength, emission_wavelength)]
-                    if fluorescence_top:
-                        top_illumination_intensity = self.model['top fluorescence illumination intensity']
-                    else:
-                        top_illumination_intensity = 0
-                    if fluorescence_bottom:
-                        bottom_illumination_intensity = self.model['bottom fluorescence illumination intensity']
-                    else:
-                        bottom_illumination_intensity = 0
-
+                    top_illumination_intensity = self.model['top fluorescence illumination intensity'] if fluorescence_top else 0
+                    bottom_illumination_intensity = self.model['bottom fluorescence illumination intensity'] if fluorescence_bottom else 0
                     name = 'computed %s fluorescence of well %s at excitation wavelength %s and emission wavelength %s' % (geometry, wellname(well), excitation_wavelength, emission_wavelength)
                     @pymc.deterministic(name=name)
                     def fluorescence_model(log_well_volume=log_well_volume,
                         log_concentrations=log_concentrations, quantum_yields=quantum_yields,
-                        excitation_extinction_coefficients=excitation_extinction_coefficients, emission_extinction_coefficients=emission_extinction_coefficients,
+                        log_excitation_extinction_coefficients=log_excitation_extinction_coefficients, log_emission_extinction_coefficients=log_emission_extinction_coefficients,
                         plate_fluorescence=plate_fluorescence,
                         top_illumination_intensity=top_illumination_intensity, bottom_illumination_intensity=bottom_illumination_intensity, geometry=geometry):
 
                         # Compute path length
-                        well_volume = Unit(np.exp(log_well_volume), 'liters')
-                        well_area = well.container.container_type.well_area
-                        path_length = (well_volume / well_area).to('centimeter')
+                        log_path_length = log_well_volume - np.log(well.container.container_type.well_area.to_base_units().m)
 
                         # Calculate attenuation due to inner filter effects
                         # TODO: We may need to fix some scaling factors in the extinction coefficient to go between log10 and ln-based absorbance/transmission.
                         inner_filter_effect_scaling = 1.0 # scaling factor applied from inner filter effect
                         ELC_excitation = 0.0 # sum of (extinction_coefficient * path_length * concentration) for all species at excitation wavelength
                         ELC_emission   = 0.0 # sum of (extinction_coefficient * path_length * concentration) for all species at emission wavelength
-                        for (log_concentration, excitation_extinction_coefficient, emission_extinction_coefficient) in zip(log_concentrations, excitation_extinction_coefficients, emission_extinction_coefficients):
-                            # Accumulate inner filter effects
-                            excitation_extinction_coefficient = Unit(excitation_extinction_coefficient, '1/(moles/liter)/centimeter')
-                            emission_extinction_coefficient   = Unit(emission_extinction_coefficient, '1/(moles/liter)/centimeter')
-                            concentration = Unit(np.exp(log_concentration), 'moles/liter')
-
-                            ELC_excitation += excitation_extinction_coefficient * path_length * concentration
-                            ELC_emission   += emission_extinction_coefficient   * path_length * concentration
+                        for (log_concentration, log_excitation_extinction_coefficient, log_emission_extinction_coefficient) in zip(log_concentrations, log_excitation_extinction_coefficients, log_emission_extinction_coefficients):
+                            # TODO: Accumulate using logsumexp?
+                            ELC_excitation += np.exp(log_excitation_extinction_coefficient + log_path_length + log_concentration)
+                            ELC_emission   += np.exp(log_emission_extinction_coefficient   + log_path_length + log_concentration)
                         if geometry == 'top':
                             alpha = (ELC_excitation + ELC_emission) * np.log(10)
                         elif geometry == 'bottom':
@@ -736,7 +709,7 @@ class CompetitiveBindingAnalysis(object):
         """
 
         # Sample the model with pymc
-        mcmc = pymc.MCMC(self.model, db='ram', name='Sampler', verbose=True)
+        mcmc = pymc.MCMC(self.model, db='txt', name='Sampler', verbose=True)
         nthin = 20
         nburn = nthin*10000
         niter = nthin*10000
@@ -753,15 +726,15 @@ class CompetitiveBindingAnalysis(object):
 
         return mcmc
 
-    def show_summary(self, mcmc, map_fit):
+    def show_summary(self, mcmc, map_fit=None):
         """
-        Show summary statistics of MCMC and MAP estimates.
+        Show summary statistics of MCMC and (optionally) MAP estimates.
 
         Parameters
         ----------
         mcmc : pymc.MCMC
            MCMC samples
-        map_fit : pymc.MAP
+        map_fit : pymc.MAP, optional, default=None
            The MAP fit.
 
         TODO
@@ -775,12 +748,15 @@ class CompetitiveBindingAnalysis(object):
         alpha = 0.95 # confidence interval width
         from scipy.stats import bayes_mvs
         for name in self.parameter_names['DeltaGs']:
-            mle = getattr(map_fit, name).value
+            if map_fit:
+                mle = getattr(map_fit, name).value
+            else:
+                mle = getattr(mcmc, name).trace().mean()
             mean_cntr, var_cntr, std_cntr = bayes_mvs(getattr(mcmc, name).trace(), alpha=alpha)
             (center, (lower, upper)) = mean_cntr
             print("%64s : %5.1f [%5.1f, %5.1f] kT" % (mle, lower, upper))
 
-    def geneate_plots(self, mcmc, map=None, pdf_filename=None):
+    def generate_plots(self, mcmc, map=None, pdf_filename=None):
         """
         Generate interactive or PDF plots from MCMC trace.
 
