@@ -320,9 +320,16 @@ def dispense_hpd300(container, solutions, xml_filename, plate_index=0):
             well.set_volume(well.volume + dispensed_volume)
 
 
-def read_infinite(container, xml_filename):
+def read_infinite(container, xml_filename, wavelengths_to_analyze=None, measurements_to_analyze=None):
     """
     Read measurements from a Tecan Infinite reader XML file.
+
+    Parameters
+    ----------
+    wavelengths_to_analyze : list, optional, default=None
+        If not None, only read measurements involving these wavelengths
+    measurements_to_analyze : list, optional, default=None
+        If not None, only read these kinds of measurements (e.g. 'absorbance', 'fluorescence bottom', 'fluorescence top')
 
     Measurements are stored in `well.properties['measurements']` under
     * `absorbance` : e.g. { '280:nanometers' : 0.425 }
@@ -350,6 +357,12 @@ def read_infinite(container, xml_filename):
                 # absorbance
                 [prefix, wavelength] = key.split('_')
                 wavelength = wavelength + ':nanometers'
+                # Skip if requested
+                if wavelengths_to_analyze and not (wavelength in wavelengths_to_analyze):
+                    continue
+                if measurements_to_analyze and not ('absorbance' in measurements_to_analyze):
+                    continue
+                # Store
                 if 'absorbance' not in measurements:
                     measurements['absorbance'] = dict()
                 measurements['absorbance'][wavelength] = float(data[key][well_name])
@@ -357,14 +370,23 @@ def read_infinite(container, xml_filename):
                 # top fluorescence read
                 [wavelength, suffix] = key.split('_')
                 excitation_wavelength = wavelength + ':nanometers'
-                emission_wavelength = '450:nanometers'
+                emission_wavelength = '480:nanometers' # This is hard-coded in for now because this information is not available in the platereader.read_icontrol_xml results
                 if key.endswith('_TopRead'):
                     geometry = 'top'
                 else:
                     geometry = 'bottom'
+                # Skip if requested
+                if wavelengths_to_analyze and not ((excitation_wavelength in wavelengths_to_analyze) and (emission_wavelength in wavelengths_to_analyze)):
+                    print('rejecting %s' % str((excitation_wavelength, emission_wavelength, geometry)))
+                    continue
+                if measurements_to_analyze and not (('fluorescence %s' % geometry) in measurements_to_analyze):
+                    print('rejecting %s' % str((excitation_wavelength, emission_wavelength, geometry)))
+                    continue
+                # Store
                 if 'fluorescence' not in measurements:
                     measurements['fluorescence'] = dict()
                 measurements['fluorescence'][(excitation_wavelength, emission_wavelength, geometry)] = float(data[key] [well_name])
+
 
 
 class Assay(object):
@@ -386,7 +408,10 @@ class SingletAssay(Assay):
         protein_stock_volume,
         buffer_volume,
         rows_to_analyze,
-        assay_volume):
+        assay_volume,
+        wavelengths_to_analyze=None,
+        measurements_to_analyze=None
+        ):
         """
         Set up a single-point assay.
 
@@ -416,6 +441,10 @@ class SingletAssay(Assay):
             Rows to analyze, e.g. ['A', 'B']
         assay_volume : Unit compatible with microliters
             Quantity of protein or buffer dispensed into plate
+        wavelengths_to_analyze : list, optional, default=None
+            If not None, only these wavelengths will be analyzed. e.g. ['280:nanometers', '480:nanometers']
+        measurements_to_analyze : list, optional, default=None
+            if not None, only these measurements will be analyzed. e.g. ['fluorescence top', 'absorbance'] or ['fluorescence bottom']
 
         """
         # Read DMSO stock solutions from inventory CSV file
@@ -436,7 +465,7 @@ class SingletAssay(Assay):
         dispense_evo(plate, solution=solutions['protein'], volume=assay_volume, rows=['A', 'C', 'E', 'G'])
         dispense_evo(plate, solution=solutions['buffer'], volume=assay_volume, rows=['B', 'D', 'F', 'H'])
         dispense_hpd300(plate, solutions=[solutions[id] for id in hpd300_fluids], xml_filename=d300_xml_filename)
-        read_infinite(plate, xml_filename=infinite_xml_filename)
+        read_infinite(plate, xml_filename=infinite_xml_filename, wavelengths_to_analyze=wavelengths_to_analyze, measurements_to_analyze=measurements_to_analyze)
 
         # Select specified rows for analysis.
         from autoprotocol import WellGroup

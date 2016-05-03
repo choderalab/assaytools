@@ -24,6 +24,8 @@ params = {
     'buffer_volume' : Unit(14.0, 'milliliters'), # mL buffer used to make 1 uM protein stock
     'rows_to_analyze' : ['A', 'B'], # rows to analyze
     'assay_volume' : Unit(100.0, 'microliters'), # quantity of protein or buffer dispensed into plate
+    'measurements_to_analyze' : ['fluorescence top'], # which measurements to analyze (if specified -- this is optional)
+    'wavelengths_to_analyze' : ['280:nanometers', '480:nanometers'], # which wavelengths to analyze (if specified -- this is optional)
 }
 
 # Create a single-point (singlet) assay.

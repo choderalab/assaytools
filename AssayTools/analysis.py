@@ -121,12 +121,12 @@ class CompetitiveBindingAnalysis(object):
 
         # Create the PyMC Model object from the dictionary of pymc stochastics and deterministics.
         self.model = pymc.Model(self.model)
-        print('Model has %d stochastics and %d deterministics...' % (len(self.model.stochastics), len(self.model.deterministics)))
         for group in self.parameter_names:
             print('%s:' % group)
             for parameter_name in self.parameter_names[group]:
                 print('  %s' % parameter_name)
         print('')
+        print('Model has %d stochastics and %d deterministics...' % (len(self.model.stochastics), len(self.model.deterministics)))
 
     def _create_solutions_model(self, solutions):
         """
@@ -627,8 +627,14 @@ class CompetitiveBindingAnalysis(object):
                         emission_extinction_coefficients.append( self.model['extinction coefficient of %s at wavelength %s' % (species, emission_wavelength)] )
                         log_concentrations.append( self.model['log concentration of %s in well %s' % (species, wellname(well))] )
                     plate_fluorescence = self.model['plate background fluorescence for fluorescence excitation at %s and emission at %s' % (excitation_wavelength, emission_wavelength)]
-                    top_illumination_intensity = self.model['top fluorescence illumination intensity']
-                    bottom_illumination_intensity = self.model['bottom fluorescence illumination intensity']
+                    if fluorescence_top:
+                        top_illumination_intensity = self.model['top fluorescence illumination intensity']
+                    else:
+                        top_illumination_intensity = 0
+                    if fluorescence_bottom:
+                        bottom_illumination_intensity = self.model['bottom fluorescence illumination intensity']
+                    else:
+                        bottom_illumination_intensity = 0
 
                     name = 'computed %s fluorescence of well %s at excitation wavelength %s and emission wavelength %s' % (geometry, wellname(well), excitation_wavelength, emission_wavelength)
                     @pymc.deterministic(name=name)
