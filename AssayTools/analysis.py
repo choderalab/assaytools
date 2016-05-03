@@ -97,7 +97,7 @@ class CompetitiveBindingAnalysis(object):
             Prior to use on DeltaG values for reaction ['uniform', 'chembl']
 
         """
-        # Store data
+                # Store data
         self.solutions = solutions
         self.wells = wells
         self.receptor_name = receptor_name
@@ -106,6 +106,9 @@ class CompetitiveBindingAnalysis(object):
         # Set up internal data structures.
         self.model = dict() # the PyMC model; self.model[paramname] is the PyMC variable correspoding to 'paramname'
         self.parameter_names = dict() # dict to keep track of groups of related parameter names; self.parameter_names[groupname] is the list of PyMC variable names under 'groupname'
+
+        # DEBUG
+        print('There are %d wells to analyze in the provided WellGroup' % len(wells))
 
         # Construct components of the pymc model.
         self._create_solutions_model(solutions)
@@ -119,6 +122,11 @@ class CompetitiveBindingAnalysis(object):
         # Create the PyMC Model object from the dictionary of pymc stochastics and deterministics.
         self.model = pymc.Model(self.model)
         print('Model has %d stochastics and %d deterministics...' % (len(self.model.stochastics), len(self.model.deterministics)))
+        for group in self.parameter_names:
+            print('%s:' % group)
+            for parameter_name in self.parameter_names[group]:
+                print('  %s' % parameter_name)
+        print('')
 
     def _create_solutions_model(self, solutions):
         """
@@ -127,6 +135,19 @@ class CompetitiveBindingAnalysis(object):
         Populates the following fields:
         * parameter_names['concentrations'] : parameters associated with true concentrations of receptor and ligand solutions
         """
+        # TODO: Only use solutions that appear in the plate
+
+        # Determine solutions in use in plate
+        solutions_in_use = set()
+        for well in self.wells:
+            for shortname in well.properties['contents']:
+                solutions_in_use.add(shortname)
+        print('Solutions in use: %s' % str(solutions_in_use))
+
+        # Filter subset of solutions in use.
+        solutions = { shortname : self.solutions[shortname] for shortname in solutions_in_use }
+        self.solutions = solutions
+
         self.parameter_names['solution concentrations'] = list()
         concentration_unit = 'moles/liter'
         for solution in solutions.values():
