@@ -511,7 +511,9 @@ class CompetitiveBindingAnalysis(object):
 
                         absorbance = 0.0
                         for (extinction_coefficient, log_concentration) in zip(extinction_coefficients, log_concentrations):
-                            absorbance += extinction_coefficient * path_length * np.exp(log_concentration)
+                            extinction_coefficient = Unit(extinction_coefficient, '1/(moles/liter)/centimeter')
+                            concentration = Unit(np.exp(log_concentration), 'moles/liter')
+                            absorbance += extinction_coefficient * path_length * concentration
                         absorbance += plate_absorbance
                         return absorbance
                     self.model[name] = absorbance_model
