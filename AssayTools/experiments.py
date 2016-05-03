@@ -275,8 +275,6 @@ def dispense_hpd300(container, solutions, xml_filename, plate_index=0):
     fluids = root.findall('./Fluids/Fluid')
 
     # Rewrite fluid names to match stock names.
-    print fluids
-    print solutions
     for (index, solution) in enumerate(solutions):
         fluids[index].attrib['Name'] = solution.shortname
 

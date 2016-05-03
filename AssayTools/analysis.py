@@ -397,7 +397,6 @@ class CompetitiveBindingAnalysis(object):
             name = 'log equilibrium concentration of all species in well %s' % wellname(well)
             @pymc.deterministic(name=name)
             def log_equilibrium_concentrations(reactions=reactions, conservation_equations=conservation_equations):
-                print(reactions)
                 if len(reactions)==0 or len(conservation_equations)==0:
                     raise Exception(reactions, conservation_equations)
                 return GeneralBindingModel.equilibrium_concentrations(reactions, conservation_equations)
