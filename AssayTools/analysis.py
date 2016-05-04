@@ -446,7 +446,9 @@ class CompetitiveBindingAnalysis(object):
         #
 
         # TODO: Switch to log extinction coefficients and uniform prior in log extinction coefficients
+        MIN_EXTINCTION_COEFFICIENT = Unit(0.1, '1/(moles/liter)/centimeter') # maximum physically reasonable extinction coefficient
         MAX_EXTINCTION_COEFFICIENT = Unit(100e3, '1/(moles/liter)/centimeter') # maximum physically reasonable extinction coefficient
+        EXTINCTION_COEFFICIENT_GUESS = Unit(1.0, '1/(moles/liter)/centimeter') # maximum physically reasonable extinction coefficient
 
         # Determine all wavelengths and detection technologies in use
         self.all_wavelengths = set()
@@ -468,7 +470,7 @@ class CompetitiveBindingAnalysis(object):
             for species in self.all_species:
                 for wavelength in self.all_wavelengths:
                     name = 'log extinction coefficient of %s at wavelength %s' % (species, wavelength)
-                    log_extinction_coefficient = pymc.Uniform(name, lower=0.0, upper=np.log(MAX_EXTINCTION_COEFFICIENT.to_base_units().m)) # extinction coefficient or molar absorptivity for ligand, units of 1/M/cm
+                    log_extinction_coefficient = pymc.Uniform(name, lower=np.log(MIN_EXTINCTION_COEFFICIENT.to_base_units().m), upper=np.log(MAX_EXTINCTION_COEFFICIENT.to_base_units().m), value=np.log(EXTINCTION_COEFFICIENT_GUESS.to_base_units().m)) # extinction coefficient or molar absorptivity for ligand, units of 1/M/cm
                     self.model[name] = log_extinction_coefficient
                     self.parameter_names['extinction coefficients'].append(name)
 
@@ -515,12 +517,13 @@ class CompetitiveBindingAnalysis(object):
                     extinction_coefficients = [ self.model['log extinction coefficient of %s at wavelength %s' % (species, wavelength)] for species in all_equilibrium_species_in_well ]
                     log_concentrations = [ self.model['log extinction coefficient of %s at wavelength %s' % (species, wavelength)] for species in all_equilibrium_species_in_well ]
                     plate_absorbance = self.model['plate absorbance at wavelength %s' % wavelength]
+                    log_well_area = np.log(well.container.container_type.well_area.to_base_units().m)
 
                     # Add computed absorbance model
                     name = 'computed absorbance of well %s at wavelength %s' % (wellname(well), wavelength)
                     @pymc.deterministic(name=name)
                     def absorbance_model(log_concentrations=log_concentrations, log_extinction_coefficients=log_extinction_coefficients, plate_absorbance=plate_absorbance, log_well_volume=log_well_volume):
-                        log_path_length = log_well_volume - np.log(well.container.container_type.well_area.to_base_units().m)
+                        log_path_length = log_well_volume - log_well_area
                         absorbance = 0.0
                         for (log_extinction_coefficient, log_concentration) in zip(log_extinction_coefficients, log_concentrations):
                             absorbance += np.exp(log_extinction_coefficient + log_path_length + log_concentration)
@@ -572,14 +575,14 @@ class CompetitiveBindingAnalysis(object):
 
             # Fluorescence intensities * gains
             # TODO: If multiple gains are in use, slave them together through this intensity times a fixed gain factor.
-            if fluorescence_top:
-                max_top_fluorescence_intensity = 1.0e8 # TODO: Determine maximum possible fluorescence intensity
-                name = 'top fluorescence illumination intensity'
-                self.model[name] = pymc.Uniform(name, lower=0.0, upper=max_top_fluorescence_intensity)
+                MIN_LOG_FLUORESCENCE_INTENSITY = -10 # TODO: Determine minimum possible fluorescence intensity
+                MAX_LOG_FLUORESCENCE_INTENSITY = +10 # TODO: Determine maximum possible fluorescence intensity
+                name = 'top fluorescence log illumination intensity'
+                self.model[name] = pymc.Uniform(name, lower=MIN_LOG_FLUORESCENCE_INTENSITY, upper=MAX_LOG_FLUORESCENCE_INTENSITY, value=0)
                 self.parameter_names['fluorescence'].append(name)
 
                 name = 'top fluorescence log uncertainty'
-                self.model[name] = pymc.Uniform(name, lower=-10, upper=np.log(max_top_fluorescence_intensity), value=np.log(5))
+                self.model[name] = pymc.Uniform(name, lower=MIN_LOG_FLUORESCENCE_INTENSITY, upper=MAX_LOG_FLUORESCENCE_INTENSITY, value=0)
                 self.parameter_names['fluorescence'].append(name)
 
                 name = 'top fluorescence precision'
@@ -587,13 +590,14 @@ class CompetitiveBindingAnalysis(object):
                 self.parameter_names['fluorescence'].append(name)
 
             if fluorescence_bottom:
-                max_bottom_fluorescence_intensity = 1.0e8 # TODO: Determine maximum possible fluorescence intensity
-                name = 'bottom fluorescence illumination intensity'
-                self.model[name] = pymc.Uniform(name, lower=0.0, upper=max_bottom_fluorescence_intensity)
+                MIN_LOG_FLUORESCENCE_INTENSITY = -10 # TODO: Determine minimum possible fluorescence intensity
+                MAX_LOG_FLUORESCENCE_INTENSITY = +10 # TODO: Determine maximum possible fluorescence intensity
+                name = 'bottom fluorescence log illumination intensity'
+                self.model[name] = pymc.Uniform(name, lower=MIN_LOG_FLUORESCENCE_INTENSITY, upper=MAX_LOG_FLUORESCENCE_INTENSITY, value=0)
                 self.parameter_names['fluorescence'].append(name)
 
                 name = 'bottom fluorescence log uncertainty'
-                self.model[name] = pymc.Uniform(name, lower=-10, upper=np.log(max_bottom_fluorescence_intensity), value=np.log(5))
+                self.model[name] = pymc.Uniform(name, lower=MIN_LOG_FLUORESCENCE_INTENSITY, upper=MAX_LOG_FLUORESCENCE_INTENSITY, value=0)
                 self.parameter_names['fluorescence'].append(name)
 
                 name = 'bottom fluorescence precision'
@@ -613,18 +617,20 @@ class CompetitiveBindingAnalysis(object):
                     log_emission_extinction_coefficients = [ self.model['log extinction coefficient of %s at wavelength %s' % (species, emission_wavelength)] for species in all_species ]
                     log_concentrations = [ self.model['log concentration of %s in well %s' % (species, wellname(well))] for species in all_species ]
                     plate_fluorescence = self.model['plate background fluorescence for fluorescence excitation at %s and emission at %s' % (excitation_wavelength, emission_wavelength)]
-                    top_illumination_intensity = self.model['top fluorescence illumination intensity'] if fluorescence_top else 0
-                    bottom_illumination_intensity = self.model['bottom fluorescence illumination intensity'] if fluorescence_bottom else 0
+                    top_log_illumination_intensity = self.model['top fluorescence log illumination intensity'] if fluorescence_top else 0
+                    bottom_log_illumination_intensity = self.model['bottom fluorescence log illumination intensity'] if fluorescence_bottom else 0
                     name = 'computed %s fluorescence of well %s at excitation wavelength %s and emission wavelength %s' % (geometry, wellname(well), excitation_wavelength, emission_wavelength)
+                    log_well_area = np.log(well.container.container_type.well_area.to_base_units().m)
+
                     @pymc.deterministic(name=name)
                     def fluorescence_model(log_well_volume=log_well_volume,
                         log_concentrations=log_concentrations, quantum_yields=quantum_yields,
                         log_excitation_extinction_coefficients=log_excitation_extinction_coefficients, log_emission_extinction_coefficients=log_emission_extinction_coefficients,
                         plate_fluorescence=plate_fluorescence,
-                        top_illumination_intensity=top_illumination_intensity, bottom_illumination_intensity=bottom_illumination_intensity, geometry=geometry):
+                        top_log_illumination_intensity=top_log_illumination_intensity, bottom_log_illumination_intensity=bottom_log_illumination_intensity, geometry=geometry):
 
                         # Compute path length
-                        log_path_length = log_well_volume - np.log(well.container.container_type.well_area.to_base_units().m)
+                        log_path_length = log_well_volume - log_well_area
 
                         # Calculate attenuation due to inner filter effects
                         # TODO: We may need to fix some scaling factors in the extinction coefficient to go between log10 and ln-based absorbance/transmission.
@@ -648,7 +654,7 @@ class CompetitiveBindingAnalysis(object):
                             inner_filter_effect_attenuation *= np.exp(-ELC_emission)
 
                         # Compute incident intensity
-                        intensity = (geometry == 'top') * top_illumination_intensity + (geometry == 'bottom') * bottom_illumination_intensity # select appropriate illumination intensity
+                        intensity = (geometry == 'top') * np.exp(top_log_illumination_intensity) + (geometry == 'bottom') * np.exp(bottom_log_illumination_intensity) # select appropriate illumination intensity
                         intensity *= inner_filter_effect_attenuation # include inner filter effects
 
                         # Compute fluorescence intensity
