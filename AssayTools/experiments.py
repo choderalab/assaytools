@@ -319,7 +319,6 @@ def dispense_hpd300(container, solutions, xml_filename, plate_index=0):
             contents[fluid_name] = (dispensed_volume, CV * dispensed_volume) # (volume, error)
             well.set_volume(well.volume + dispensed_volume)
 
-
 def read_infinite(container, xml_filename, wavelengths_to_analyze=None, measurements_to_analyze=None):
     """
     Read measurements from a Tecan Infinite reader XML file.
@@ -377,10 +376,8 @@ def read_infinite(container, xml_filename, wavelengths_to_analyze=None, measurem
                     geometry = 'bottom'
                 # Skip if requested
                 if wavelengths_to_analyze and not ((excitation_wavelength in wavelengths_to_analyze) and (emission_wavelength in wavelengths_to_analyze)):
-                    print('rejecting %s' % str((excitation_wavelength, emission_wavelength, geometry)))
                     continue
                 if measurements_to_analyze and not (('fluorescence %s' % geometry) in measurements_to_analyze):
-                    print('rejecting %s' % str((excitation_wavelength, emission_wavelength, geometry)))
                     continue
                 # Store
                 if 'fluorescence' not in measurements:
@@ -473,4 +470,4 @@ class SingletAssay(Assay):
 
         # Create a model
         from assaytools.analysis import CompetitiveBindingAnalysis
-        self.experiment = CompetitiveBindingAnalysis(solutions=solutions, wells=well_group, receptor_name=receptor_species, ligand_names=ligand_species)
+        self.experiment = CompetitiveBindingAnalysis(solutions=solutions, wells=well_group, receptor_name=receptor_species)

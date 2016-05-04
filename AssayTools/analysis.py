@@ -80,8 +80,7 @@ def wellname(well):
 #=============================================================================================
 
 class CompetitiveBindingAnalysis(object):
-    def __init__(self, solutions, wells, receptor_name, ligand_names,
-        DeltaG_prior='uniform'):
+    def __init__(self, solutions, wells, receptor_name, DeltaG_prior='uniform'):
         """
         Parameters
         ----------
@@ -91,8 +90,6 @@ class CompetitiveBindingAnalysis(object):
             Group of wells with `contents` and `measurements` properties defined
         receptor_name : str
             Name of receptor
-        ligand_names : list of str
-            Names of ligands
         DeltaG_prior : str, optional, default='uniform'
             Prior to use on DeltaG values for reaction ['uniform', 'chembl']
 
@@ -101,7 +98,6 @@ class CompetitiveBindingAnalysis(object):
         self.solutions = solutions
         self.wells = wells
         self.receptor_name = receptor_name
-        self.ligand_names = list(ligand_names)
 
         # Set up internal data structures.
         self.model = dict() # the PyMC model; self.model[paramname] is the PyMC variable correspoding to 'paramname'
@@ -111,7 +107,8 @@ class CompetitiveBindingAnalysis(object):
         print('There are %d wells to analyze in the provided WellGroup' % len(wells))
 
         # Construct components of the pymc model.
-        self._create_solutions_model(solutions)
+        self._create_solutions_model()
+        self._identify_ligand_names()
         self._create_dispensing_model()
         self._create_competitive_binding_model(receptor_name, DeltaG_prior)
         self._create_equilibrium_concentrations_model()
@@ -128,15 +125,13 @@ class CompetitiveBindingAnalysis(object):
         print('')
         print('Model has %d stochastics and %d deterministics...' % (len(self.model.stochastics), len(self.model.deterministics)))
 
-    def _create_solutions_model(self, solutions):
+    def _create_solutions_model(self):
         """
         Create pymc model components for true concentrations of source receptor and ligand solutions.
 
         Populates the following fields:
         * parameter_names['concentrations'] : parameters associated with true concentrations of receptor and ligand solutions
         """
-        # TODO: Only use solutions that appear in the plate
-
         # Determine solutions in use in plate
         solutions_in_use = set()
         for well in self.wells:
@@ -144,17 +139,30 @@ class CompetitiveBindingAnalysis(object):
                 solutions_in_use.add(shortname)
         print('Solutions in use: %s' % str(solutions_in_use))
 
-        # Filter subset of solutions in use.
-        solutions = { shortname : self.solutions[shortname] for shortname in solutions_in_use }
-        self.solutions = solutions
+        # Retain only solutions that appear in the plate
+        self.solutions = { shortname : self.solutions[shortname] for shortname in solutions_in_use }
 
         self.parameter_names['solution concentrations'] = list()
-        for solution in solutions.values():
+        for solution in self.solutions.values():
             if solution.species is None:
                 continue # skip buffers or pure solvents
             name = 'log concentration of %s' % solution.shortname
             self.model[name] = LogNormalWrapper(name, mean=solution.concentration.to_base_units().m, stddev=solution.uncertainty.to_base_units().m)
             self.parameter_names['solution concentrations'].append(name)
+
+    def _identify_ligand_names(self):
+        """
+        Ligands are species that appear in wells that are not the receptor.
+
+        """
+        self.ligand_names = set()
+        for solution in self.solutions.values():
+            if solution.species is None:
+                continue # skip buffers and pure solvents
+            if solution.species == self.receptor_name:
+                continue # sip receptor
+            self.ligand_names.add(solution.species)
+        self.ligand_names = list(self.ligand_names)
 
     def _create_dispensing_model(self):
         """
@@ -414,7 +422,7 @@ class CompetitiveBindingAnalysis(object):
 
             # Compute equilibrium concentration of each component in well
             name = 'log equilibrium concentration of all species in well %s' % wellname(well)
-            @pymc.deterministic(name=name)
+            @pymc.deterministic(name=name, trace=False) # Can't store dict() in some storage layers, so trace=False
             def log_equilibrium_concentrations(reactions=reactions, conservation_equations=conservation_equations):
                 if len(reactions)==0 or len(conservation_equations)==0:
                     raise Exception(reactions, conservation_equations)
