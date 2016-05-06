@@ -398,6 +398,7 @@ class SingletAssay(Assay):
         infinite_xml_filename,
         dmso_stocks_csv_filename,
         hpd300_fluids,
+        hpd300_plate_index,
         receptor_species,
         protein_absorbance,
         protein_extinction_coefficient,
@@ -422,6 +423,8 @@ class SingletAssay(Assay):
             CSV file of DMSO stock inventory, e.g. 'dmso'stocks-Sheet1.csv'
         hpd300_fluids : list of str
             uuids of DMSO stocks from dmso_stocks_csv_filename (or 'DMSO' for pure DMSO) used to define HP D300 XML <Fluids> block, e.g. ['GEF001', 'IMA001', 'DMSO']
+        hpd300_plate_index : int
+            Plate index for HP D300 dispense
         receptor_species
             Name of receptor species, e.g. 'Abl(D382N)'
         protein_absorbance
@@ -461,7 +464,7 @@ class SingletAssay(Assay):
         plate = provision_assay_plate(name='assay-plate', plate_type='4titude 4ti-0223')
         dispense_evo(plate, solution=solutions['protein'], volume=assay_volume, rows=['A', 'C', 'E', 'G'])
         dispense_evo(plate, solution=solutions['buffer'], volume=assay_volume, rows=['B', 'D', 'F', 'H'])
-        dispense_hpd300(plate, solutions=[solutions[id] for id in hpd300_fluids], xml_filename=d300_xml_filename)
+        dispense_hpd300(plate, solutions=[solutions[id] for id in hpd300_fluids], xml_filename=d300_xml_filename, plate_index=hpd300_plate_index)
         read_infinite(plate, xml_filename=infinite_xml_filename, wavelengths_to_analyze=wavelengths_to_analyze, measurements_to_analyze=measurements_to_analyze)
 
         # Select specified rows for analysis.

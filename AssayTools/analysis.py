@@ -708,12 +708,14 @@ class CompetitiveBindingAnalysis(object):
 
         return map
 
-    def run_mcmc(self):
+    def run_mcmc(self, dbfilename='output'):
         """
         Sample the model with pymc using sensible defaults.
 
         Parameters
         ----------
+        dbfilename : str, optional, default='output'
+           Name of storage filename for database.
 
         Returns
         -------
@@ -723,7 +725,9 @@ class CompetitiveBindingAnalysis(object):
         """
 
         # Sample the model with pymc
-        mcmc = pymc.MCMC(self.model, db='txt', name='Sampler', verbose=True)
+        # TODO: Allow
+        mcmc = pymc.MCMC(self.model, db='pickle', name='output', verbose=True)
+
         nthin = 20
         nburn = nthin*10000
         niter = nthin*10000
@@ -736,7 +740,10 @@ class CompetitiveBindingAnalysis(object):
             mcmc.use_step_method(pymc.Metropolis, stochastic, proposal_sd=1.0, proposal_distribution='Normal')
 
         print('Running MCMC...')
-        mcmc.sample(iter=(nburn+niter), burn=nburn, thin=nthin, progress_bar=False, tune_throughout=False)
+        mcmc.sample(iter=(nburn+niter), burn=nburn, thin=nthin, progress_bar=True, tune_throughout=True)
+
+        # Close the database.
+        mcmc.db.close()
 
         return mcmc
 
@@ -761,14 +768,17 @@ class CompetitiveBindingAnalysis(object):
         # Compute summary statistics
         alpha = 0.95 # confidence interval width
         from scipy.stats import bayes_mvs
-        for name in self.parameter_names['DeltaGs']:
-            if map_fit:
-                mle = getattr(map_fit, name).value
-            else:
-                mle = getattr(mcmc, name).trace().mean()
-            mean_cntr, var_cntr, std_cntr = bayes_mvs(getattr(mcmc, name).trace(), alpha=alpha)
-            (center, (lower, upper)) = mean_cntr
-            print("%64s : %5.1f [%5.1f, %5.1f] kT" % (mle, lower, upper))
+        for group in self.parameter_names:
+            print(group)
+            for name in self.parameter_names[group]:
+                if map_fit:
+                    mle = getattr(map_fit, name).value
+                else:
+                    mle = getattr(mcmc, name).trace().mean()
+                mean_cntr, var_cntr, std_cntr = bayes_mvs(getattr(mcmc, name).trace(), alpha=alpha)
+                (center, (lower, upper)) = mean_cntr
+                print("%64s : %5.1f [%5.1f, %5.1f] kT" % (name, mle, lower, upper))
+            print('')
 
     def generate_plots(self, mcmc, map=None, pdf_filename=None):
         """
