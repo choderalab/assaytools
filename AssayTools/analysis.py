@@ -30,6 +30,9 @@ niter = 500000 # number of iterations
 nburn = 50000 # number of burn-in iterations to discard
 nthin = 500 # thinning interval
 
+volume_unit = Unit(1.0, 'liter')
+concentration_unit = Unit(1.0, 'moles/liter')
+
 #=============================================================================================
 # SUBROUTINES
 #=============================================================================================
@@ -181,19 +184,27 @@ class CompetitiveBindingAnalysis(object):
             # Volumes dispensed into each well
             log_volumes = list() # log volumes are in Liters
             for component in well.properties['contents']:
-                name = 'log volume of %s dispensed into well %s' % (component, wellname(well))
+                name = 'volume of %s dispensed into well %s' % (component, wellname(well))
+                logname = 'log %s' % name
                 (volume, error) = well.properties['contents'][component]
-                log_volume_dispensed = LogNormalWrapper(name, mean=volume.to_base_units().m, stddev=error.to_base_units().m)
-                self.model[name] = log_volume_dispensed
-                self.parameter_names['dispensed volumes'].append(name)
+                log_volume_dispensed = LogNormalWrapper(logname, mean=volume.to_base_units().m, stddev=error.to_base_units().m)
+                self.model[logname] = log_volume_dispensed
+                #self.parameter_names['dispensed volumes'].append(logname)
                 log_volumes.append(log_volume_dispensed)
+                # Store real (non-log) value
+                self.model[name] = pymc.Lambda(name, lambda log_quantity=self.model[logname]: np.exp(log_quantity) / volume_unit.to_base_units().m, trace=True)
+                self.parameter_names['dispensed volumes'].append(name)
 
             # Total volume in well
-            name = 'log volume of well %s' % wellname(well)
-            @pymc.deterministic(name=name)
+            name = 'volume of well %s' % wellname(well)
+            logname = 'log %s' % name
+            @pymc.deterministic(name=logname)
             def log_total_volume(log_volumes=log_volumes):
                 return logsumexp(log_volumes)
-            self.model[name] = log_total_volume
+            self.model[logname] = log_total_volume
+            #self.parameter_names['well volumes'].append(logname)
+            # Store real (non-log) value
+            self.model[name] = pymc.Lambda(name, lambda log_quantity=self.model[logname]: np.exp(log_quantity) / volume_unit.to_base_units().m, trace=True)
             self.parameter_names['well volumes'].append(name)
 
             # Total concentration of all species involving each component in well
@@ -207,12 +218,17 @@ class CompetitiveBindingAnalysis(object):
                 log_solution_volume = self.model['log volume of %s dispensed into well %s' % (component, wellname(well))]
                 log_total_volume = self.model['log volume of well %s' % wellname(well)]
 
-                name = 'log total concentration of %s in well %s' % (species, wellname(well))
-                @pymc.deterministic(name=name)
+                name = 'total concentration of %s in well %s' % (species, wellname(well))
+                logname = 'log %s' % name
+                @pymc.deterministic(name=logname)
                 def log_total_concentration(log_solution_concentration=log_solution_concentration, log_solution_volume=log_solution_volume, log_total_volume=log_total_volume):
                     return log_solution_concentration + log_solution_volume - log_total_volume
-                self.model[name] = log_total_concentration
+                self.model[logname] = log_total_concentration
+                #self.parameter_names['well concentrations'].append(logname)
+                # Store real (non-log) value
+                self.model[name] = pymc.Lambda(name, lambda log_quantity=self.model[logname]: np.exp(log_quantity) / concentration_unit.to_base_units().m, trace=True)
                 self.parameter_names['well concentrations'].append(name)
+
 
     def _all_initial_species_in_well(self, well):
         """
@@ -296,7 +312,7 @@ class CompetitiveBindingAnalysis(object):
         * complex_names : names of all complexes
         * all_species : names of all species (ligands, receptor, complexes)
         """
-        self.parameter_names['DeltaGs'] = list()
+        self.parameter_names['binding affinities'] = list()
         self.complex_names = list()
         self.reactions = list() # reactions for GeneralBindingModel with pymc parameters substituted for free energies
         self.conservation_equations = list() # list of conservation relationships for GeneralBindingModel with pymc parameters substituted for log concentrations
@@ -314,7 +330,7 @@ class CompetitiveBindingAnalysis(object):
             else:
                 raise Exception("DeltaG_prior = '%s' unknown. Must be one of 'uniform' or 'chembl'." % DeltaG_prior)
             self.model[name] = DeltaG
-            self.parameter_names['DeltaGs'].append(name)
+            self.parameter_names['binding affinities'].append(name)
             # Create the reaction for GeneralBindingModel
             self.reactions.append( (DeltaG, {complex_name : -1, receptor_name : +1, ligand_name : +1}) )
             # Create the conservation equation for GeneralBindingModel
@@ -322,7 +338,7 @@ class CompetitiveBindingAnalysis(object):
             # Keep track of receptor conservation.
             receptor_conservation_equation[complex_name] = +1
         # Create the receptor conservation equation for GeneralBindingModel
-        self.conservation_equations.append( (receptor_name, receptor_conservation_equation) )
+        self.conservation_equations.append( [receptor_name, receptor_conservation_equation] )
 
         # Create a list of all species that may be present in assay plate
         self.all_species = [self.receptor_name] + self.ligand_names + self.complex_names
@@ -338,9 +354,8 @@ class CompetitiveBindingAnalysis(object):
         for conservation_equation in self.conservation_equations:
             (species, stoichiometry) = conservation_equation
             if species in initial_species_in_well:
-                name = 'log total concentration of %s in well %s' % (species, wellname(well))
-                log_total_concentration = self.model[name]
-                conservation_equations.append( (log_total_concentration, stoichiometry) )
+                log_total_concentration = self.model['log total concentration of %s in well %s' % (species, wellname(well))]
+                conservation_equations.append( [log_total_concentration, stoichiometry] )
 
         return conservation_equations
 
@@ -402,13 +417,14 @@ class CompetitiveBindingAnalysis(object):
             if len(reactions)==0:
                 # Initial concentrations will not change.
                 for species in all_initial_species:
-                    name = 'log concentration of %s in well %s' % (species, wellname(well))
-                    parent_name = 'log total concentration of %s in well %s' % (species, wellname(well))
-                    log_total_concentration = self.model[parent_name]
-                    @pymc.deterministic(name=name, trace=True)
-                    def log_equilibrium_concentration(log_total_concentration=log_total_concentration):
-                        return log_total_concentration
-                    self.model[name] = log_equilibrium_concentration
+                    name = 'concentration of %s in well %s' % (species, wellname(well))
+                    logname = 'log %s' % name
+                    log_total_concentration = self.model['log total concentration of %s in well %s' % (species, wellname(well))]
+                    print('%s slaved to parent' % logname)
+                    self.model[logname] = pymc.Lambda(logname, lambda log_total_concentration=log_total_concentration: log_total_concentration, trace=True)
+                    #self.parameter_names['well concentrations'].append(logname)
+                    # Store real (non-log) value
+                    self.model[name] = pymc.Lambda(name, lambda log_quantity=self.model[logname]: np.exp(log_quantity), trace=True)
                     self.parameter_names['well concentrations'].append(name)
                 continue
 
@@ -426,16 +442,21 @@ class CompetitiveBindingAnalysis(object):
             def log_equilibrium_concentrations(reactions=reactions, conservation_equations=conservation_equations):
                 if len(reactions)==0 or len(conservation_equations)==0:
                     raise Exception(reactions, conservation_equations)
-                return GeneralBindingModel.equilibrium_concentrations(reactions, conservation_equations)
+                solution = GeneralBindingModel.equilibrium_concentrations(reactions, conservation_equations)
+                return solution
             self.model[name] = log_equilibrium_concentrations
 
             # Separate out individual concentration components
             for species in all_equilibrium_species:
-                name = 'log concentration of %s in well %s' % (species, wellname(well))
-                @pymc.deterministic(name=name, trace=True)
+                name = 'concentration of %s in well %s' % (species, wellname(well))
+                logname = 'log %s' % name
+                @pymc.deterministic(name=logname, trace=True)
                 def log_equilibrium_concentration(log_equilibrium_concentrations=log_equilibrium_concentrations):
                     return log_equilibrium_concentrations[species]
-                self.model[name] = log_equilibrium_concentration
+                self.model[logname] = log_equilibrium_concentration
+                #self.parameter_names['well concentrations'].append(logname)
+                # Store real (non-log) value
+                self.model[name] = pymc.Lambda(name, lambda log_quantity=self.model[logname]: np.exp(log_quantity), trace=True)
                 self.parameter_names['well concentrations'].append(name)
 
     def _create_extinction_coefficients_model(self):
@@ -504,8 +525,8 @@ class CompetitiveBindingAnalysis(object):
         if absorbance:
             print('Absorbance measurements are available')
             self.model['log absorbance error'] = pymc.Uniform('log absorbance error', lower=-10, upper=0, value=np.log(0.01))
-            self.model['absorbance error'] = pymc.Lambda('absorbance error', lambda log_sigma=self.model['log absorbance error'] : np.exp(log_sigma) )
-            self.model['absorbance precision'] = pymc.Lambda('absorbance precision', lambda log_sigma=self.model['log absorbance error'] : np.exp(-2*log_sigma) )
+            self.model['absorbance error'] = pymc.Lambda('absorbance error', lambda log_sigma=self.model['log absorbance error'] : np.exp(log_sigma), trace=True)
+            self.model['absorbance precision'] = pymc.Lambda('absorbance precision', lambda log_sigma=self.model['log absorbance error'] : np.exp(-2*log_sigma), trace=True)
             self.parameter_names['absorbance'] = ['log absorbance error', 'absorbance error', 'absorbance precision']
             # Prior on plate absorbance at each wavelength
             for wavelength in self.all_wavelengths:
@@ -741,8 +762,8 @@ class CompetitiveBindingAnalysis(object):
         niter = nthin*10000
 
         # DEBUG
-        nburn = nthin*1000
-        niter = nthin*1000
+        nburn = nthin*100
+        niter = nthin*100
 
         for stochastic in self.model.stochastics:
             mcmc.use_step_method(pymc.Metropolis, stochastic, proposal_sd=1.0, proposal_distribution='Normal')
