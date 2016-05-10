@@ -405,7 +405,7 @@ class CompetitiveBindingAnalysis(object):
                     name = 'log concentration of %s in well %s' % (species, wellname(well))
                     parent_name = 'log total concentration of %s in well %s' % (species, wellname(well))
                     log_total_concentration = self.model[parent_name]
-                    @pymc.deterministic(name=name)
+                    @pymc.deterministic(name=name, trace=True)
                     def log_equilibrium_concentration(log_total_concentration=log_total_concentration):
                         return log_total_concentration
                     self.model[name] = log_equilibrium_concentration
@@ -432,7 +432,7 @@ class CompetitiveBindingAnalysis(object):
             # Separate out individual concentration components
             for species in all_equilibrium_species:
                 name = 'log concentration of %s in well %s' % (species, wellname(well))
-                @pymc.deterministic(name=name)
+                @pymc.deterministic(name=name, trace=True)
                 def log_equilibrium_concentration(log_equilibrium_concentrations=log_equilibrium_concentrations):
                     return log_equilibrium_concentrations[species]
                 self.model[name] = log_equilibrium_concentration
@@ -570,7 +570,7 @@ class CompetitiveBindingAnalysis(object):
             self.parameter_names['fluorescence'] = list()
             for (excitation_wavelength, emission_wavelength) in fluorescence_wavelength_pairs:
                 name = 'plate background fluorescence for fluorescence excitation at %s and emission at %s' % (excitation_wavelength, emission_wavelength)
-                quantum_yield = pymc.Uniform(name, lower=0.0, upper=1.0, value=0.1)
+                quantum_yield = pymc.Uniform(name, lower=0.0, upper=1.0, value=0.001)
                 self.model[name] = quantum_yield
                 self.parameter_names['fluorescence'].append(name)
 
@@ -581,16 +581,20 @@ class CompetitiveBindingAnalysis(object):
                     self.model[name] = quantum_yield
                     self.parameter_names['fluorescence'].append(name)
 
+            MIN_LOG_FLUORESCENCE_INTENSITY = -10 # TODO: Determine minimum possible fluorescence intensity
+            MAX_LOG_FLUORESCENCE_INTENSITY = +20 # TODO: Determine maximum possible fluorescence intensity
+            MIN_LOG_FLUORESCENCE_UNCERTAINTY = -5
+            MAX_LOG_FLUORESCENCE_UNCERTAINTY = +8 # TODO: MAKE THIS LARGER
+
             # Fluorescence intensities * gains
             # TODO: If multiple gains are in use, slave them together through this intensity times a fixed gain factor.
-                MIN_LOG_FLUORESCENCE_INTENSITY = -10 # TODO: Determine minimum possible fluorescence intensity
-                MAX_LOG_FLUORESCENCE_INTENSITY = +10 # TODO: Determine maximum possible fluorescence intensity
+            if fluorescence_top:
                 name = 'top fluorescence log illumination intensity'
                 self.model[name] = pymc.Uniform(name, lower=MIN_LOG_FLUORESCENCE_INTENSITY, upper=MAX_LOG_FLUORESCENCE_INTENSITY, value=0)
                 self.parameter_names['fluorescence'].append(name)
 
                 name = 'top fluorescence log uncertainty'
-                self.model[name] = pymc.Uniform(name, lower=MIN_LOG_FLUORESCENCE_INTENSITY, upper=MAX_LOG_FLUORESCENCE_INTENSITY, value=0)
+                self.model[name] = pymc.Uniform(name, lower=MIN_LOG_FLUORESCENCE_UNCERTAINTY, upper=MAX_LOG_FLUORESCENCE_UNCERTAINTY, value=0)
                 self.parameter_names['fluorescence'].append(name)
 
                 name = 'top fluorescence precision'
@@ -598,14 +602,12 @@ class CompetitiveBindingAnalysis(object):
                 self.parameter_names['fluorescence'].append(name)
 
             if fluorescence_bottom:
-                MIN_LOG_FLUORESCENCE_INTENSITY = -10 # TODO: Determine minimum possible fluorescence intensity
-                MAX_LOG_FLUORESCENCE_INTENSITY = +10 # TODO: Determine maximum possible fluorescence intensity
                 name = 'bottom fluorescence log illumination intensity'
                 self.model[name] = pymc.Uniform(name, lower=MIN_LOG_FLUORESCENCE_INTENSITY, upper=MAX_LOG_FLUORESCENCE_INTENSITY, value=0)
                 self.parameter_names['fluorescence'].append(name)
 
                 name = 'bottom fluorescence log uncertainty'
-                self.model[name] = pymc.Uniform(name, lower=MIN_LOG_FLUORESCENCE_INTENSITY, upper=MAX_LOG_FLUORESCENCE_INTENSITY, value=0)
+                self.model[name] = pymc.Uniform(name, lower=MIN_LOG_FLUORESCENCE_UNCERTAINTY, upper=MAX_LOG_FLUORESCENCE_UNCERTAINTY, value=0)
                 self.parameter_names['fluorescence'].append(name)
 
                 name = 'bottom fluorescence precision'
@@ -630,12 +632,14 @@ class CompetitiveBindingAnalysis(object):
                     name = 'computed %s fluorescence of well %s at excitation wavelength %s and emission wavelength %s' % (geometry, wellname(well), excitation_wavelength, emission_wavelength)
                     log_well_area = np.log(well.container.container_type.well_area.to_base_units().m)
 
-                    @pymc.deterministic(name=name)
+                    @pymc.deterministic(name=name, trace=True)
                     def fluorescence_model(log_well_volume=log_well_volume,
                         log_concentrations=log_concentrations, quantum_yields=quantum_yields,
                         log_excitation_extinction_coefficients=log_excitation_extinction_coefficients, log_emission_extinction_coefficients=log_emission_extinction_coefficients,
                         plate_fluorescence=plate_fluorescence,
                         top_log_illumination_intensity=top_log_illumination_intensity, bottom_log_illumination_intensity=bottom_log_illumination_intensity, geometry=geometry):
+
+                        # TODO: Work entirely in log space?
 
                         # Compute path length
                         log_path_length = log_well_volume - log_well_area
@@ -661,6 +665,9 @@ class CompetitiveBindingAnalysis(object):
                             # Include additional term for bottom detection geometry.
                             inner_filter_effect_attenuation *= np.exp(-ELC_emission)
 
+                        # TODO: Fix this; ignoring for now
+                        inner_filter_effect_attenuation = 1.0 # NO ATTENUATION
+
                         # Compute incident intensity
                         intensity = (geometry == 'top') * np.exp(top_log_illumination_intensity) + (geometry == 'bottom') * np.exp(bottom_log_illumination_intensity) # select appropriate illumination intensity
                         intensity *= inner_filter_effect_attenuation # include inner filter effects
@@ -669,8 +676,9 @@ class CompetitiveBindingAnalysis(object):
                         fluorescence = intensity * plate_fluorescence # start by including plate background fluorescence
                         for (quantum_yield, log_concentration) in zip(quantum_yields, log_concentrations):
                             fluorescence += intensity * quantum_yield * np.exp(log_concentration)
+
                         return fluorescence
-                    self.model[name] = fluorescence
+                    self.model[name] = fluorescence_model
                     self.parameter_names['fluorescence'].append(name)
 
                     measured_fluorescence = measurements['fluorescence'][(excitation_wavelength, emission_wavelength, geometry)]

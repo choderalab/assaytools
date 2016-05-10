@@ -466,6 +466,7 @@ class SingletAssay(Assay):
         dispense_evo(plate, solution=solutions['buffer'], volume=assay_volume, rows=['B', 'D', 'F', 'H'])
         dispense_hpd300(plate, solutions=[solutions[id] for id in hpd300_fluids], xml_filename=d300_xml_filename, plate_index=hpd300_plate_index)
         read_infinite(plate, xml_filename=infinite_xml_filename, wavelengths_to_analyze=wavelengths_to_analyze, measurements_to_analyze=measurements_to_analyze)
+        self.plate = plate
 
         # Select specified rows for analysis.
         from autoprotocol import WellGroup
