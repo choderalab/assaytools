@@ -116,7 +116,7 @@ def plot_spectra_grid(file_set,ligands,*args,**kwargs):
             plt.tight_layout();
             
     if output != None:
-        plt.savefig('%s.png'%output, dpi=1000)
+        plt.savefig('%s.png'%output)
 
 #This function allows us to get wells from sections, parsing an xml file
 def get_wells_from_section(path):
