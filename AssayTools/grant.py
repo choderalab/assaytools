@@ -59,37 +59,64 @@ def xml2df(file):
     return dataframe_reindex
 
 #This function allows us to plot spectra
-def plot_spectra_grid(file_set,protein,ligands,ligand):
-    grid = len(protein) + len(ligand)
+def plot_spectra_grid(file_set,ligands,*args,**kwargs):
+    #Example Syntax:
+    #   plot_spectra_grid(file_set,ligands,protein=['Src'],ligand=['Bosutinib'])
+    #   plot_spectra_grid(file_set,ligands)
+    #   plot_spectra_grid(file_set,ligands,output='Figure1')
+    protein = kwargs.get('protein', None)
+    ligand = kwargs.get('ligand', None)
+    output = kwargs.get('output', None)
     
-    # pick the correct file
-    proteins = file_set.keys()
-    index = ligands.index(ligand)
-    file = file_set[protein][index]
+    if protein != None:
+        these_proteins = protein
+    else:
+        these_proteins = file_set.keys()
+    if ligand != None:
+        these_ligands = ligand
+    else:
+        these_ligands = ligands
+    print these_proteins
+    print len(these_proteins)
+    print these_ligands
+    print len(these_ligands)
     
-    # pick a title
-    title = "%s - %s" %(protein, ligand)
+    grid = len(these_proteins) + len(these_ligands)
+    if grid ==2:
+        my_figsize = (12,8)
+    else:
+        my_figsize = (24,18)
     
-    # make a dataframe
-    df = xml2df(file)
+    fig, axes = plt.subplots(nrows=len(these_ligands), ncols=len(these_proteins), figsize= my_figsize, sharey=True, sharex=True)
     
-    # plot the spectra
-    fig = plt.figure();
-    ax = df['fluorescence'].iloc[:,12].plot(ylim=(0,100000),legend=False, linewidth=4,color='m');
-    ax.axvline(x=480,color='0.7',linestyle='--');
-    for i in range(11):
-        #s = df['fluorescence'].iloc[:,i].plot(ylim=(0,100000),linewidth=3,c=cm.hsv(i*15), ax = ax, title=title);
-        df['fluorescence'].iloc[:,i].plot(ylim=(0,100000),linewidth=3,c=cm.hsv(i*15), ax = ax);
-        df['fluorescence'].iloc[:,11+i].plot(ylim=(0,100000),legend=False, linewidth=4,c=cm.gray(i*15+50), ax = ax, fontsize =20);
-    sns.despine()
-    plt.xlim(320,600)
-    plt.yticks([])
-    plt.xlabel('wavelength (nm)', fontsize=20)
-    plt.tight_layout();
-    plt.savefig('%s.eps'%title, type='eps', dpi=1000)
-    # The s = line above and this an attempt at making a color bar that so far has not worked
-    #cbar = plt.colorbar(mappable=s, ax=ax)
-    #cbar.set_label('My Label')
+    for j,protein in enumerate(these_proteins):
+        for k,ligand in enumerate(these_ligands):
+            index = ligands.index(ligand)
+            file = file_set[protein][index]
+            
+            if grid == 2:
+                my_axes = None
+            else:
+                my_axes = axes[k,j]
+    
+            # pick a title
+            title = "%s - %s" %(protein, ligand)
+    
+            # make a dataframe
+            df = xml2df(file)
+      
+            # plot the spectra
+            #fig = plt.figure();
+            for i in range(11):
+                df['fluorescence'].iloc[:,i].plot(ylim=(0,100000),xlim=(400,600),linewidth=3, ax = my_axes, c=cm.hsv(i*15), title=title);
+                df['fluorescence'].iloc[:,11+i].plot(ylim=(0,100000),xlim=(400,600),legend=False, ax = my_axes, linewidth=4,c=cm.gray(i*15+50),fontsize =20, title=title);
+
+            sns.despine()
+            plt.yticks([])
+            plt.tight_layout();
+            
+    if output != None:
+        plt.savefig('%s.png'%output, dpi=1000)
 
 #This function allows us to get wells from sections, parsing an xml file
 def get_wells_from_section(path):
