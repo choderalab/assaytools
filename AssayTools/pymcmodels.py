@@ -429,7 +429,7 @@ def map_fit(pymc_model):
 
     return map
 
-def run_mcmc(pymc_model):
+def run_mcmc(pymc_model, db = 'ram', dbname = None):
     """
     Sample the model with pymc using sensible defaults.
 
@@ -437,6 +437,13 @@ def run_mcmc(pymc_model):
     ----------
     pymc_model : pymc model
        The pymc model to sample.
+    db : how to store model, default = 'ram' means not storing it.
+       To store model use storage = 'pickle'.
+               - db : string
+            The name of the database backend that will store the values
+            of the stochastics and deterministics sampled during the MCMC loop. 
+   dbname : name for storage object, default = None.
+       To store model use e.g. dbname = 'my_mcmc.pickle'
 
     Returns
     -------
@@ -446,7 +453,7 @@ def run_mcmc(pymc_model):
     """
 
     # Sample the model with pymc
-    mcmc = pymc.MCMC(pymc_model, db='ram', name='Sampler', verbose=True)
+    mcmc = pymc.MCMC(pymc_model, db=db, dbname=dbname, name='Sampler', verbose=True)
     nthin = 20
     nburn = nthin*10000
     niter = nthin*10000
