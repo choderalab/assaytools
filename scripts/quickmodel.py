@@ -53,6 +53,13 @@ def quick_model(inputs, path=None):
         print file_name 
    
         data = platereader.read_icontrol_xml(my_file)
+
+        well = dict()
+        for j in string.ascii_uppercase:
+            for i in range(1,25):
+                well['%s' %j + '%s' %i] = i
+
+        ALPHABET = string.ascii_uppercase
     
         for i in range(0,15,2):
             protein_row = ALPHABET[i]
@@ -182,13 +189,6 @@ def entry_point():
     parser.add_argument("path", nargs='*', help="path to xml file(s) to analyze",default=None)
     args = parser.parse_args()
     print args.path
-
-    well = dict()
-    for j in string.ascii_uppercase:
-        for i in range(1,25):
-            well['%s' %j + '%s' %i] = i
-
-    ALPHABET = string.ascii_uppercase
 
     # Define inputs
     with open('inputs.json', 'r') as fp:
