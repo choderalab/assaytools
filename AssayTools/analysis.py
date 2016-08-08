@@ -762,8 +762,8 @@ class CompetitiveBindingAnalysis(object):
         niter = nthin*10000
 
         # DEBUG
-        nburn = nthin*100
-        niter = nthin*100
+        #nburn = nthin*100
+        #niter = nthin*100
 
         for stochastic in self.model.stochastics:
             mcmc.use_step_method(pymc.Metropolis, stochastic, proposal_sd=1.0, proposal_distribution='Normal')

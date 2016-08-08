@@ -32,7 +32,7 @@ params = {
 assay = SingletAssay(**params)
 
 # Fit the maximum a posteriori (MAP) estimate
-map_fit = assay.experiment.map_fit()
+#map_fit = assay.experiment.map_fit()
 
 # Run some MCMC sampling and return the MCMC object
 mcmc = assay.experiment.run_mcmc()
