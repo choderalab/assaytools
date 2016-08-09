@@ -17,6 +17,7 @@ requirements:
     - pandas
     - scipy
     - pymc ==2.3.4
+    - pymc3
     - matplotlib
     - seaborn
     - lxml
@@ -32,6 +33,7 @@ requirements:
     - pandas
     - scipy
     - pymc
+    - pymc3
     - matplotlib
     - seaborn
     - lxml
