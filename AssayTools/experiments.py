@@ -156,8 +156,22 @@ def define_container_types():
     # drawing: http://4ti.co.uk/files/1614/0542/7662/4ti-0223_Marketing_Drawing.pdf
     # All arguments to ContainerType are required!
     capabilities = ['pipette', 'spin', 'absorbance', 'fluorescence', 'luminescence', 'incubate', 'gel_separate', 'cover', 'seal', 'stamp', 'dispense']
-    container_type = ContainerType(name='4titude 4ti-0223', is_tube=False, well_count=96, well_depth_mm=Unit(11.15, 'millimeter'), well_volume_ul=Unit(300, 'milliliter'), well_coating='polystyrene', sterile=False, capabilities=capabilities, shortname='4ti-0223', col_count=12, dead_volume_ul=Unit(20,'milliliter'), safe_min_volume_ul=Unit(50, 'milliliter'))
-
+    container_type = ContainerType(
+        name='4titude 4ti-0223',
+        is_tube=False,
+        well_count=96,
+        well_depth_mm=Unit(11.15, 'millimeter'),
+        well_volume_ul=Unit(300, 'microliter'),
+        well_coating='polystyrene',
+        sterile=False,
+        cover_types=[],
+        seal_types=[],
+        capabilities=capabilities,
+        shortname='4ti-0223',
+        col_count=12,
+        dead_volume_ul=Unit(20,'microliter'),
+        safe_min_volume_ul=Unit(50, 'microliter')
+        )
     # Attach well area.
     well_diameter = Unit(6.30, "millimeters")
     well_area = np.pi * (well_diameter/2)**2
