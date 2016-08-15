@@ -487,5 +487,5 @@ class SingletAssay(Assay):
         well_group = WellGroup([well for well in plate.all_wells() if (well.humanize()[0] in rows_to_analyze)])
 
         # Create a model
-        from assaytools.analysis import CompetitiveBindingAnalysis
+        from assaytools.analysis3 import CompetitiveBindingAnalysis
         self.experiment = CompetitiveBindingAnalysis(solutions=solutions, wells=well_group, receptor_name=receptor_species)

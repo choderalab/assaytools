@@ -9,7 +9,6 @@ Classes for the analysis of fluorescence assay data.
 
 import numpy as np
 import pymc
-import pymc3
 from scipy.misc import logsumexp
 from autoprotocol.unit import Unit
 
@@ -84,7 +83,7 @@ def wellname(well):
 #=============================================================================================
 
 class CompetitiveBindingAnalysis(object):
-    def __init__(self, solutions, wells, receptor_name, DeltaG_prior='uniform', pymc_version='pymc3'):
+    def __init__(self, solutions, wells, receptor_name, DeltaG_prior='uniform'):
         """
         Parameters
         ----------
@@ -96,16 +95,13 @@ class CompetitiveBindingAnalysis(object):
             Name of receptor
         DeltaG_prior : str, optional, default='uniform'
             Prior to use on DeltaG values for reaction ['uniform', 'chembl']
-        pymc_version : int, optional, default=3
-            Selects which version of pymc to use ('pymc2' or 'pymc3')
 
         """
         # Store data
         self.solutions = solutions
         self.wells = wells
         self.receptor_name = receptor_name
-        self.pymc_version = pymc_version
-
+        
         # Set up internal data structures.
         self.model = dict() # the PyMC model; self.model[paramname] is the PyMC variable correspoding to 'paramname'
         self.parameter_names = dict() # dict to keep track of groups of related parameter names; self.parameter_names[groupname] is the list of PyMC variable names under 'groupname'
@@ -123,24 +119,14 @@ class CompetitiveBindingAnalysis(object):
         self._create_absorbance_model()
         self._create_fluorescence_model()
 
-        if pymc_version == 'pymc2':
-            # Create the PyMC Model object from the dictionary of pymc stochastics and deterministics.
-            self.model = pymc.Model(self.model)
-            for group in self.parameter_names:
-                print('%s:' % group)
-                for parameter_name in self.parameter_names[group]:
-                    print('  %s' % parameter_name)
-            print('')
-            print('Model has %d stochastics and %d deterministics...' % (len(self.model.stochastics), len(self.model.deterministics)))
-        elif pymc_version == 'pymc3':
-            # Create the PyMC Model object from the dictionary of pymc stochastics and deterministics.
-            self.model = pymc3.Model(self.model)
-            for group in self.parameter_names:
-                print('%s:' % group)
-                for parameter_name in self.parameter_names[group]:
-                    print('  %s' % parameter_name)
-            print('')
-            print('Model has %d stochastics and %d deterministics...' % (len(self.model.stochastics), len(self.model.deterministics)))
+        # Create the PyMC Model object from the dictionary of pymc stochastics and deterministics.
+        self.model = pymc.Model(self.model)
+        for group in self.parameter_names:
+            print('%s:' % group)
+            for parameter_name in self.parameter_names[group]:
+                print('  %s' % parameter_name)
+        print('')
+        print('Model has %d stochastics and %d deterministics...' % (len(self.model.stochastics), len(self.model.deterministics)))
 
     def _create_solutions_model(self):
         """

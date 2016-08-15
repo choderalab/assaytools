@@ -33,13 +33,15 @@ assay = SingletAssay(**params)
 
 # Fit the maximum a posteriori (MAP) estimate
 #map_fit = assay.experiment.map_fit()
+map_fit = None
 
 # Run some MCMC sampling and return the MCMC object
-mcmc = assay.experiment.run_mcmc()
+trace = assay.experiment.run_mcmc(map_fit=map_fit)
+
 
 # Show summary
-assay.experiment.show_summary(mcmc, map_fit)
+#assay.experiment.show_summary(mcmc, map_fit)
 
 # Generate plots
-plots_filename = 'plots.pdf'
-assay.experiment.generate_plots(mcmc, pdf_filename=plots_filename)
+#plots_filename = 'plots.pdf'
+assay.experiment.generate_plots(trace, pdf_filename=plots_filename)
