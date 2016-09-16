@@ -459,8 +459,8 @@ def run_mcmc(pymc_model, db = 'ram', dbname = None):
     niter = nthin*10000
 
     # DEBUG
-    nburn = nthin*1000
-    niter = nthin*1000
+    #nburn = nthin*1000
+    #niter = nthin*1000
 
     mcmc.use_step_method(pymc.Metropolis, getattr(pymc_model, 'DeltaG'), proposal_sd=1.0, proposal_distribution='Normal')
     mcmc.use_step_method(pymc.Metropolis, getattr(pymc_model, 'F_PL'), proposal_sd=10.0, proposal_distribution='Normal')
