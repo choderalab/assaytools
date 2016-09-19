@@ -238,6 +238,7 @@ def quick_model_spectra(inputs):
             #from assaytools import plots
             #figure = plots.plot_measurements(Lstated, Pstated, pymc_model, mcmc=mcmc)
             #Code below inspired by import above, but didn't quite work to import it...
+            plt.clf()
             plt.subplot(211)
             property_name = 'top_complex_fluorescence'
             complex = getattr(pymc_model, property_name)
