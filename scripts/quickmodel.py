@@ -1,11 +1,8 @@
 # A somewhat ugly, utilitarian script takes xml data file output from the Tecan Infinite m1000 Pro 
 # plate reader and allows for the quick visual inspection of raw data.
 #
-# Usage: python inputs.py
-#        python quickmodel.py
-#  or
-#        python inputs.py
-#        python quickmodel.py "/Users/hansons/Documents/github/fluorescence-assay-manuscript/data/singlet/DMSO-backfill/"
+#    Usage:
+#        python quickmodel.py --inputs 'inputs_example'
 
 from assaytools import platereader
 import matplotlib.pyplot as plt
@@ -34,17 +31,11 @@ def reorder2list(data,well):
     
     return reorder_data
 
-def quick_model(inputs, path=None):
+def quick_model(inputs):
+   
+    xml_files = glob("%s/*.xml" % inputs['xml_file_path'])
 
-    if path!=None:
-        xml_files = glob("%s/*.xml" % inputs['xml_file_path'])
-    else:
-        xml_files = glob("%s/*.xml" % path)
-
-    #if args.path:
-    #    xml_files = glob("%s/*.xml" % args.path)
-    #else: 
-    #    xml_files = glob("%s/*.xml" % inputs['xml_file_path'])
+    print xml_files
     
     for my_file in xml_files:
     
@@ -185,23 +176,24 @@ def entry_point():
     # Define argparse stuff
 
     parser = argparse.ArgumentParser(description="""Analyze your fluorescence binding data by running assaytools on your xml files:
-    > python inputs.py      
-    > python quickmodel.py "/Users/hansons/Documents/github/fluorescence-assay-manuscript/data/singlet/DMSO-backfill/" """)
-    parser.add_argument("path", nargs='*', help="path to xml file(s) to analyze",default=None)
+    > python quickmodel.py --inputs 'inputs_example' """)
+    parser.add_argument("--inputs", help="inputs file (python script, .py not needed)",default=None)
     args = parser.parse_args()
-    print args.path
 
     # Define inputs
-    with open('inputs.json', 'r') as fp:
-        inputs = json.load(fp)
+    if args.inputs!=None:
+        inputs_file = args.inputs
+        name = 'inputs'
+        #this is the equivalent of from inputs_file import name as inputs
+        inputs = getattr(__import__(inputs_file, fromlist=[name]), name)
+    if args.inputs==None:
+        with open('inputs.json', 'r') as fp:
+            inputs = json.load(fp)
 
     inputs['Lstated'] = np.asarray(inputs['Lstated'])
     inputs['Pstated'] = np.asarray(inputs['Pstated'])
 
-    if args.path!=None:
-        quick_model(inputs,path=args.path)
-    else:
-        quick_model(inputs)
+    quick_model(inputs)
 
 if __name__ == '__main__':
     entry_point()
