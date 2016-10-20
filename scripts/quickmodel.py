@@ -97,7 +97,8 @@ def quick_model(inputs):
             map = pymcmodels.map_fit(pymc_model)
     
             pymcmodels.show_summary(pymc_model, map, mcmc)
-    
+
+            DeltaG_map = map.DeltaG.value    
             DeltaG = mcmc.DeltaG.trace().mean()
             dDeltaG = mcmc.DeltaG.trace().std()
     
@@ -125,9 +126,11 @@ def quick_model(inputs):
             plt.subplot(212)
             plt.hist(mcmc.DeltaG.trace(), 40, alpha=0.75, label="DeltaG = %.1f +- %.1f kT"%(DeltaG, dDeltaG))
             plt.axvline(x=DeltaG,color='blue')
+            plt.axvline(x=DeltaG_map,color='black',linestyle='dashed',label="MAP = %.1f"%DeltaG_map)
             plt.legend(loc=0)
             plt.xlabel('$\Delta G$ ($k_B T$)');
             plt.ylabel('$P(\Delta G)$');
+            plt.xlim(-35,-10)
 
             plt.suptitle("%s: %s" % (name, my_datetime))
             plt.tight_layout()
@@ -159,7 +162,7 @@ def quick_model(inputs):
                 'name'            : name,
                 'analysis'        : 'pymcmodels', #right now this is hardcoded, BOOO
                 'outfiles'        : '%s_mcmc-%s.pickle, delG_%s-%s.png,DeltaG_%s-%s.npy,DeltaG_trace_%s-%s.npy'%(name,my_datetime,name,my_datetime,name,my_datetime,name,my_datetime),
-                'DeltaG'          : "DeltaG = %.1f +- %.1f kT" % (DeltaG, dDeltaG),
+                'DeltaG'          : "DeltaG = %.1f +- %.1f kT, MAP estimate = %.1f" % (DeltaG, dDeltaG, DeltaG_map),
                 'Kd'              : Kd_summary,
                 'datetime'        : my_datetime
             }
@@ -230,7 +233,8 @@ def quick_model_spectra(inputs):
             map = pymcmodels.map_fit(pymc_model)
     
             pymcmodels.show_summary(pymc_model, map, mcmc)
-    
+
+            DeltaG_map = map.DeltaG.value    
             DeltaG = mcmc.DeltaG.trace().mean()
             dDeltaG = mcmc.DeltaG.trace().std()
     
@@ -258,9 +262,11 @@ def quick_model_spectra(inputs):
             plt.subplot(212)
             plt.hist(mcmc.DeltaG.trace(), 40, alpha=0.75, label="DeltaG = %.1f +- %.1f kT"%(DeltaG, dDeltaG))
             plt.axvline(x=DeltaG,color='blue')
+            plt.axvline(x=DeltaG_map,color='black',linestyle='dashed',label="MAP = %.1f"%DeltaG_map)
             plt.legend(loc=0)
             plt.xlabel('$\Delta G$ ($k_B T$)');
             plt.ylabel('$P(\Delta G)$');
+            plt.xlim(-35,-10)
 
             plt.suptitle("%s: %s" % (name, my_datetime))
             plt.tight_layout()
@@ -292,7 +298,7 @@ def quick_model_spectra(inputs):
                 'name'            : name,
                 'analysis'        : 'pymcmodels', #right now this is hardcoded, BOOO
                 'outfiles'        : '%s_mcmc-%s.pickle, delG_%s-%s.pdf,DeltaG_%s-%s.npy,DeltaG_trace_%s-%s.npy'%(name,my_datetime,name,my_datetime,name,my_datetime,name,my_datetime),
-                'DeltaG'          : "DeltaG = %.1f +- %.1f kT" % (DeltaG, dDeltaG),
+                'DeltaG'          : "DeltaG = %.1f +- %.1f kT, MAP estimate = %.1f" % (DeltaG, dDeltaG, DeltaG_map),
                 'Kd'              : Kd_summary,
                 'datetime'        : my_datetime
             }
