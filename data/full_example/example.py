@@ -59,7 +59,7 @@ ndim = len(model.stochastics)
 nwalkers = 2*ndim
 # Find MAP
 print('Finding MAP estimate...')
-pymc.MAP(model).fit(iterlim=2)
+pymc.MAP(model).fit(iterlim=5)
 start = np.empty(ndim)
 for i, var in enumerate(model.stochastics):
     start[i] = var.value

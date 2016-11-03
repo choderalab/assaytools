@@ -11,6 +11,7 @@ import numpy as np
 import pymc
 from scipy.misc import logsumexp
 from autoprotocol.unit import Unit
+import time
 
 #=============================================================================================
 # Physical constants
@@ -101,7 +102,7 @@ class CompetitiveBindingAnalysis(object):
         self.solutions = solutions
         self.wells = wells
         self.receptor_name = receptor_name
-        
+
         # Set up internal data structures.
         self.model = dict() # the PyMC model; self.model[paramname] is the PyMC variable correspoding to 'paramname'
         self.parameter_names = dict() # dict to keep track of groups of related parameter names; self.parameter_names[groupname] is the list of PyMC variable names under 'groupname'
@@ -442,7 +443,11 @@ class CompetitiveBindingAnalysis(object):
             def log_equilibrium_concentrations(reactions=reactions, conservation_equations=conservation_equations):
                 if len(reactions)==0 or len(conservation_equations)==0:
                     raise Exception(reactions, conservation_equations)
+                initial_time = time.time()
                 solution = GeneralBindingModel.equilibrium_concentrations(reactions, conservation_equations)
+                final_time = time.time()
+                elapsed_time = final_time - initial_time
+                #print('  GeneralBindingModel elapased time: %.6f s' % elapsed_time)
                 return solution
             self.model[name] = log_equilibrium_concentrations
 
@@ -590,22 +595,31 @@ class CompetitiveBindingAnalysis(object):
         if fluorescence:
             self.parameter_names['fluorescence'] = list()
             for (excitation_wavelength, emission_wavelength) in fluorescence_wavelength_pairs:
+                logname = 'log plate background fluorescence for fluorescence excitation at %s and emission at %s' % (excitation_wavelength, emission_wavelength)
+                log_background_fluorescence = pymc.Uniform(logname, lower=-10, upper=+10, value=-7)
+                self.model[logname] = log_background_fluorescence
+                #self.parameter_names['fluorescence'].append(logname)
+
                 name = 'plate background fluorescence for fluorescence excitation at %s and emission at %s' % (excitation_wavelength, emission_wavelength)
-                quantum_yield = pymc.Uniform(name, lower=0.0, upper=1.0, value=0.001)
-                self.model[name] = quantum_yield
+                self.model[name] = pymc.Lambda(name, lambda log_background_fluorescence=self.model[logname] : np.exp(log_background_fluorescence))
                 self.parameter_names['fluorescence'].append(name)
 
                 # TODO: If we had an estimate of quantum yield of some reference species, we could restraint these much better.
                 for species in self.all_species:
+                    logname = 'log quantum yield of %s for fluorescence excitation at %s and emission at %s' % (species, excitation_wavelength, emission_wavelength)
+                    log_quantum_yield = pymc.Uniform(logname, lower=-10, upper=+10, value=-2.0)
+                    self.model[logname] = log_quantum_yield
+                    #self.parameter_names['fluorescence'].append(logname)
+
                     name = 'quantum yield of %s for fluorescence excitation at %s and emission at %s' % (species, excitation_wavelength, emission_wavelength)
-                    quantum_yield = pymc.Uniform(name, lower=0.0, upper=1.0, value=0.1)
-                    self.model[name] = quantum_yield
+                    self.model[name] = pymc.Lambda(name, lambda log_quantum_yield=self.model[logname] : np.exp(log_quantum_yield))
                     self.parameter_names['fluorescence'].append(name)
+
 
             MIN_LOG_FLUORESCENCE_INTENSITY = -10 # TODO: Determine minimum possible fluorescence intensity
             MAX_LOG_FLUORESCENCE_INTENSITY = +20 # TODO: Determine maximum possible fluorescence intensity
-            MIN_LOG_FLUORESCENCE_UNCERTAINTY = -5
-            MAX_LOG_FLUORESCENCE_UNCERTAINTY = +8 # TODO: MAKE THIS LARGER
+            MIN_LOG_FLUORESCENCE_UNCERTAINTY = -10
+            MAX_LOG_FLUORESCENCE_UNCERTAINTY = +10
 
             # Fluorescence intensities * gains
             # TODO: If multiple gains are in use, slave them together through this intensity times a fixed gain factor.
@@ -614,12 +628,12 @@ class CompetitiveBindingAnalysis(object):
                 self.model[name] = pymc.Uniform(name, lower=MIN_LOG_FLUORESCENCE_INTENSITY, upper=MAX_LOG_FLUORESCENCE_INTENSITY, value=0)
                 self.parameter_names['fluorescence'].append(name)
 
-                name = 'top fluorescence log uncertainty'
-                self.model[name] = pymc.Uniform(name, lower=MIN_LOG_FLUORESCENCE_UNCERTAINTY, upper=MAX_LOG_FLUORESCENCE_UNCERTAINTY, value=0)
-                self.parameter_names['fluorescence'].append(name)
+                logname = 'top fluorescence log uncertainty'
+                self.model[logname] = pymc.Uniform(logname, lower=MIN_LOG_FLUORESCENCE_UNCERTAINTY, upper=MAX_LOG_FLUORESCENCE_UNCERTAINTY, value=0)
+                #self.parameter_names['fluorescence'].append(name)
 
                 name = 'top fluorescence precision'
-                self.model[name] = pymc.Lambda(name, lambda log_sigma=self.model['top fluorescence log uncertainty'] : np.exp(-2*log_sigma))
+                self.model[name] = pymc.Lambda(name, lambda log_sigma=self.model[logname] : np.exp(-2*log_sigma))
                 self.parameter_names['fluorescence'].append(name)
 
             if fluorescence_bottom:
@@ -627,12 +641,12 @@ class CompetitiveBindingAnalysis(object):
                 self.model[name] = pymc.Uniform(name, lower=MIN_LOG_FLUORESCENCE_INTENSITY, upper=MAX_LOG_FLUORESCENCE_INTENSITY, value=0)
                 self.parameter_names['fluorescence'].append(name)
 
-                name = 'bottom fluorescence log uncertainty'
-                self.model[name] = pymc.Uniform(name, lower=MIN_LOG_FLUORESCENCE_UNCERTAINTY, upper=MAX_LOG_FLUORESCENCE_UNCERTAINTY, value=0)
-                self.parameter_names['fluorescence'].append(name)
+                logname = 'bottom fluorescence log uncertainty'
+                self.model[logname] = pymc.Uniform(logname, lower=MIN_LOG_FLUORESCENCE_UNCERTAINTY, upper=MAX_LOG_FLUORESCENCE_UNCERTAINTY, value=0)
+                #self.parameter_names['fluorescence'].append(name)
 
                 name = 'bottom fluorescence precision'
-                self.model[name] = pymc.Lambda(name, lambda log_sigma=self.model['bottom fluorescence log uncertainty'] : np.exp(-2*log_sigma))
+                self.model[name] = pymc.Lambda(name, lambda log_sigma=self.model[logname] : np.exp(-2*log_sigma))
                 self.parameter_names['fluorescence'].append(name)
 
         # Fluorescence measurements (for wells that have them)
@@ -724,16 +738,17 @@ class CompetitiveBindingAnalysis(object):
         map = pymc.MAP(self.model)
         ncycles = 50
         nshow = 5
-
-        # DEBUG
-        ncycles = 1
-        nshow = 1
+        maxits = 10 # number of iterations per cycle
 
         # Perform MAP fit
         print('Performing MAP fit...')
         for cycle in range(ncycles):
             if (cycle+1)%nshow==0: print('MAP fitting cycle %d/%d' % (cycle+1, ncycles))
-            map.fit()
+            initial_time = time.time()
+            map.fit(iterlim=maxits)
+            final_time = time.time()
+            elapsed_time = final_time - initial_time
+            print('  elapsed time %.6f s' % elapsed_time)
 
         return map
 
