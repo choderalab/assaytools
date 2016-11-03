@@ -1,4 +1,4 @@
-# A somewhat ugly, utilitarian script takes xml data file output from the Tecan Infinite m1000 Pro 
+# A somewhat ugly, utilitarian script takes xml data file output from the Tecan Infinite m1000 Pro
 # plate reader and allows for the quick visual inspection of raw data.
 #
 #    Usage:
@@ -16,11 +16,11 @@ import json
 import numpy as np
 
 def reorder2list(data,well):
-    
+
     sorted_keys = sorted(well.keys(), key=lambda k:well[k])
-    
+
     reorder_data = []
-    
+
     for key in sorted_keys:
         try:
             reorder_data.append(data[key])
@@ -28,9 +28,9 @@ def reorder2list(data,well):
             pass
 
     reorder_data = [r.replace('OVER','70000') for r in reorder_data]
-        
+
     reorder_data = np.asarray(reorder_data,np.float64)
-    
+
     return reorder_data
 
 ALPHABET = string.ascii_uppercase
@@ -41,30 +41,30 @@ for j in string.ascii_uppercase:
         well['%s' %j + '%s' %i] = i
 
 def quick_model(inputs):
-   
+
     xml_files = glob("%s/*.xml" % inputs['xml_file_path'])
 
-    print xml_files
-    
+    print(xml_files)
+
     for my_file in xml_files:
-    
+
         file_name = os.path.splitext(my_file)[0]
 
-        print file_name 
-   
+        print(file_name)
+
         data = platereader.read_icontrol_xml(my_file)
-    
+
         for i in range(0,15,2):
             protein_row = ALPHABET[i]
             buffer_row = ALPHABET[i+1]
-        
+
             name = "%s-%s%s"%(inputs['ligand_order'][i/2],protein_row,buffer_row)
-            
-            print name
-                  
+
+            print(name)
+
             metadata = {}
             metadata = dict(inputs)
-            
+
             try:
                 part1_data_protein = platereader.select_data(data, inputs['section'], protein_row)
                 part1_data_buffer = platereader.select_data(data, inputs['section'], buffer_row)
@@ -73,35 +73,35 @@ def quick_model(inputs):
 
             reorder_protein = reorder2list(part1_data_protein,well)
             reorder_buffer = reorder2list(part1_data_buffer,well)
-    
+
             #these need to be changed so they are TAKEN FROM INPUTS!!!
-        
+
             # Uncertainties in protein and ligand concentrations.
             dPstated = 0.35 * inputs['Pstated'] # protein concentration uncertainty
             dLstated = 0.08 * inputs['Lstated'] # ligand concentraiton uncertainty (due to gravimetric preparation and HP D300 dispensing)
-            
+
             from assaytools import pymcmodels
-            pymc_model = pymcmodels.make_model(inputs['Pstated'], dPstated, inputs['Lstated'], dLstated, 
+            pymc_model = pymcmodels.make_model(inputs['Pstated'], dPstated, inputs['Lstated'], dLstated,
                top_complex_fluorescence=reorder_protein,
                top_ligand_fluorescence=reorder_buffer,
-               use_primary_inner_filter_correction=True, 
-               use_secondary_inner_filter_correction=True, 
+               use_primary_inner_filter_correction=True,
+               use_secondary_inner_filter_correction=True,
                assay_volume=inputs['assay_volume'], DG_prior='uniform')
-                        
+
             import datetime
             my_datetime = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
-            my_datetime_filename = datetime.datetime.now().strftime("%Y-%m-%d %H%M")           
- 
+            my_datetime_filename = datetime.datetime.now().strftime("%Y-%m-%d %H%M")
+
             mcmc = pymcmodels.run_mcmc(pymc_model, db = 'pickle', dbname = '%s_mcmc-%s.pickle'%(name,my_datetime))
-            
+
             map = pymcmodels.map_fit(pymc_model)
-    
+
             pymcmodels.show_summary(pymc_model, map, mcmc)
 
-            DeltaG_map = map.DeltaG.value    
+            DeltaG_map = map.DeltaG.value
             DeltaG = mcmc.DeltaG.trace().mean()
             dDeltaG = mcmc.DeltaG.trace().std()
-    
+
             ## PLOT MODEL
             #from assaytools import plots
             #figure = plots.plot_measurements(Lstated, Pstated, pymc_model, mcmc=mcmc)
@@ -121,7 +121,7 @@ def quick_model(inputs):
             plt.xlabel('$[L]_T$ (M)');
             plt.ylabel('fluorescence units');
             plt.legend(loc=0);
- 
+
             ## PLOT TRACE
             plt.subplot(212)
             plt.hist(mcmc.DeltaG.trace(), 40, alpha=0.75, label="DeltaG = %.1f +- %.1f kT"%(DeltaG, dDeltaG))
@@ -134,16 +134,16 @@ def quick_model(inputs):
 
             plt.suptitle("%s: %s" % (name, my_datetime))
             plt.tight_layout()
-            
+
             fig1 = plt.gcf()
             fig1.savefig('delG_%s-%s.png'%(name, my_datetime_filename))
-    
+
             np.save('DeltaG_%s-%s.npy'%(name, my_datetime_filename),DeltaG)
             np.save('DeltaG_trace_%s-%s.npy'%(name, my_datetime_filename),mcmc.DeltaG.trace())
-            
+
             Kd = np.exp(mcmc.DeltaG.trace().mean())
             dKd = np.exp(mcmc.DeltaG.trace()).std()
-            
+
             if (Kd < 1e-12):
                 Kd_summary = "%.1f nM +- %.1f fM" % (Kd/1e-15, dKd/1e-15)
             elif (Kd < 1e-9):
@@ -156,7 +156,7 @@ def quick_model(inputs):
                 Kd_summary = "%.1f mM +- %.1f mM" % (Kd/1e-3, dKd/1e-3)
             else:
                 Kd_summary = "%.3e M +- %.3e M" % (Kd, dKd)
-    
+
             outputs = {
                 'raw_data_file'   : my_file,
                 'name'            : name,
@@ -166,9 +166,9 @@ def quick_model(inputs):
                 'Kd'              : Kd_summary,
                 'datetime'        : my_datetime
             }
-    
+
             metadata.update(outputs)
-            
+
             metadata['Pstated'] = metadata['Pstated'].tolist()
             metadata['Lstated'] = metadata['Lstated'].tolist()
 
@@ -176,68 +176,68 @@ def quick_model(inputs):
                 json.dump(metadata, outfile, sort_keys = True, indent = 4, ensure_ascii=False)
 
 def quick_model_spectra(inputs):
-    
+
     for protein in inputs['file_set'].keys():
-        
+
         #concatenate four spectra xmls into one dictionary with all ligand data
-        
+
         my_file = []
-        
+
         data = platereader.read_icontrol_xml(inputs['file_set']['%s'%protein][0])
         for file in inputs['file_set']['%s'%protein]:
             my_file.append(file)
             new_dict = platereader.read_icontrol_xml(file)
             for key in data:
                 data[key] = dict(data[key].items()+new_dict[key].items())
-    
+
         for i in range(0,7,2):
             protein_row = ALPHABET[i]
             buffer_row = ALPHABET[i+1]
-        
+
             name = "%s-%s-%s%s"%(protein,inputs['ligand_order'][i/2],protein_row,buffer_row)
-            
-            print name
-                  
+
+            print(name)
+
             metadata = {}
             metadata = dict(inputs)
-            
+
             try:
                 part1_data_protein = platereader.select_data(data, inputs['section'], protein_row, wavelength = '%s' %inputs['wavelength'])
                 part1_data_buffer = platereader.select_data(data, inputs['section'], buffer_row, wavelength = '%s' %inputs['wavelength'])
             except:
                 continue
-            
+
             reorder_protein = reorder2list(part1_data_protein,well)
             reorder_buffer = reorder2list(part1_data_buffer,well)
-    
+
             #these need to be changed so they are TAKEN FROM INPUTS!!!
-        
+
             # Uncertainties in protein and ligand concentrations.
             dPstated = 0.35 * inputs['Pstated'] # protein concentration uncertainty
             dLstated = 0.08 * inputs['Lstated'] # ligand concentraiton uncertainty (due to gravimetric preparation and HP D300 dispensing)
-            
+
             from assaytools import pymcmodels
-            pymc_model = pymcmodels.make_model(inputs['Pstated'], dPstated, inputs['Lstated'], dLstated, 
+            pymc_model = pymcmodels.make_model(inputs['Pstated'], dPstated, inputs['Lstated'], dLstated,
                top_complex_fluorescence=reorder_protein,
                top_ligand_fluorescence=reorder_buffer,
-               use_primary_inner_filter_correction=True, 
-               use_secondary_inner_filter_correction=True, 
+               use_primary_inner_filter_correction=True,
+               use_secondary_inner_filter_correction=True,
                assay_volume=inputs['assay_volume'], DG_prior='uniform')
-                        
+
             import datetime
             my_datetime = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
             my_datetime_filename = datetime.datetime.now().strftime("%Y-%m-%d %H%M")
-            
+
             mcmc = pymcmodels.run_mcmc(pymc_model, db = 'pickle', dbname = '%s_mcmc-%s.pickle'%(name,my_datetime))
-            
+
             map = pymcmodels.map_fit(pymc_model)
-    
+
             pymcmodels.show_summary(pymc_model, map, mcmc)
 
-            DeltaG_map = map.DeltaG.value    
+            DeltaG_map = map.DeltaG.value
             DeltaG = mcmc.DeltaG.trace().mean()
             dDeltaG = mcmc.DeltaG.trace().std()
-    
+
             ## PLOT MODEL
             #from assaytools import plots
             #figure = plots.plot_measurements(Lstated, Pstated, pymc_model, mcmc=mcmc)
@@ -257,7 +257,7 @@ def quick_model_spectra(inputs):
             plt.xlabel('$[L]_T$ (M)');
             plt.ylabel('fluorescence units');
             plt.legend(loc=0);
- 
+
             ## PLOT TRACE
             plt.subplot(212)
             plt.hist(mcmc.DeltaG.trace(), 40, alpha=0.75, label="DeltaG = %.1f +- %.1f kT"%(DeltaG, dDeltaG))
@@ -270,16 +270,16 @@ def quick_model_spectra(inputs):
 
             plt.suptitle("%s: %s" % (name, my_datetime))
             plt.tight_layout()
-            
+
             fig1 = plt.gcf()
             fig1.savefig('delG_%s-%s.pdf'%(name, my_datetime_filename))
-    
+
             np.save('DeltaG_%s-%s.npy'%(name, my_datetime_filename),DeltaG)
             np.save('DeltaG_trace_%s-%s.npy'%(name, my_datetime_filename),mcmc.DeltaG.trace())
-            
+
             Kd = np.exp(mcmc.DeltaG.trace().mean())
             dKd = np.exp(mcmc.DeltaG.trace()).std()
-            
+
             if (Kd < 1e-12):
                 Kd_summary = "%.1f nM +- %.1f fM" % (Kd/1e-15, dKd/1e-15)
             elif (Kd < 1e-9):
@@ -292,7 +292,7 @@ def quick_model_spectra(inputs):
                 Kd_summary = "%.1f mM +- %.1f mM" % (Kd/1e-3, dKd/1e-3)
             else:
                 Kd_summary = "%.3e M +- %.3e M" % (Kd, dKd)
-    
+
             outputs = {
                 'raw_data_file'   : my_file,
                 'name'            : name,
@@ -302,9 +302,9 @@ def quick_model_spectra(inputs):
                 'Kd'              : Kd_summary,
                 'datetime'        : my_datetime
             }
-    
+
             metadata.update(outputs)
-            
+
             metadata['Pstated'] = metadata['Pstated'].tolist()
             metadata['Lstated'] = metadata['Lstated'].tolist()
 
@@ -336,7 +336,7 @@ def entry_point():
 
     inputs['Lstated'] = np.asarray(inputs['Lstated'])
     inputs['Pstated'] = np.asarray(inputs['Pstated'])
- 
+
     if args.type == 'singlet':
         quick_model(inputs)
     if args.type == 'spectra':
@@ -344,6 +344,3 @@ def entry_point():
 
 if __name__ == '__main__':
     entry_point()
-
-
-

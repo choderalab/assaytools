@@ -42,20 +42,20 @@ def xml2df(file):
         for s in r]
 
     dataframe = pd.DataFrame(data, columns=['fluorescence','wavelength (nm)','Well'])
-            
+
     ### dataframe_rep replaces 'OVER' (when fluorescence signal maxes out) with '3289277', an arbitrarily high number
 
     dataframe_rep = dataframe.replace({'OVER':'3289277'})
 
     dataframe_rep[['fluorescence']] = dataframe_rep[['fluorescence']].astype('float')
-            
+
     dataframe_pivot = pd.pivot_table(dataframe_rep, index = 'wavelength (nm)', columns = ['Well'])
-    
+
     #Rearrange columns so they're in the right order
     cols =  dataframe_pivot['fluorescence'].columns.tolist()
     cols = [cols[0]] + cols[4:12] + cols[1:4] + [cols[12]] + cols[16:24] + cols[13:16]
     dataframe_reindex =  dataframe_pivot.reindex_axis(cols,level='Well',axis=1)
-    
+
     return dataframe_reindex
 
 #This function allows us to plot spectra
@@ -67,7 +67,7 @@ def plot_spectra_grid(file_set,ligands,*args,**kwargs):
     protein = kwargs.get('protein', None)
     ligand = kwargs.get('ligand', None)
     output = kwargs.get('output', None)
-    
+
     if protein != None:
         these_proteins = protein
     else:
@@ -76,35 +76,35 @@ def plot_spectra_grid(file_set,ligands,*args,**kwargs):
         these_ligands = ligand
     else:
         these_ligands = ligands
-    print these_proteins
-    print len(these_proteins)
-    print these_ligands
-    print len(these_ligands)
-    
+    print(these_proteins)
+    print(len(these_proteins))
+    print(these_ligands)
+    print(len(these_ligands))
+
     grid = len(these_proteins) + len(these_ligands)
     if grid ==2:
         my_figsize = (12,8)
     else:
         my_figsize = (24,18)
-    
+
     fig, axes = plt.subplots(nrows=len(these_ligands), ncols=len(these_proteins), figsize= my_figsize, sharey=True, sharex=True)
-    
+
     for j,protein in enumerate(these_proteins):
         for k,ligand in enumerate(these_ligands):
             index = ligands.index(ligand)
             file = file_set[protein][index]
-            
+
             if grid == 2:
                 my_axes = None
             else:
                 my_axes = axes[k,j]
-    
+
             # pick a title
             title = "%s - %s" %(protein, ligand)
-    
+
             # make a dataframe
             df = xml2df(file)
-      
+
             # plot the spectra
             #fig = plt.figure();
             for i in range(11):
@@ -114,7 +114,7 @@ def plot_spectra_grid(file_set,ligands,*args,**kwargs):
             sns.despine()
             plt.yticks([])
             plt.tight_layout();
-            
+
     if output != None:
         plt.savefig('%s.png'%output)
 
@@ -134,16 +134,16 @@ def get_wells_from_section(path):
 
     welllist = [
                 [
-                 datalist[chr(64 + row) + str(col)]          
+                 datalist[chr(64 + row) + str(col)]
                  if chr(64 + row) + str(col) in datalist else None
                  for row in range(1,9)
                 ]
                 for col in range(1,13)
                 ]
-                
+
     return welllist
 
-# This function makes a dataframe from our file once it's been parsed. 
+# This function makes a dataframe from our file once it's been parsed.
 def file2df(file,columns):
     root = etree.parse(file)
     #Just going to work with topread for now
@@ -154,26 +154,26 @@ def file2df(file,columns):
 
 #This function allows us to plot the saturation curve at a single wavelength of the spectra
 def plot_spectra2singlet(file_set,ligands,wavelength,output):
-    
+
     fig, axes = plt.subplots(nrows=len(file_set), ncols=4, figsize=(22,22))
-    
+
     proteins = file_set.keys()
-    
+
     for j,protein in enumerate(file_set):
-    
+
         files = file_set[protein]
-        print file_set[protein]
-    
+        print(file_set[protein])
+
         for i in range(len(files)):
-        
+
             #Extract data from the xml file and make a dataframe
             df = xml2df(files[i])
 
             hardcode = wavelength #nm
-     
+
             # This plots things.
             df.loc[hardcode][0:11].plot(ax = axes[j,i], xticks=[],linewidth=4)
             df.loc[hardcode][11:23].plot(ax = axes[j,i], xticks=[],linewidth=4,title ='%s - %s' %(proteins[j], ligands[i]))
         plt.text(4,15000,'wavelength %s nm'%hardcode,fontsize=20)
-        
+
     plt.savefig(output,dpi=1000)

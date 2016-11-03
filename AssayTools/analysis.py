@@ -496,7 +496,7 @@ class CompetitiveBindingAnalysis(object):
                     self.all_wavelengths.add(excitation_wavelength)
                     self.all_wavelengths.add(emission_wavelength)
         print("all wavelengths in use:")
-        print self.all_wavelengths
+        print(self.all_wavelengths)
 
         if (len(self.all_wavelengths) > 0):
             # Priors for spectroscopic parameters of each component

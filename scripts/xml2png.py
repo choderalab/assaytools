@@ -1,4 +1,4 @@
-# A somewhat ugly, utilitarian script takes xml data file output from the Tecan Infinite m1000 Pro 
+# A somewhat ugly, utilitarian script takes xml data file output from the Tecan Infinite m1000 Pro
 # plate reader and allows for the quick visual inspection of raw data.
 #
 # Usage: python xml2png.py *.xml
@@ -24,20 +24,20 @@ import argparse
 
 # Define argparse stuff
 
-parser = argparse.ArgumentParser(description="""Visualize your raw data by making a png from your xml:      
+parser = argparse.ArgumentParser(description="""Visualize your raw data by making a png from your xml:
 > python xml2png.py --type spectra *.xml""")
-parser.add_argument("files", nargs='*', help="xml file(s) to analyze")  
+parser.add_argument("files", nargs='*', help="xml file(s) to analyze")
 parser.add_argument("--type", help="type of data file (spectra, singlet_96, singlet_384, scan)", choices=['spectra', 'singlet_96', 'singlet_384','scan'],default='singlet_96')
 args = parser.parse_args()
-print args.files
-print "*** --type: analyzing %s file(s) ***" %args.type
+print(args.files)
+print("*** --type: analyzing %s file(s) ***" % args.type)
 
 ### Define extract function that extracts parameters
 
 def extract(taglist, parameters): #["Mode", "Wavelength Start", "Wavelength End", "Wavelength Step Size"]
     result = []
     for p in taglist:
-        print "Attempting to extract tag '%s'..." % p
+        print("Attempting to extract tag '%s'..." % p)
         try:
             param = parameters.xpath("*[@Name='" + p + "']")[0]
             result.append( p + '=' + param.attrib['Value'])
@@ -53,7 +53,7 @@ def extract(taglist, parameters): #["Mode", "Wavelength Start", "Wavelength End"
 
 # Define get_wells_from_section function that extracts the data from each Section.
 # It is written sort of strangely to ensure data is connected to the correct well.
-    
+
 def get_wells_from_section(path):
     reads = path.xpath("*/Well")
     wellIDs = [read.attrib['Pos'] for read in reads]
@@ -66,28 +66,28 @@ def get_wells_from_section(path):
       well : value
       for (value, well) in data
     }
-    
+
     welllist = [
                 [
-                 datalist[chr(64 + row) + str(col)]          
+                 datalist[chr(64 + row) + str(col)]
                  if chr(64 + row) + str(col) in datalist else None
                  for row in range(1,17)
                 ]
                 for col in range(1,24)
                 ]
-                
+
     return welllist
-    
+
 def process_files_five(xml_files):
     """
     Main entry point.
     """
 
     so_many = len(xml_files)
-    print "****This script is about to make png files for %s xml files. ****"  % so_many
+    print("****This script is about to make png files for %s xml files. ****"  % so_many)
 
     for file in xml_files:
-    
+
         # Parse XML file.
 
         root = etree.parse(file)
@@ -100,22 +100,22 @@ def process_files_five(xml_files):
 
         Sections = root.xpath("/*/Section")
         much = len(Sections)
-        print "****The xml file " + file + " has %s data sections:****" % much
+        print("****The xml file " + file + " has %s data sections:****" % much)
         for sect in Sections:
-            print sect.attrib['Name'] 
-    
+            print(sect.attrib['Name'])
+
         data = []
 
         for i, sect in enumerate(Sections):
 
            # Extract Parameters for this section.
-       
+
             path = "/*/Section[@Name='" + sect.attrib['Name'] + "']/Parameters"
             parameters = root.xpath(path)[0]
 
             # Parameters are extracted slightly differently depending on Absorbance or Fluorescence read.
-        
-            if  parameters[0].attrib['Value'] == "Absorbance":   
+
+            if  parameters[0].attrib['Value'] == "Absorbance":
                 result = extract(["Mode", "Wavelength", "Part of Plate"], parameters)
                 title = '%s, %s, %s' % tuple(result)
 
@@ -123,20 +123,20 @@ def process_files_five(xml_files):
                 result = extract(["Gain", "Excitation Wavelength", "Emission Wavelength", "Part of Plate", "Mode"], parameters)
                 title = '%s, %s, %s, \n %s, %s' % tuple(result)
 
-            print "****The %sth section has the parameters:****" %i  
-            print title
-        
+            print("****The %sth section has the parameters:****" % i)
+            print(title)
+
             # Extract Reads for this section.
 
             Sections = root.xpath("/*/Section")
 
             welllist = get_wells_from_section(sect)
-        
+
             data.append(
                 {
                         'filename' : file_name,
                         'title' : title,
-                        'dataframe' : pd.DataFrame(welllist, columns=list('ABCDEFGHIJKLMNOP')) 
+                        'dataframe' : pd.DataFrame(welllist, columns=list('ABCDEFGHIJKLMNOP'))
                 }
             )
 
@@ -154,7 +154,7 @@ def process_files_five(xml_files):
         fig.suptitle("%s" % file_name, fontsize=18)
 
         plt.savefig('%s.png' % file_name)
-        print 'Look at how pretty your data is: %s.png' % file_name
+        print('Look at how pretty your data is: %s.png' % file_name)
 
     return
 
@@ -177,7 +177,7 @@ def process_files_spectra(xml_files):
     """
 
     so_many = len(xml_files)
-    print "****This script is about to make png files for %s xml files. ****"  % so_many
+    print("****This script is about to make png files for %s xml files. ****"  % so_many)
 
     for file in xml_files:
 
@@ -204,9 +204,9 @@ def process_files_spectra(xml_files):
 
         Sections = root.xpath("/*/Section")
         much = len(Sections)
-        print "****The xml file " + file + " has %s data sections:****" % much
+        print("****The xml file " + file + " has %s data sections:****" % much)
         for sect in Sections:
-            print sect.attrib['Name']
+            print(sect.attrib['Name'])
 
         for i, sect in enumerate(Sections):
 
@@ -226,8 +226,8 @@ def process_files_spectra(xml_files):
                 result = extract(["Gain", "Excitation Wavelength", "Emission Wavelength", "Part of Plate", "Mode"], parameters)
                 globals()["title"+str(i)] = '%s, %s, %s, \n %s, %s' % tuple(result)
 
-            print "****The %sth section has the parameters:****" %i
-            print globals()["title"+str(i)]
+            print("****The %sth section has the parameters:****" % i)
+            print(globals()["title"+str(i)])
 
             ### Extract Reads for this section.
 
@@ -242,7 +242,7 @@ def process_files_spectra(xml_files):
                      for s in r]
 
             dataframe = pd.DataFrame(data, columns=['fluorescence','wavelength (nm)','Well'])
-        
+
             ### dataframe_rep replaces 'OVER' (when fluorescence signal maxes out) with '3289277', an arbitrarily high number
 
             dataframe_rep = dataframe.replace({'OVER':'3289277'})
@@ -253,8 +253,8 @@ def process_files_spectra(xml_files):
             ### as we run through cycle through sections and files.
 
             globals()["dataframe_pivot"+str(i)] = pd.pivot_table(dataframe_rep, index = 'wavelength (nm)', columns= ['Well'])
-        
-            print 'The max fluorescence value in this dataframe is %s'% globals()["dataframe_pivot"+str(i)].values.max()
+
+            print('The max fluorescence value in this dataframe is %s'% globals()["dataframe_pivot"+str(i)].values.max())
 
             globals()["large_dataframe"+str(i)] = pd.concat([globals()["large_dataframe"+str(i)],globals()["dataframe_pivot"+str(i)]])
 
@@ -265,10 +265,10 @@ def process_files_spectra(xml_files):
     for i, sect in enumerate(Sections):
 
         section_name = sect.attrib['Name']
-    
+
         path = "/*/Section[@Name='" + sect.attrib['Name'] + "']/Parameters"
         parameters = root.xpath(path)[0]
-    
+
         if  parameters[0].attrib['Value'] == "Absorbance":
             section_ylim = [0,0.2]
         else:
@@ -282,12 +282,12 @@ def process_files_spectra(xml_files):
                 try:
                     globals()["large_dataframe"+str(i)].fluorescence.get(A + str(k)).plot(ax=axes[(j/3)%3,j%3], title=A, c=cm.hsv(k*15), ylim=section_ylim, xlim=[240,800])
                 except:
-                    print "****No row %s.****" %A
+                    print("****No row %s.****" %A)
 
         fig.suptitle('%s \n %s \n Barcode = %s' % (globals()["title"+str(i)], plate_type, barcode), fontsize=14)
         fig.subplots_adjust(hspace=0.3)
         plt.savefig('%s_%s.png' % (file_name, section_name))
-        
+
     return
 
 #############################################
@@ -297,7 +297,7 @@ def process_files_spectra(xml_files):
 def process_files_scan(xml_files):
 
     so_many = len(xml_files)
-    print "****This script is about to make png files for %s xml files. ****"  % so_many
+    print("****This script is about to make png files for %s xml files. ****"  % so_many)
 
     for file in xml_files:
 
@@ -317,9 +317,9 @@ def process_files_scan(xml_files):
         # Define Sections.
         Sections = root.xpath("/*/Section")
         much = len(Sections)
-        print "****The xml file " + file + " has %s data sections:****" % much
+        print("****The xml file " + file + " has %s data sections:****" % much)
         for sect in Sections:
-            print sect.attrib['Name']
+            print(sect.attrib['Name'])
 
         data = []
 
@@ -338,8 +338,8 @@ def process_files_scan(xml_files):
                 result = extract(["Gain", "Excitation Wavelength", "Emission Wavelength", "Part of Plate", "Mode"], parameters)
                 title = '%s, %s, %s, \n %s, %s' % tuple(result)
 
-            print "****The %sth section has the parameters:****" %i
-            print title
+            print("****The %sth section has the parameters:****" %i)
+            print(title)
 
             # Extract Reads for this section.
             Sections = root.xpath("/*/Section")
@@ -389,13 +389,13 @@ def process_files_scan(xml_files):
 def plot_singlet_one_section(data, section):
 
     #This assumes protein data is in row above buffer data
-    
+
     fig, axes = plt.subplots(nrows=3, ncols=3, figsize=(12, 12))
 
     axes = axes.ravel()
 
     ALPHABET = string.ascii_uppercase
-    
+
     well = dict()
     for j in string.ascii_uppercase:
         for i in range(1,25):
@@ -406,25 +406,25 @@ def plot_singlet_one_section(data, section):
     for i in range(0,15,2):
         protein_row = ALPHABET[i]
         buffer_row = ALPHABET[i+1]
-        
+
         part1_data_protein = platereader.select_data(data, section, protein_row)
         part1_data_buffer = platereader.select_data(data, section, buffer_row)
 
         reorder_protein = reorder2list(part1_data_protein,well)
         reorder_buffer = reorder2list(part1_data_buffer,well)
-    
+
         axes[i/2].semilogx()
         axes[i/2].plot(Lstated,reorder_protein,Lstated,reorder_buffer)
         axes[i/2].set_title('%s,%s' %(protein_row,buffer_row))
-    
+
     fig.suptitle('%s' %section)
-    
+
 def reorder2list(data,well):
-    
+
     sorted_keys = sorted(well.keys(), key=lambda k:well[k])
-    
+
     reorder_data = []
-    
+
     for key in sorted_keys:
         try:
             reorder_data.append(data[key])
@@ -432,33 +432,33 @@ def reorder2list(data,well):
             pass
 
     reorder_data = [r.replace('OVER','70000') for r in reorder_data]
-        
+
     reorder_data = np.asarray(reorder_data,np.float64)
-    
+
     return reorder_data
 
 def process_files_singlet(xml_files):
-    
+
     so_many = len(xml_files)
-    print "****This script is about to make png files for %s xml files. ****"  % so_many
+    print("****This script is about to make png files for %s xml files. ****"  % so_many)
 
     for file in xml_files:
-    
+
         file_name = os.path.splitext(file)[0]
-    
+
         data = platereader.read_icontrol_xml(file)
-        
-        print "****The xml file " + file + " has %s data sections:****" % len(data.keys())
-        print data.keys()
-         
-        for key in data.keys():      
+
+        print("****The xml file " + file + " has %s data sections:****" % len(data.keys()))
+        print(data.keys())
+
+        for key in data.keys():
             plot_singlet_one_section(data,key)
-            
+
             #fig.tight_layout()
             #fig.suptitle("%s_%s" % (file_name,key), fontsize=18)
 
             plt.savefig('%s_%s.png' % (file_name,key))
-            print 'Look at how pretty your data is: %s_%s.png' % (file_name,key)
+            print('Look at how pretty your data is: %s_%s.png' % (file_name,key))
     return
 
 

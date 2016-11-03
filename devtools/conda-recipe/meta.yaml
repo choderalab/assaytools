@@ -16,8 +16,7 @@ requirements:
     - numpy
     - pandas
     - scipy
-    - pymc ==2.3.4
-    - pymc3
+    - pymc
     - matplotlib
     - seaborn
     - lxml
@@ -33,7 +32,6 @@ requirements:
     - pandas
     - scipy
     - pymc
-    - pymc3
     - matplotlib
     - seaborn
     - lxml
@@ -43,14 +41,6 @@ requirements:
     - libgfortran ==1.0.0 [linux]
 
 test:
-  requires:
-    - nose
-    - pip
-    - nose-timer
-    - scripttest
-    - ipython
-    - notebook
-    - ipynbtest
   imports:
     - assaytools
 

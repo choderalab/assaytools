@@ -439,7 +439,7 @@ def run_mcmc(pymc_model, db = 'ram', dbname = None):
        To store model use storage = 'pickle'.
                - db : string
             The name of the database backend that will store the values
-            of the stochastics and deterministics sampled during the MCMC loop. 
+            of the stochastics and deterministics sampled during the MCMC loop.
    dbname : name for storage object, default = None.
        To store model use e.g. dbname = 'my_mcmc.pickle'
 
@@ -500,16 +500,18 @@ def show_summary(pymc_model, mcmc, map):
     dDeltaG = mcmc.DeltaG.trace().std()
     Kd = np.exp(map.DeltaG.value)
     dKd = np.exp(mcmc.DeltaG.trace()).std()
-    print "DeltaG = %.1f +- %.1f kT" % (DeltaG, dDeltaG)
+    text = "DeltaG = %.1f +- %.1f kT\n" % (DeltaG, dDeltaG)
     if (Kd < 1e-12):
-        print "Kd = %.1f nM +- %.1f fM" % (Kd/1e-15, dKd/1e-15)
+        text += "Kd = %.1f nM +- %.1f fM" % (Kd/1e-15, dKd/1e-15)
     elif (Kd < 1e-9):
-        print "Kd = %.1f pM +- %.1f pM" % (Kd/1e-12, dKd/1e-12)
+        text += "Kd = %.1f pM +- %.1f pM" % (Kd/1e-12, dKd/1e-12)
     elif (Kd < 1e-6):
-        print "Kd = %.1f nM +- %.1f nM" % (Kd/1e-9, dKd/1e-9)
+        text += "Kd = %.1f nM +- %.1f nM" % (Kd/1e-9, dKd/1e-9)
     elif (Kd < 1e-3):
-        print "Kd = %.1f uM +- %.1f uM" % (Kd/1e-6, dKd/1e-6)
+        text += "Kd = %.1f uM +- %.1f uM" % (Kd/1e-6, dKd/1e-6)
     elif (Kd < 1):
-        print "Kd = %.1f mM +- %.1f mM" % (Kd/1e-3, dKd/1e-3)
+        text += "Kd = %.1f mM +- %.1f mM" % (Kd/1e-3, dKd/1e-3)
     else:
-        print "Kd = %.3e M +- %.3e M" % (Kd, dKd)
+        text += "Kd = %.3e M +- %.3e M" % (Kd, dKd)
+    text += '\n'
+    print(text)
