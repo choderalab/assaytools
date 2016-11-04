@@ -401,7 +401,7 @@ class CompetitiveBindingAnalysis(object):
         This function is agnostic to the exact binding model in use.
 
         """
-        from bindingmodels import GeneralBindingModel
+        from assaytools.bindingmodels import GeneralBindingModel
 
         self.parameter_names['well concentrations'] = list()
         for well in self.wells:
@@ -721,7 +721,6 @@ class CompetitiveBindingAnalysis(object):
                     self.model[name] = pymc.Normal(name, mu=fluorescence_model, tau=self.model['%s fluorescence precision' % geometry], observed=True, value=measured_fluorescence)
                     self.parameter_names['fluorescence'].append(name)
 
-
     def map_fit(self):
         """
         Find the maximum a posteriori (MAP) fit.
@@ -775,10 +774,6 @@ class CompetitiveBindingAnalysis(object):
         nthin = 20
         nburn = nthin*10000
         niter = nthin*10000
-
-        # DEBUG
-        #nburn = nthin*100
-        #niter = nthin*100
 
         for stochastic in self.model.stochastics:
             mcmc.use_step_method(pymc.Metropolis, stochastic, proposal_sd=1.0, proposal_distribution='Normal')

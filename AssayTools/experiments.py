@@ -123,9 +123,8 @@ def DMSOStockSolutions(dmso_stocks_csv_filename):
     #
 
     import csv
-    dmso_stocks_csv_filename = 'DMSOstocks-Sheet1.csv'
     dmso_stocks = dict()
-    with open(dmso_stocks_csv_filename, 'rb') as csvfile:
+    with open(dmso_stocks_csv_filename, 'r') as csvfile:
          csvreader = csv.DictReader(csvfile, delimiter=',', quotechar='|')
          for row in csvreader:
              if row['id'] != '':
@@ -406,7 +405,7 @@ class Assay(object):
     """
     pass
 
-class SingletAssay(Assay):
+class SingleWavelengthAssay(Assay):
     def __init__(self,
         d300_xml_filename,
         infinite_xml_filename,

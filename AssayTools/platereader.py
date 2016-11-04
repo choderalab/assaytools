@@ -88,7 +88,7 @@ def read_icontrol_xml(filename):
 
     # Process all sections.
     sections = dict()
-    for (section_name, section_node) in section_nodes.iteritems():
+    for (section_name, section_node) in section_nodes.items():
         well_data = extract_well_data(section_node)
         sections[section_name] = dict()
         sections[section_name] = well_data
