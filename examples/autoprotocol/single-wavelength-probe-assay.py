@@ -32,10 +32,10 @@ params = {
 assay = SingleWavelengthAssay(**params)
 
 # Fit the maximum a posteriori (MAP) estimate
-map_fit = assay.experiment.map_fit()
+#map_fit = assay.experiment.map_fit()
 
 # Run some MCMC sampling and return the MCMC object
-trace = assay.experiment.run_mcmc(map_fit=map_fit)
+trace = assay.experiment.run_mcmc()
 
 # Show summary
 assay.experiment.show_summary(mcmc, map_fit)

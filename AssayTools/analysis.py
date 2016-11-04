@@ -737,7 +737,7 @@ class CompetitiveBindingAnalysis(object):
         map = pymc.MAP(self.model)
         ncycles = 50
         nshow = 5
-        maxits = 10 # number of iterations per cycle
+        maxits = 1 # number of iterations per cycle
 
         # Perform MAP fit
         print('Performing MAP fit...')
@@ -771,9 +771,9 @@ class CompetitiveBindingAnalysis(object):
         # TODO: Allow
         mcmc = pymc.MCMC(self.model, db='pickle', name='output', verbose=True)
 
-        nthin = 20
-        nburn = nthin*10000
-        niter = nthin*10000
+        nthin = 1
+        nburn = nthin*1000
+        niter = nthin*1000
 
         for stochastic in self.model.stochastics:
             mcmc.use_step_method(pymc.Metropolis, stochastic, proposal_sd=1.0, proposal_distribution='Normal')

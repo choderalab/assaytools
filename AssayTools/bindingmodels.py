@@ -120,7 +120,7 @@ class GeneralBindingModel(BindingModel):
    """
 
    @classmethod
-   def equilibrium_concentrations(cls, reactions, conservation_equations, tol=1.0e-10):
+   def equilibrium_concentrations(cls, reactions, conservation_equations, tol=1.0e-8):
       """
       Compute the equilibrium concentrations of each complex species for a general set of binding reactions.
 
@@ -210,10 +210,22 @@ class GeneralBindingModel(BindingModel):
 
           return (target, jacobian)
 
+      # Construct initial guess
+      # We assume that all matter is equally spread out among all species via the conservation equations
+      from scipy.misc import logsumexp
+      LOG_ZERO = -100
+      X = LOG_ZERO * np.ones([nspecies], np.float64)
+      for (species_index, species) in enumerate(all_species):
+          for (log_total_concentration, conservation_equation) in conservation_equations:
+              log_total_stoichiometry = np.log(np.sum([stoichiometry for stoichiometry in conservation_equation.values()]))
+              if species in conservation_equation:
+                  stoichiometry = conservation_equation[species]
+                  X[species_index] = logsumexp([X[species_index], log_total_concentration + np.log(stoichiometry) - log_total_stoichiometry])
+
       # Solve
       from scipy.optimize import root
-      X = np.zeros([nspecies], np.float64)
-      sol = root(ftarget, X, jac=True, tol=tol)
+      options = {'xtol' : tol}
+      sol = root(ftarget, X, method='lm', jac=True, tol=tol, options=options)
       if (sol.success == False):
           msg  = "root-finder failed to converge:\n"
           msg += str(sol)
