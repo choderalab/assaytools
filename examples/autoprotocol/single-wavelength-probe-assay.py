@@ -31,14 +31,11 @@ params = {
 # Create a single-wavelength assay.
 assay = SingleWavelengthAssay(**params)
 
-# Fit the maximum a posteriori (MAP) estimate
-#map_fit = assay.experiment.map_fit()
-
 # Run some MCMC sampling and return the MCMC object
-trace = assay.experiment.run_mcmc()
+mcmc = assay.experiment.run_mcmc()
 
 # Show summary
-assay.experiment.show_summary(mcmc, map_fit)
+assay.experiment.show_summary(mcmc)
 
 # Generate plots
 plots_filename = 'plots.pdf'
