@@ -3,12 +3,24 @@
 ## Manifest
 
 * `data/` - data directory for sample experiment
-* `single-wavelength-assay.py` - example script for analyzing a single-wavelength assay
-* `competition-assay.py` - example script for analyzing a competition assay
+* `single-wavelength-probe-assay.py` - example script for analyzing a single-wavelength assay with a single fluorescent probe compound
 
 ### Experimental
-* `single-wavelength-assay-emcee.py` - example script for analyzing a single-wavelength assay with `emcee` (must have `emcee` package installed)
 
+#### Competition assay
+
+* `single-wavelength-competition-assay.py` - example script for analyzing a single-wavelength competition assay
+
+Note that we are not yet feeding the GEF:Abl data (without IMA) into the inference engine, so this will not work yet.
+We may need to add a new helper class (e.g. `SingleWavelengthCompetitionAssay`) in order to make it easy to provide both GEF:Abl and GEF:IMA:Abl datasets.
+
+* `single-wavelength-competition-assay-emcee.py` - example script for analyzing a single-wavelength competition assay with `emcee`
+
+To use this, you mst have installed `emcee` package with
+```bash
+conda install --yes -c omnia emcee
+```
+Note that, while `emcee` is very quick in sampling from the posterior, the functions to analyze the `emcee` output have not yet been written
 
 ## Simplified API and helper functions
 
@@ -45,7 +57,7 @@ params = {
     'wavelengths_to_analyze' : ['280:nanometers', '480:nanometers'], # which wavelengths to analyze (if specified -- this is optional)
 }
 
-# Create a single-point (singlet) assay.
+# Create a single-wavelength assay.
 assay = SingleWavelengthAssay(**params)
 ```
 

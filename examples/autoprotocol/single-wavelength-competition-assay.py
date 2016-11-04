@@ -7,7 +7,7 @@ from autoprotocol.unit import Unit
 from assaytools.experiments import SingleWavelengthAssay
 
 #
-# Single-wavelength assay
+# Single-wavelength competition assay
 #
 
 params = {
@@ -28,7 +28,7 @@ params = {
     'wavelengths_to_analyze' : ['280:nanometers', '480:nanometers'], # which wavelengths to analyze (if specified -- this is optional)
 }
 
-# Create a single-point (singlet) assay.
+# Create a single-wavelength assay.
 assay = SingleWavelengthAssay(**params)
 
 # Fit the maximum a posteriori (MAP) estimate
