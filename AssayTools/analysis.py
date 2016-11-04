@@ -803,7 +803,7 @@ class CompetitiveBindingAnalysis(object):
                         sigma = keywords[keyword]
 
                 print('%-64ss : %8.5f' % (parameter_name, sigma))
-                mcmc.use_step_method(pymc.Metropolis, stochastic, proposal_sd=sigma, proposal_distribution='Normal')
+                mcmc.use_step_method(pymc.Metropolis, stochastic, proposal_sd=sigma, proposal_distribution=None)
 
         print('Running MCMC...')
         mcmc.sample(iter=(nburn+niter), burn=nburn, thin=nthin, progress_bar=True, tune_throughout=True)
@@ -894,10 +894,11 @@ class CompetitiveBindingAnalysis(object):
                         plt.figure(figsize=(12, 8))
                         plt.hold(True)
                         niterations = len(trace)
-                        plt.plot([0, niterations], [mle, mle], 'k-')
+                        plt.plot([0, niterations], [mle, mle], 'r-')
                         plt.plot(trace, 'k.')
                         plt.xlabel('iteration')
                         plt.ylabel(name)
+                        plt.title(name)
                         pdf.savefig()
                         plt.close()
 
