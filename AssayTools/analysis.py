@@ -13,6 +13,12 @@ from scipy.misc import logsumexp
 from autoprotocol.unit import Unit
 import time
 
+import matplotlib as mpl
+mpl.use('Agg')
+import seaborn as sns
+from matplotlib.backends.backend_pdf import PdfPages
+import matplotlib.pyplot as plt
+
 #=============================================================================================
 # Physical constants
 #=============================================================================================
@@ -810,16 +816,23 @@ class CompetitiveBindingAnalysis(object):
         for group in self.parameter_names:
             print(group)
             for name in self.parameter_names[group]:
-                if map_fit:
-                    mle = getattr(map_fit, name).value
-                else:
-                    mle = getattr(mcmc, name).trace().mean()
-                mean_cntr, var_cntr, std_cntr = bayes_mvs(getattr(mcmc, name).trace(), alpha=alpha)
-                (center, (lower, upper)) = mean_cntr
-                print("%64s : %5.1f [%5.1f, %5.1f] kT" % (name, mle, lower, upper))
+                try:
+                    if map_fit:
+                        mle = getattr(map_fit, name).value
+                    else:
+                        mle = getattr(mcmc, name).trace().mean()
+                    trace = getattr(mcmc, name).trace()
+                    mean_cntr, var_cntr, std_cntr = bayes_mvs(trace, alpha=alpha)
+                    (center, (lower, upper)) = mean_cntr
+                    if trace.std() == 0.0:
+                        lower = upper = trace[0]
+                    print("%-64s : initial %5.1f final %5.1f : %5.1f [%5.1f, %5.1f]" % (name, trace[0], trace[-1], mle, lower, upper))
+
+                except AttributeError as e:
+                    print(e)
             print('')
 
-    def generate_plots(self, mcmc, map=None, pdf_filename=None):
+    def generate_plots(self, mcmc, map_fit=None, pdf_filename=None):
         """
         Generate interactive or PDF plots from MCMC trace.
 
@@ -827,10 +840,38 @@ class CompetitiveBindingAnalysis(object):
         ----------
         mcmc : pymc.MCMC
            MCMC samples to plot
-        map : pymc.MAP, optional, default=None
+        map_fit : pymc.MAP, optional, default=None
            Plot the maximum a posteriori (MAP) estimate if provided.
         pdf_filename : str, optional, default=None
            If specified, generate a PDF containing plots.
 
         """
-        raise Exception('Not implemented yet.')
+        alpha = 0.95 # confidence interval width
+        from scipy.stats import bayes_mvs
+        with PdfPages(pdf_filename) as pdf:
+            for group in self.parameter_names:
+                print(group)
+                for name in self.parameter_names[group]:
+                    try:
+                        if map_fit:
+                            mle = getattr(map_fit, name).value
+                        else:
+                            mle = getattr(mcmc, name).trace().mean()
+                        trace = getattr(mcmc, name).trace()
+                        mean_cntr, var_cntr, std_cntr = bayes_mvs(trace, alpha=alpha)
+                        (center, (lower, upper)) = mean_cntr
+                        if trace.std() == 0.0:
+                            lower = upper = trace[0]
+
+                        plt.figure(figsize=(12, 8))
+                        plt.hold(True)
+                        niterations = len(trace)
+                        plt.plot([0, niterations], [mle, mle], 'k-')
+                        plt.plot(trace, 'k.')
+                        plt.xlabel('iteration')
+                        plt.ylabel(name)
+                        pdf.savefig()
+                        plt.close()
+
+                    except AttributeError as e:
+                        pass

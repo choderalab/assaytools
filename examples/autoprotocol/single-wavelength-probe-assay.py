@@ -39,4 +39,4 @@ assay.experiment.show_summary(mcmc)
 
 # Generate plots
 plots_filename = 'plots.pdf'
-assay.experiment.generate_plots(trace, pdf_filename=plots_filename)
+assay.experiment.generate_plots(mcmc, pdf_filename=plots_filename)
