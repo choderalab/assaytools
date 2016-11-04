@@ -781,7 +781,7 @@ class CompetitiveBindingAnalysis(object):
         # TODO: Allow
         mcmc = pymc.MCMC(self.model, db='sqlite', name='output', verbose=True)
 
-        nthin = 1
+        nthin = 10
         nburn = nthin*100
         niter = nthin*100
 
@@ -847,13 +847,15 @@ class CompetitiveBindingAnalysis(object):
                     (center, (lower, upper)) = mean_cntr
                     if trace.std() == 0.0:
                         lower = upper = trace[0]
-                    if 'concentration' in name:
+
+                    if ('concentration' in name) or ('volume' in name):
                         print("%-64s : initial %7.1e final %7.1e : %7.1e [%7.1e, %7.1e]" % (name, trace[0], trace[-1], mle, lower, upper))
                     else:
                         print("%-64s : initial %7.1f final %7.1f : %7.1f [%7.1f, %7.1f]" % (name, trace[0], trace[-1], mle, lower, upper))
 
                 except AttributeError as e:
-                    print(e)
+                    # Skip observed stochastics
+                    pass
             print('')
 
     def generate_plots(self, mcmc, map_fit=None, pdf_filename=None):
