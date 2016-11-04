@@ -16,6 +16,7 @@ requirements:
     - numpy
     - pandas
     - scipy
+    - openblas
     - pymc
     - matplotlib
     - seaborn
@@ -31,6 +32,7 @@ requirements:
     - pint
     - pandas
     - scipy
+    - openblas
     - pymc
     - matplotlib
     - seaborn
