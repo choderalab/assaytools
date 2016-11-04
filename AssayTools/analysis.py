@@ -769,11 +769,11 @@ class CompetitiveBindingAnalysis(object):
 
         # Sample the model with pymc
         # TODO: Allow
-        mcmc = pymc.MCMC(self.model, db='pickle', name='output', verbose=True)
+        mcmc = pymc.MCMC(self.model, db='sqlite', name='output', verbose=True)
 
         nthin = 1
-        nburn = nthin*1000
-        niter = nthin*1000
+        nburn = nthin*100
+        niter = nthin*100
 
         for stochastic in self.model.stochastics:
             mcmc.use_step_method(pymc.Metropolis, stochastic, proposal_sd=1.0, proposal_distribution='Normal')
@@ -782,7 +782,7 @@ class CompetitiveBindingAnalysis(object):
         mcmc.sample(iter=(nburn+niter), burn=nburn, thin=nthin, progress_bar=True, tune_throughout=True)
 
         # Close the database.
-        mcmc.db.close()
+        #mcmc.db.close()
 
         return mcmc
 
