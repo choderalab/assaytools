@@ -698,7 +698,11 @@ class CompetitiveBindingAnalysis(object):
                             alpha = (ELC_excitation + ELC_emission) * np.log(10)
                         elif geometry == 'bottom':
                             alpha = (ELC_excitation - ELC_emission) * np.log(10)
-                        inner_filter_effect_attenuation = (1 - np.exp(-alpha)) / alpha
+                        try:
+                            inner_filter_effect_attenuation = (1 - np.exp(-alpha)) / alpha
+                        except RuntimeWarning as e:
+                            print('alpha = %s' % str(alpha))
+                            print(e)
                         # Handle alpha -> 0 case explicitly.
                         if np.abs(alpha) < 0.01:
                             inner_filter_effect_attenuation = 1. - alpha/2. + (alpha**2)/6. - (alpha**3)/24. + (alpha**4)/120.
@@ -781,8 +785,25 @@ class CompetitiveBindingAnalysis(object):
         nburn = nthin*100
         niter = nthin*100
 
+        # Specify initial parameter standard deviations to apply to specific classes of parameters
+        keywords = {
+            'concentration' : 0.1,
+            'affinity' : 0.1,
+            'volume' : 0.01,
+        }
+
+        print('Assigning initial guesses for Metropolis step method proposal standard deviations:')
         for stochastic in self.model.stochastics:
-            mcmc.use_step_method(pymc.Metropolis, stochastic, proposal_sd=1.0, proposal_distribution='Normal')
+            if hasattr(stochastic, '__name__'):
+                sigma = 1.0 # default proposal standard deviation
+                parameter_name = stochastic.__name__
+                # See if we have specified a special standard deviation for this parameter class
+                for keyword in keywords:
+                    if keyword in parameter_name:
+                        sigma = keywords[keyword]
+
+                print('%-64ss : %8.5f' % (parameter_name, sigma))
+                mcmc.use_step_method(pymc.Metropolis, stochastic, proposal_sd=sigma, proposal_distribution='Normal')
 
         print('Running MCMC...')
         mcmc.sample(iter=(nburn+niter), burn=nburn, thin=nthin, progress_bar=True, tune_throughout=True)
@@ -826,7 +847,10 @@ class CompetitiveBindingAnalysis(object):
                     (center, (lower, upper)) = mean_cntr
                     if trace.std() == 0.0:
                         lower = upper = trace[0]
-                    print("%-64s : initial %5.1f final %5.1f : %5.1f [%5.1f, %5.1f]" % (name, trace[0], trace[-1], mle, lower, upper))
+                    if 'concentration' in name:
+                        print("%-64s : initial %7.1e final %7.1e : %7.1e [%7.1e, %7.1e]" % (name, trace[0], trace[-1], mle, lower, upper))
+                    else:
+                        print("%-64s : initial %7.1f final %7.1f : %7.1f [%7.1f, %7.1f]" % (name, trace[0], trace[-1], mle, lower, upper))
 
                 except AttributeError as e:
                     print(e)
@@ -847,6 +871,8 @@ class CompetitiveBindingAnalysis(object):
 
         """
         alpha = 0.95 # confidence interval width
+        print('')
+        print('Generating plots...')
         from scipy.stats import bayes_mvs
         with PdfPages(pdf_filename) as pdf:
             for group in self.parameter_names:
