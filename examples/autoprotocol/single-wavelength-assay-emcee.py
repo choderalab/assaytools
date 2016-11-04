@@ -7,7 +7,7 @@ from autoprotocol.unit import Unit
 from assaytools.experiments import SingleWavelengthAssay
 
 #
-# Single-wavelength assay
+# Competition assay
 #
 
 params = {
@@ -31,15 +31,54 @@ params = {
 # Create a single-point (singlet) assay.
 assay = SingleWavelengthAssay(**params)
 
-# Fit the maximum a posteriori (MAP) estimate
-map_fit = assay.experiment.map_fit()
+# Try emcee
+import numpy as np
+import emcee
+import pymc
+# This is the likelihood function for emcee
+model = assay.experiment.model
+from pymc.Node import ZeroProbability
+from numpy import Inf
+def lnprob(vals): # vals is a vector of parameter values to try
+    # Set each random variable of the pymc model to the value
+    # suggested by emcee
+    for val, var in zip(vals, model.stochastics):
+        var.value = val
 
-# Run some MCMC sampling and return the MCMC object
-trace = assay.experiment.run_mcmc(map_fit=map_fit)
+    # Calculate logp
+    try:
+        logp = model.logp
+    #except ZeroProbability as e:
+    except Exception as e:
+        print(e)
+        logp = -Inf
+    return logp
 
-# Show summary
-assay.experiment.show_summary(mcmc, map_fit)
-
-# Generate plots
-plots_filename = 'plots.pdf'
-assay.experiment.generate_plots(trace, pdf_filename=plots_filename)
+# emcee parameters
+ndim = len(model.stochastics)
+nwalkers = 2*ndim
+# Find MAP
+print('Finding MAP estimate...')
+pymc.MAP(model).fit(iterlim=5)
+start = np.empty(ndim)
+for i, var in enumerate(model.stochastics):
+    start[i] = var.value
+# sample starting points for walkers around the MAP
+p0 = np.random.randn(ndim * nwalkers).reshape((nwalkers, ndim)) + start
+# instantiate sampler passing in the pymc likelihood function
+print('Creating emcee sampler...')
+sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob)
+# burn-in
+print('Burn-in...')
+pos, prob, state = sampler.run_mcmc(p0, 10)
+sampler.reset()
+# sample 10 * 500 = 5000
+print('Production...')
+sampler.run_mcmc(pos, 1000)
+# Save samples back to pymc model
+print('Copying back into PyMC model')
+model = pymc.MCMC(model)
+model.sample(1) # This call is to set up the chains
+for i, var in enumerate(model.stochastics):
+    var.trace._trace[0] = sampler.flatchain[:, i]
+pymc.Matplot.plot(model)

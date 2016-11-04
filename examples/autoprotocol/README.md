@@ -1,47 +1,23 @@
-# full_example
+# Example illustrating the use of `autoprotocol` to describe the experiment
 
-----
-## Files describing the Abl-Gefitinib Imatinib competition assay.
+## Manifest
 
-These are files describing two experiments:
+* `data/` - data directory for sample experiment
+* `single-wavelength-assay.py` - example script for analyzing a single-wavelength assay
+* `competition-assay.py` - example script for analyzing a competition assay
 
-* Abl-Gefitinib Imatinib competition assay performed on January 15, 2016.
-* Abl spectra with Bosutinib, Bosutinib Isomer, Erlotinib, and Gefitinib performed on March 11, 2016.
+### Experimental
+* `single-wavelength-assay-emcee.py` - example script for analyzing a single-wavelength assay with `emcee` (must have `emcee` package installed)
 
-Protein concentration data:
-
-* `protein_data.txt`
-
-Infinite data files:
-
-* `Abl Gef Ima gain 120 bw1020 2016-01-19 16-22-45_plate_1.xml`- Abl Geftinib Imatinib Singlets (96-well)
-* `Abl Gef gain 120 bw1020 2016-01-19 15-59-53_plate_1.xml` - Abl Gefitnib Singlets (96-well)
-* `Abl_D382N_Bos_20160311_132205.xml` - Rows A and B - Bosutinib Spectra Data for Abl
-* `Abl_D382N_BosI_20160311_135952.xml` - Rows C and D - Bosutinib Isomer Spectra Data for Abl
-* `Abl_D382N_Erl_20160311_143642.xml` - Rows E and F - Erlotinib Spectra Data for Abl
-* `Abl_D382N_Gef_20160311_152340.xml` - Rows G and H - Gefitinib Spectra Data for Abl
-
-D300 simulation reports:
-
-* `Src_Bos_Ima_96well_Mar2015 2015-03-07 1736.DATA.xml` - D300 script used to dispense Gefitinib and Imatinib for Singlet Fluorescent and Singlet Imatinib Experiment
-* `LRL_Src_Bos_2rows_1_2 2015-09-11 1048.DATA.xml` - D300 script used to dispense all ligands in Spectra assay
-
-Compound stocks used:
-
-* `DMSOstocks-Sheet1.csv`
-   * For the competition assay GEF999 and IMA001 were used
-   * For the spectra assay BOS001, BOI001, GEF001, and ERL001 were used.
-
-See [this IPython notebook](https://github.com/choderalab/assaytools/blob/master/examples/ipynbs/data-analysis/competition/Competition-Assay-Analysis.ipynb) for competition assay.
 
 ## Simplified API and helper functions
 
 A number of helper classes are provided to simplify setting up an experiment.
 
-To set up a single-inhibitor (non-competition) plate, use `SingletAssay` from `assaytools.experiments`:
+To set up a single-inhibitor (non-competition) plate, use `SingleWavelengthAssay` from `assaytools.experiments`:
 ```python
 from autoprotocol.unit import Unit
-from assaytools.experiments import SingletAssay
+from assaytools.experiments import SingleWavelengthAssay
 ```
 
 The necessary information can be provided via a `dict` containing all of the necessary parameters for the assay:
@@ -52,22 +28,25 @@ The necessary information can be provided via a `dict` containing all of the nec
 #
 
 params = {
-    'd300_xml_filename' : 'Src_Bos_Ima_96well_Mar2015 2015-03-07 1736.DATA.xml', # HP D300 dispense simulated DATA file
-    'infinite_xml_filename' : 'Abl Gef gain 120 bw1020 2016-01-19 15-59-53_plate_1.xml', # Tecan Infinite plate reader output data
-    'dmso_stocks_csv_filename' : 'DMSOstocks-Sheet1.csv', # CSV file of DMSO stock inventory
+    'd300_xml_filename' : 'data/Src_Bos_Ima_96well_Mar2015 2015-03-07 1736.DATA.xml', # HP D300 dispense simulated DATA file
+    'infinite_xml_filename' : 'data/Abl Gef gain 120 bw1020 2016-01-19 15-59-53_plate_1.xml', # Tecan Infinite plate reader output data
+    'dmso_stocks_csv_filename' : 'data/DMSOstocks-Sheet1.csv', # CSV file of DMSO stock inventory
     'hpd300_fluids' : ['GEF001', 'IMA001', 'DMSO'], # uuid of DMSO stocks from dmso_stocks_csv_filename (or 'DMSO' for pure DMSO) used to define HP D300 XML <Fluids> block
+    'hpd300_plate_index' : 1, # plate index for HP D300 dispense script
     'receptor_species' : 'Abl(D382N)', # receptor name (just used for convenience)
     'protein_absorbance' : 4.24, # absorbance reading of concentrated protein stock before dilution
-    'protein_extinction_coefficient' : Unit(49850, '1/molar/centimeter'), # 1/M/cm extinction coefficient for protein
+    'protein_extinction_coefficient' : Unit(49850, '1/(moles/liter)/centimeter'), # 1/M/cm extinction coefficient for protein
     'protein_molecular_weight' : Unit(41293.2, 'daltons'), # g/mol protein molecular weight
     'protein_stock_volume' : Unit(165.8, 'microliters'), # uL protein stock solution used to make 1 uM protein stock
     'buffer_volume' : Unit(14.0, 'milliliters'), # mL buffer used to make 1 uM protein stock
     'rows_to_analyze' : ['A', 'B'], # rows to analyze
     'assay_volume' : Unit(100.0, 'microliters'), # quantity of protein or buffer dispensed into plate
+    'measurements_to_analyze' : ['fluorescence top'], # which measurements to analyze (if specified -- this is optional)
+    'wavelengths_to_analyze' : ['280:nanometers', '480:nanometers'], # which wavelengths to analyze (if specified -- this is optional)
 }
 
 # Create a single-point (singlet) assay.
-assay = SingletAssay(**params)
+assay = SingleWavelengthAssay(**params)
 ```
 
 Once the assay is set up, the `experiment` field can be accessed to fit the data, run MCMC, and generate figures:
@@ -76,14 +55,14 @@ Once the assay is set up, the `experiment` field can be accessed to fit the data
 map_fit = assay.experiment.map_fit()
 
 # Run some MCMC sampling and return the MCMC object
-mcmc = assay.experiment.run_mcmc()
+trace = assay.experiment.run_mcmc(map_fit=map_fit)
 
 # Show summary
 assay.experiment.show_summary(mcmc, map_fit)
 
 # Generate plots
 plots_filename = 'plots.pdf'
-assay.experiment.generate_plots(mcmc, pdf_filename=plots_filename)
+assay.experiment.generate_plots(trace, pdf_filename=plots_filename)
 ```
 
 ## API
