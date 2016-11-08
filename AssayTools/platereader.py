@@ -57,7 +57,7 @@ def read_icontrol_xml(filename):
         well_data : dict
            Returns all values for each section as a dictionary of dictionaries
            (e.g. well_data['280_TopRead'] is {'A1': 62213.0,'A10': 10505.0,...})
-           Above is an example return for singlet data xml file, if input is a spectra data 
+           Above is an example return for singlet data xml file, if input is a spectra data
            xml file well_data will also include a dictionary for each well where the keys are the wavelength
            (e.g. well_data['em280'] is {'A1': {'280': '3216344', '285': '2587710'...}...})
 
@@ -88,7 +88,7 @@ def read_icontrol_xml(filename):
 
     # Process all sections.
     sections = dict()
-    for (section_name, section_node) in section_nodes.iteritems():
+    for (section_name, section_node) in section_nodes.items():
         well_data = extract_well_data(section_node)
         sections[section_name] = dict()
         sections[section_name] = well_data
@@ -97,7 +97,7 @@ def read_icontrol_xml(filename):
 
 def select_data(file_data,section_name,selection,*args,**kwargs):
     """
-    Read a Tecan iControl XML-formatted file and extract a particular part (row, column, 
+    Read a Tecan iControl XML-formatted file and extract a particular part (row, column,
     well, or well selection) for a particular section.
     Parameters
     ----------
@@ -124,7 +124,7 @@ def select_data(file_data,section_name,selection,*args,**kwargs):
     bosutinib_abl_spectra_A_480 = select_data(spectra_file, 'em280', 'A', wavelength='480')
     """
     wavelength = kwargs.get('wavelength', None)
-    
+
     #construct all possible wells and columns for 96 or 384 well plate
     rows =[]
     cols =[]
@@ -132,16 +132,16 @@ def select_data(file_data,section_name,selection,*args,**kwargs):
         rows.append('%s' % i)
     for i in range(1,25):
         cols.append('%s' % i)
-    
+
     # read data from xml or dict
-    
+
     if type(file_data) == dict:
         well_data = file_data
     else:
         well_data = read_icontrol_xml(file_data)
 
     section_data = well_data[section_name]
-    
+
     # extract selection
     data = dict()
     for select in selection:
@@ -160,7 +160,7 @@ def select_data(file_data,section_name,selection,*args,**kwargs):
                 except KeyError:
                     continue
         else:
-            print 'bad selection'
+            print('bad selection')
 
     # extract wavelength (only relevant for spectra)
     # if you don't include wavelength for spectra, data will be a dict of all wavelengths
@@ -169,7 +169,7 @@ def select_data(file_data,section_name,selection,*args,**kwargs):
         for key in data.keys():
             new_data[key] = data[key][wavelength]
         data = new_data
-            
+
     return data
 
 def read_emission_spectra_text(filename):

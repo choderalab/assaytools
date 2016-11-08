@@ -46,7 +46,7 @@ else:
 
 
 ##########################
-VERSION = "0.1.0"
+VERSION = "0.2.0"
 ISRELEASED = False
 __version__ = VERSION
 ##########################
@@ -85,11 +85,12 @@ setup(name='assaytools',
       cmdclass={'build_ext': build_ext},
       package_data={'assaytools.html': ['static/*']},
       install_requires=[
-#        'numpy',
-#        'pandas',
-#        'pymc',
-#        'matplotlib',
-#        'seaborn',
-#        'lxml'
+        'numpy',
+        'pandas',
+        'pymc',
+        'matplotlib',
+        'seaborn',
+        'lxml',
+        'autoprotocol'
         ],
       **setup_kwargs)

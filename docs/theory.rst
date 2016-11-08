@@ -476,3 +476,91 @@ and eliminate :math:`[RL_n]` and :math:`[R]` to give
 This leads to a coupled series of equations that cannot easily be solved in closed form, but are straightforward to solve numerically using the solver :func:`scipy.optimize.fsolve`, starting from an initial guess that ensures the constraints remain satisfied.
 
 .. todo:: Can we work with log concentrations and affinities here instead for more robust solutions?
+
+General binding model
+---------------------
+
+A more general binding model is available in :class:`assaytools.bindingmodels.GeneralBindingModel`.
+
+A general series of :math:`N` equilibrium reactions involving the interconversion of :math:`K` components :math:`X_j`, which may represent individual species or complexes, and have the form
+
+.. math::
+
+   K_n = \prod_{j=1}^K [X_j]^{s_{nj}}  \:\: , \:\: n = 1,\ldots,N
+
+with corresponding conservation of mass constraints
+
+.. math::
+
+   \sum_{j=1}^K c_{mj} [X_j] = q_m \:\: , \:\: m = 1,\ldots,M
+
+This problem can be specified in terms of
+
+* an :math:`N-vector` equilibrium constant vector :math:`K \equiv (K_n)`
+* an :math:`N \times K` stoichiometry matrix :math:`S \equiv (s_{nj})`
+* an :math:`M \times K` mass conservation matrix :math:`C \equiv (c_{mj})`
+* an :math:`M`-vector :math:`Q \equiv (q_{m})` of total concentrations across all species
+
+For example, for a simple binding reaction :math:`R + L \rightleftharpoons RL`, the species :math:`X_j` are :math:`\{R, L, RL\}`, and we have
+
+.. math::
+
+   K &= [K_d] \\
+   S &= \begin{bmatrix}
+   +1 & +1 & -1
+   \end{bmatrix} \\
+   C &= \begin{bmatrix}
+   +1 &  0 & +1 \\
+    0 & +1 & 0
+   \end{bmatrix} \\
+   Q &= \begin{bmatrix}
+   [R]_\mathrm{tot} \\
+   [L]_\mathrm{tot}
+   \end{bmatrix}
+
+A competitive binding reaction :math:`R + L \rightleftharpoons RL` and :math:`R + P \rightleftharpoons RP` with species :math:`\{R, L, P, RL, RP\}`, we have
+
+.. math::
+
+   K &= \begin{bmatrix}
+   K_1 \\
+   K_2 \\
+   \end{bmatrix} \\
+   S &= \begin{bmatrix}
+   +1 & +1 &  0 & -1 &  0 \\
+   +1 &  0 & +1 &  0 & -1 \\
+   \end{bmatrix} \\
+   C &= \begin{bmatrix}
+   +1 &  0 &  0 & +1 & +1 \\
+    0 & +1 &  0 & +1 &  0 \\
+    0 &  0 &  + &  0 & +1 \\
+   \end{bmatrix} \\
+   Q &= \begin{bmatrix}
+   [R]_\mathrm{tot} \\
+   [L]_\mathrm{tot} \\
+   [P]_\mathrm{tot}
+   \end{bmatrix}
+
+Because the equilibrium constants :math:`K_n` and concentrations :math:`[X_j]` must be positive but can range over many orders of magnitude, we represent these quantities by their logarithms, resulting in the equations
+
+.. math::
+
+   0 &= - \log K_n + \sum_{j=1}^K s_{nj} \log [X_j] \:\: , \:\: n = 1,\ldots,N \\
+   0 &= - \log q_m + \log \sum_{j, c_{mj} > 0} e^{\log c_{mj} + \log [X_j]} \:\: , \:\: m = 1,\ldots,M \\
+
+The equilibrium concentrations :math:`[X_i]` is found as the solution to this set of equations using :math:`y_j \equiv \log [X_j]`, solved by the numerical root-finding function :func:`scipy.optimize.root` using the vector-valued function :math:`f(y)` and its Jacobian :math:`J(y)`:
+
+.. math::
+
+   f_n(x) &\equiv - \log K_n + \sum_{j=1}^K s_{nj} \log [X_j] \:\: , \:\: n = 1,\ldots,N \\
+   f_m(x) &\equiv - \log q_m + \log \sum_{j, c_{mj} > 0} e^{\log c_{mj} + \log [X_j]}  \:\: , \:\: m = (N+1),\ldots,(N+M)
+
+where the :math:`\log \sum_{n=1}^N e^{a_n}` operation can be computed in a numerically stable manner using the :func:`scipy.misc.logsumexp` function.
+The Jacobian :math:`J(y)` is given by
+
+.. math::
+
+   J_{nj} &\equiv s_{nj}  \:\: , \:\: n = 1,\ldots,N \\
+   J_{mj} &\equiv \frac{c_{mj} e^{y_j}}{\sum\limits_{k=1}^K c_{mk} e^{y_k}} \:\: , \:\: m = (N+1),\ldots,(N+M)
+
+where the :func:`scipy.misc.logsumexp` function is once again used to compute rows :math:`m = (N+1),\ldots,(N+M)` in a numerically stable manner.

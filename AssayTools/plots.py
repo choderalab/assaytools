@@ -323,7 +323,7 @@ def plot_mcmc_results(Lstated, Pstated, path_length, mcmc, subsample=10, figsize
     figure = plt.figure(figsize=figsize)
     plt.hold(True);
     nbins = 40;
-    print mcmc.F_PL.trace().shape
+    print(mcmc.F_PL.trace().shape)
     plt.hist(np.log10(mcmc.F_PL.trace()), nbins, histtype='stepfilled');
     plt.hist(np.log10(mcmc.F_L.trace()), nbins, histtype='stepfilled');
     plt.hist(np.log10(mcmc.F_P.trace()), nbins, histtype='stepfilled');

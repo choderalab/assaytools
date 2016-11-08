@@ -16,12 +16,15 @@ requirements:
     - numpy
     - pandas
     - scipy
+    - openblas
     - pymc
     - matplotlib
     - seaborn
     - lxml
     - ipython
     - notebook
+    - autoprotocol
+    - mock
 
   run:
     - python
@@ -29,22 +32,17 @@ requirements:
     - pint
     - pandas
     - scipy
+    - openblas
     - pymc
     - matplotlib
     - seaborn
     - lxml
     - ipython
     - notebook
+    - autoprotocol
+    - libgfortran ==1.0.0 [linux]
 
 test:
-  requires:
-    - nose
-    - pip
-    - nose-timer
-    - scripttest
-    - ipython
-    - notebook
-    - ipynbtest
   imports:
     - assaytools
 

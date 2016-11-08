@@ -11,3 +11,4 @@
 * `scripts/` - simple examples of scripts
   * `xml2png/` - illustrate the use of the xml2png tool
   * `xml2png4scans/` - illustrate the use of the xml2png4scans tool
+* `autoprotocol/` - examples using the [`autoprotocol-python`](https://github.com/autoprotocol/autoprotocol-python) API  

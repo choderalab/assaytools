@@ -8,7 +8,7 @@ branches:
 install:
   - source devtools/travis-ci/install.sh
   - export PYTHONUNBUFFERED=true
-  
+
 before_script:
   # Mimic X display
   - "export DISPLAY=:99.0"
@@ -16,28 +16,34 @@ before_script:
   - sleep 3 # give xvfb some time to start
 
 script:
-  - conda config --add channels omnia
+  # Create a test environment
+  - conda create --yes -n test python=$python
+  # Activate the test environment
+  - source activate test
+  # Add org channel
   - conda config --add channels ${ORGNAME}
+  # Build the recipe
   - conda build devtools/conda-recipe
-  - source activate _test
-  # Run nosetests
-  - cd devtools && nosetests $PACKAGENAME --nocapture --verbosity=2 --with-doctest --with-timer && cd ..
+  # Install the package
+  - conda install --yes --use-local ${PACKAGENAME}-dev
+  # Install testing dependencies
+  - conda install --yes --quiet nose nose-timer
+  # Test the package
+  - cd devtools && nosetests $PACKAGENAME --nocapture --verbosity=2 --with-timer -a '!slow' && cd ..
   # Run IPython notebook tests
-  - source devtools/travis-ci/ipythontests.sh
+  # THIS NEEDS TO BE REPLACED WITH A PY3.x COMPATIBLE SCHEME
+  #- source devtools/travis-ci/ipythontests.sh
 
 env:
   matrix:
-    # Changes to CONDA_NPY needed for pymc binstar availability.
-    - python=2.7  CONDA_PY=27  CONDA_NPY=19
-    #- python=2.7  CONDA_PY=27  CONDA_NPY=16
-    #- python=3.3  CONDA_PY=33  CONDA_NPY=17
-    #- python=3.4  CONDA_PY=34  CONDA_NPY=18
+    - python=2.7  CONDA_PY=27
+    - python=3.4  CONDA_PY=34
+    - python=3.5  CONDA_PY=35
 
   global:
-    - ORGNAME: "choderalab"
-    - PACKAGENAME: "assaytools"
-    # TODO: add encrypted AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY to push documentation to S3
-    # binstar
+    - ORGNAME="omnia"
+    - PACKAGENAME="assaytools"
+    # encrypted BINSTAR_TOKEN for push of dev package to Anaconda cloud
     - secure: "x/7fFUnTGXdQOiAduc8ONAiVOV63vgup1y4heemW/Z1fnhjAgNIjwIX0/9cJtV0HU7ayLXaBcMy6Bq72W49wIKZM6omvx6sazZ6ju0EUrp6GKQmZqio255cV2RA810uSTpNh2lIwkMPWfWfv2VmBzKsJyM4eKHrVdKsLUCGu7M4="
 
 after_success:

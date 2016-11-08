@@ -15,7 +15,7 @@ import os,sys
 import base64
 import re
 import argparse
- 
+
 from Queue import Empty
 #import difflib
 
@@ -23,7 +23,7 @@ try:
     from IPython.kernel import KernelManager
 except ImportError:
     from IPython.zmq.blockingkernelmanager import BlockingKernelManager as KernelManager
- 
+
 from IPython.nbformat.current import reads, NotebookNode
 
 class TravisConsole(object):
@@ -226,7 +226,7 @@ class IPyKernel(object):
                 out.evalue = content['evalue']
                 out.traceback = content['traceback']
             else:
-                print "unhandled iopub msg:", msg_type
+                print("unhandled iopub msg:", msg_type)
 
             outs.append(out)
         return outs
