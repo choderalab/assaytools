@@ -8,7 +8,4 @@
   * `models/` - examples of pre-experiment modelling of fluorescence inhibitor assays
     * `competition-assay-modeling/` - modeling a fluorescence ligand competition assay
       * See the [IPython notebook online](http://nbviewer.ipython.org/github/choderalab/assaytools/blob/master/examples/competition-assay-modeling/competition-assay-modeling.ipynb).
-* `scripts/` - simple examples of scripts
-  * `xml2png/` - illustrate the use of the xml2png tool
-  * `xml2png4scans/` - illustrate the use of the xml2png4scans tool
 * `autoprotocol/` - examples using the [`autoprotocol-python`](https://github.com/autoprotocol/autoprotocol-python) API  

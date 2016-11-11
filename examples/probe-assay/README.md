@@ -10,7 +10,7 @@ To be added:
  - bayesian analysis of a fluorescent HSA assay
 
 To plot raw data using `xml2png` navigate into the data folder and run:
- > xml2png --type singlet_384 singlet*.xml
+ > xml2png --type singlet_384 *.xml
 
- > 
+
 
