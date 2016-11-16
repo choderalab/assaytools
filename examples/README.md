@@ -2,8 +2,8 @@
 
 ## Manifest
 * `autoprotocol/` - examples using the [`autoprotocol-python`](https://github.com/autoprotocol/autoprotocol-python) API
-* `competition-assay/` - modeling and analysis of competition assay experiments
-* `probe-assay/` - modeling and analysis of fluorescent probe assay experiments
+* `competition-fluorescence-assay/` - modeling and analysis of competition assay experiments
+* `direct-fluorescence-assay/` - modeling and analysis of fluorescent probe assay experiments
 
 * `ipynbs/` - IPython notebook examples (soon to be removed)
   * `data-analysis/` - examples of fluorescence inhibitor assay analyses
