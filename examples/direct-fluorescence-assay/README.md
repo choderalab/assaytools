@@ -7,6 +7,8 @@ Here is a series of ipython notebooks that walks you through simulation and anal
  - `3a Bayesian fit txt file - SrcBosutinib.ipynb`
  - `3b Bayesian fit xml file - SrcGefitinib.ipynb`
 
+## Command line tools
+
 To plot raw data using `xml2png` navigate into the data folder and run:
 
  `xml2png --type singlet_384 p38*.xml`
