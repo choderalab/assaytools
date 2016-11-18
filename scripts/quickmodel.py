@@ -107,7 +107,7 @@ def quick_model(inputs):
             #figure = plots.plot_measurements(Lstated, Pstated, pymc_model, mcmc=mcmc)
             #Code below inspired by import above, but didn't quite work to import it...
             plt.clf()
-            plt.subplot(211)
+            plt.subplot(311)
             property_name = 'top_complex_fluorescence'
             complex = getattr(pymc_model, property_name)
             plt.semilogx(inputs['Lstated'], complex.value, 'ko',label='complex')
@@ -122,8 +122,8 @@ def quick_model(inputs):
             plt.ylabel('fluorescence units');
             plt.legend(loc=0);
 
-            ## PLOT TRACE
-            plt.subplot(212)
+            ## PLOT HISTOGRAM
+            plt.subplot(312)
             plt.hist(mcmc.DeltaG.trace(), 40, alpha=0.75, label="DeltaG = %.1f +- %.1f kT"%(DeltaG, dDeltaG))
             plt.axvline(x=DeltaG,color='blue')
             plt.axvline(x=DeltaG_map,color='black',linestyle='dashed',label="MAP = %.1f"%DeltaG_map)
@@ -131,6 +131,12 @@ def quick_model(inputs):
             plt.xlabel('$\Delta G$ ($k_B T$)');
             plt.ylabel('$P(\Delta G)$');
             plt.xlim(-35,-10)
+
+            ## PLOT TRACE
+            plt.subplot(313)
+            plt.plot(mcmc.DeltaG.trace(), 'o');
+            plt.xlabel('MCMC sample');
+            plt.ylabel('$\Delta G$ ($k_B T$)');
 
             plt.suptitle("%s: %s" % (name, my_datetime))
             plt.tight_layout()
