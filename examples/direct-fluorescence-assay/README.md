@@ -1,4 +1,4 @@
-# examples/probe-assay
+# examples/direct-fluorescence-assay
 
 Here is a series of ipython notebooks that walks you through simulation and analysis of experimental binding data using the direct fluorescence of compounds that increase fluorescence upon binding to their target protein.
 
