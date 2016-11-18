@@ -12,6 +12,8 @@ Here is a series of ipython notebooks that walks you through simulation and anal
 
 -`3-Competition-Assay-Data-Plotting.ipynb` - A notebook that imports and plots competition assay data. ** This needs to be cleaned up and analysis added to it. **
 
+## Command line tools 
+
 To plot raw data using `xml2png` navigate into the data folder and run:
 
 `xml2png --type singlet_96 *.xml`
