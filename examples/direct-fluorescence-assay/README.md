@@ -8,8 +8,11 @@ Here is a series of ipython notebooks that walks you through simulation and anal
  - `3b Bayesian fit xml file - SrcGefitinib.ipynb`
 
 To plot raw data using `xml2png` navigate into the data folder and run:
+
  `xml2png --type singlet_384 p38*.xml`
+
  or
+
  `xml2png --type singlet_96 Gef*.xml`
 
 
