@@ -15,6 +15,8 @@ import string
 import json
 import numpy as np
 
+import pymbar
+
 def reorder2list(data,well):
 
     sorted_keys = sorted(well.keys(), key=lambda k:well[k])
@@ -102,11 +104,17 @@ def quick_model(inputs):
             DeltaG = mcmc.DeltaG.trace().mean()
             dDeltaG = mcmc.DeltaG.trace().std()
 
+            ## DEFINE EQUILIBRATION
+
+            [t,g,Neff_max] = pymbar.timeseries.detectEquilibration(mcmc.DeltaG.trace())
+
             ## PLOT MODEL
             #from assaytools import plots
             #figure = plots.plot_measurements(Lstated, Pstated, pymc_model, mcmc=mcmc)
             #Code below inspired by import above, but didn't quite work to import it...
             plt.clf()
+            plt.figure(figsize=(8,8))
+
             plt.subplot(311)
             property_name = 'top_complex_fluorescence'
             complex = getattr(pymc_model, property_name)
@@ -134,9 +142,11 @@ def quick_model(inputs):
 
             ## PLOT TRACE
             plt.subplot(313)
-            plt.plot(mcmc.DeltaG.trace(), 'o');
+            plt.plot(range(0,t),mcmc.DeltaG.trace()[:t], 'go',label='t=%s'%t);
+            plt.plot(range(t,len(mcmc.DeltaG.trace())),mcmc.DeltaG.trace()[t:], 'o');
             plt.xlabel('MCMC sample');
             plt.ylabel('$\Delta G$ ($k_B T$)');
+            plt.legend(loc=0);
 
             plt.suptitle("%s: %s" % (name, my_datetime))
             plt.tight_layout()
