@@ -127,9 +127,9 @@ def quick_model(inputs):
             ligand = getattr(pymc_model, property_name)
             #plt.semilogx(inputs['Lstated'], ligand.value, 'ro',label='ligand')
             for top_complex_fluorescence_model in mcmc.top_complex_fluorescence_model.trace()[::10]:
-                plt.semilogx(inputs['Lstated'], top_complex_fluorescence_model, marker='.',color='silver')
+                plt.semilogx(inputs['Lstated'], top_complex_fluorescence_model,linestyle='None', marker='.',color='silver')
             for top_ligand_fluorescence_model in mcmc.top_ligand_fluorescence_model.trace()[::10]:
-                plt.semilogx(inputs['Lstated'], top_ligand_fluorescence_model, marker='.',color='lightcoral', alpha=0.2)
+                plt.semilogx(inputs['Lstated'], top_ligand_fluorescence_model,linestyle='None', marker='.',color='lightcoral', alpha=0.2)
             plt.semilogx(inputs['Lstated'], complex.value, 'ko',label='complex')
             plt.semilogx(inputs['Lstated'], ligand.value, marker='o',color='firebrick',linestyle='None',label='ligand')
 
@@ -160,9 +160,9 @@ def quick_model(inputs):
             
             plt.bar(bin_edges[:-1],hist,binwidth,color=clrs, edgecolor = "white");
             sns.kdeplot(mcmc.DeltaG.trace()[t:],bw=.4,color=(0.39215686274509803, 0.7098039215686275, 0.803921568627451),shade=False)
-            plt.axvline(x=interval[0]+binwidth,color=(0.5,0.5,0.5),linestyle='--')
-            plt.axvline(x=interval[1]+binwidth,color=(0.5,0.5,0.5),linestyle='--')
-            plt.axvline(x=interval[2]+binwidth,color=(0.5,0.5,0.5),linestyle='--')
+            plt.axvline(x=interval[0],color=(0.5,0.5,0.5),linestyle='--')
+            plt.axvline(x=interval[1],color=(0.5,0.5,0.5),linestyle='--')
+            plt.axvline(x=interval[2],color=(0.5,0.5,0.5),linestyle='--')
             plt.axvline(x=DeltaG_map,color='black')
             plt.xlabel('$\Delta G$ ($k_B T$)',fontsize=16);
             plt.ylabel('$P(\Delta G)$',fontsize=16);
