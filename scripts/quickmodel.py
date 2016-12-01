@@ -127,9 +127,9 @@ def quick_model(inputs):
             ligand = getattr(pymc_model, property_name)
             #plt.semilogx(inputs['Lstated'], ligand.value, 'ro',label='ligand')
             for top_complex_fluorescence_model in mcmc.top_complex_fluorescence_model.trace()[::10]:
-                plt.semilogx(inputs['Lstated'], top_complex_fluorescence_model,linestyle='None', marker='.',color='silver')
+                plt.semilogx(inputs['Lstated'], top_complex_fluorescence_model, marker='.',color='silver')
             for top_ligand_fluorescence_model in mcmc.top_ligand_fluorescence_model.trace()[::10]:
-                plt.semilogx(inputs['Lstated'], top_ligand_fluorescence_model,linestyle='None', marker='.',color='lightcoral', alpha=0.2)
+                plt.semilogx(inputs['Lstated'], top_ligand_fluorescence_model, marker='.',color='lightcoral', alpha=0.2)
             plt.semilogx(inputs['Lstated'], complex.value, 'ko',label='complex')
             plt.semilogx(inputs['Lstated'], ligand.value, marker='o',color='firebrick',linestyle='None',label='ligand')
 
@@ -317,9 +317,9 @@ def quick_model_spectra(inputs):
             ligand = getattr(pymc_model, property_name)
             #plt.semilogx(inputs['Lstated'], ligand.value, 'ro',label='ligand')
             for top_complex_fluorescence_model in mcmc.top_complex_fluorescence_model.trace()[::10]:
-                plt.semilogx(inputs['Lstated'], top_complex_fluorescence_model,linestyle='None', marker='.',color='silver')
+                plt.semilogx(inputs['Lstated'], top_complex_fluorescence_model, marker='.',color='silver')
             for top_ligand_fluorescence_model in mcmc.top_ligand_fluorescence_model.trace()[::10]:
-                plt.semilogx(inputs['Lstated'], top_ligand_fluorescence_model,linestyle='None', marker='.',color='lightcoral', alpha=0.2)
+                plt.semilogx(inputs['Lstated'], top_ligand_fluorescence_model, marker='.',color='lightcoral', alpha=0.2)
             plt.semilogx(inputs['Lstated'], complex.value, 'ko',label='complex')
             plt.semilogx(inputs['Lstated'], ligand.value, marker='o',color='firebrick',linestyle='None',label='ligand')
 
