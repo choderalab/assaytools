@@ -15,6 +15,9 @@ import string
 import json
 import numpy as np
 
+import seaborn as sns
+import pymbar
+
 def reorder2list(data,well):
 
     sorted_keys = sorted(well.keys(), key=lambda k:well[k])
@@ -102,35 +105,89 @@ def quick_model(inputs):
             DeltaG = mcmc.DeltaG.trace().mean()
             dDeltaG = mcmc.DeltaG.trace().std()
 
+            ## DEFINE EQUILIBRATION
+            #Calculate a mean and std from DeltaG trace after equil
+
+            [t,g,Neff_max] = pymbar.timeseries.detectEquilibration(mcmc.DeltaG.trace())
+            DeltaG_equil = mcmc.DeltaG.trace()[t:].mean()
+            dDeltaG_equil = mcmc.DeltaG.trace()[t:].std()
+            
             ## PLOT MODEL
             #from assaytools import plots
             #figure = plots.plot_measurements(Lstated, Pstated, pymc_model, mcmc=mcmc)
             #Code below inspired by import above, but didn't quite work to import it...
             plt.clf()
-            plt.subplot(211)
+            plt.figure(figsize=(8,8))
+
+            plt.subplot(311)
             property_name = 'top_complex_fluorescence'
             complex = getattr(pymc_model, property_name)
-            plt.semilogx(inputs['Lstated'], complex.value, 'ko',label='complex')
+            #plt.semilogx(inputs['Lstated'], complex.value, 'ko',label='complex')
             property_name = 'top_ligand_fluorescence'
             ligand = getattr(pymc_model, property_name)
-            plt.semilogx(inputs['Lstated'], ligand.value, 'ro',label='ligand')
+            #plt.semilogx(inputs['Lstated'], ligand.value, 'ro',label='ligand')
             for top_complex_fluorescence_model in mcmc.top_complex_fluorescence_model.trace()[::10]:
-                plt.semilogx(inputs['Lstated'], top_complex_fluorescence_model, 'k:')
+                plt.semilogx(inputs['Lstated'], top_complex_fluorescence_model, marker='.',color='silver')
             for top_ligand_fluorescence_model in mcmc.top_ligand_fluorescence_model.trace()[::10]:
-                plt.semilogx(inputs['Lstated'], top_ligand_fluorescence_model, 'r:')
+                plt.semilogx(inputs['Lstated'], top_ligand_fluorescence_model, marker='.',color='lightcoral', alpha=0.2)
+            plt.semilogx(inputs['Lstated'], complex.value, 'ko',label='complex')
+            plt.semilogx(inputs['Lstated'], ligand.value, marker='o',color='firebrick',linestyle='None',label='ligand')
+
             plt.xlabel('$[L]_T$ (M)');
             plt.ylabel('fluorescence units');
             plt.legend(loc=0);
 
-            ## PLOT TRACE
-            plt.subplot(212)
-            plt.hist(mcmc.DeltaG.trace(), 40, alpha=0.75, label="DeltaG = %.1f +- %.1f kT"%(DeltaG, dDeltaG))
-            plt.axvline(x=DeltaG,color='blue')
-            plt.axvline(x=DeltaG_map,color='black',linestyle='dashed',label="MAP = %.1f"%DeltaG_map)
-            plt.legend(loc=0)
-            plt.xlabel('$\Delta G$ ($k_B T$)');
-            plt.ylabel('$P(\Delta G)$');
+            ## PLOT HISTOGRAM
+            import matplotlib.patches as mpatches
+            import matplotlib.lines as mlines
+
+            interval = np.percentile(a=mcmc.DeltaG.trace()[t:], q=[2.5, 50.0, 97.5])
+            [hist,bin_edges] = np.histogram(mcmc.DeltaG.trace()[t:],bins=40,normed=True)
+            binwidth = np.abs(bin_edges[0]-bin_edges[1])
+
+            #set colors for 95% interval
+            clrs = [(0.7372549019607844, 0.5098039215686274, 0.7411764705882353) for xx in bin_edges]
+            idxs = bin_edges.argsort()
+            idxs = idxs[::-1]
+            gray_before = idxs[bin_edges[idxs] < interval[0]]
+            gray_after = idxs[bin_edges[idxs] > interval[2]]
+            for idx in gray_before:
+                clrs[idx] = (.5,.5,.5)
+            for idx in gray_after:
+                clrs[idx] = (.5,.5,.5)
+           
+            plt.subplot(312)
+            
+            plt.bar(bin_edges[:-1],hist,binwidth,color=clrs, edgecolor = "white");
+            sns.kdeplot(mcmc.DeltaG.trace()[t:],bw=.4,color=(0.39215686274509803, 0.7098039215686275, 0.803921568627451),shade=False)
+            plt.axvline(x=interval[0],color=(0.5,0.5,0.5),linestyle='--')
+            plt.axvline(x=interval[1],color=(0.5,0.5,0.5),linestyle='--')
+            plt.axvline(x=interval[2],color=(0.5,0.5,0.5),linestyle='--')
+            plt.axvline(x=DeltaG_map,color='black')
+            plt.xlabel('$\Delta G$ ($k_B T$)',fontsize=16);
+            plt.ylabel('$P(\Delta G)$',fontsize=16);
             plt.xlim(-35,-10)
+            hist_legend = mpatches.Patch(color=(0.7372549019607844, 0.5098039215686274, 0.7411764705882353), 
+                        label = '$\Delta G$ =  %.3g [%.3g,%.3g] $k_B T$' 
+                        %(interval[1],interval[0],interval[2]) )
+            map_legend = mlines.Line2D([],[],color='black',label="MAP = %.1f $k_B T$"%DeltaG_map)
+            plt.legend(handles=[hist_legend,map_legend],fontsize=14,loc=0,frameon=True);
+
+            #plt.hist(mcmc.DeltaG.trace()[t:], 40, alpha=0.75, label="DeltaG = %.1f +- %.1f kT"%(DeltaG_equil, dDeltaG_equil))
+            #plt.axvline(x=DeltaG,color='blue')
+            #plt.axvline(x=DeltaG_map,color='black',linestyle='dashed',label="MAP = %.1f"%DeltaG_map)
+            #plt.legend(loc=0)
+            #plt.xlabel('$\Delta G$ ($k_B T$)');
+            #plt.ylabel('$P(\Delta G)$');
+            #plt.xlim(-35,-10)
+
+            ## PLOT TRACE
+            plt.subplot(313)
+            plt.plot(range(0,t),mcmc.DeltaG.trace()[:t], 'go',label='equil. at %s'%t);
+            plt.plot(range(t,len(mcmc.DeltaG.trace())),mcmc.DeltaG.trace()[t:], 'o');
+            plt.xlabel('MCMC sample');
+            plt.ylabel('$\Delta G$ ($k_B T$)');
+            plt.legend(loc=2);
 
             plt.suptitle("%s: %s" % (name, my_datetime))
             plt.tight_layout()
@@ -238,41 +295,87 @@ def quick_model_spectra(inputs):
             DeltaG = mcmc.DeltaG.trace().mean()
             dDeltaG = mcmc.DeltaG.trace().std()
 
+            ## DEFINE EQUILIBRATION
+            #Calculate a mean and std from DeltaG trace after equil
+
+            [t,g,Neff_max] = pymbar.timeseries.detectEquilibration(mcmc.DeltaG.trace())
+            DeltaG_equil = mcmc.DeltaG.trace()[t:].mean()
+            dDeltaG_equil = mcmc.DeltaG.trace()[t:].std()
+
             ## PLOT MODEL
             #from assaytools import plots
             #figure = plots.plot_measurements(Lstated, Pstated, pymc_model, mcmc=mcmc)
             #Code below inspired by import above, but didn't quite work to import it...
             plt.clf()
-            plt.subplot(211)
+            plt.figure(figsize=(8,8))
+
+            plt.subplot(311)
             property_name = 'top_complex_fluorescence'
             complex = getattr(pymc_model, property_name)
-            plt.semilogx(inputs['Lstated'], complex.value, 'ko',label='complex')
+            #plt.semilogx(inputs['Lstated'], complex.value, 'ko',label='complex')
             property_name = 'top_ligand_fluorescence'
             ligand = getattr(pymc_model, property_name)
-            plt.semilogx(inputs['Lstated'], ligand.value, 'ro',label='ligand')
+            #plt.semilogx(inputs['Lstated'], ligand.value, 'ro',label='ligand')
             for top_complex_fluorescence_model in mcmc.top_complex_fluorescence_model.trace()[::10]:
-                plt.semilogx(inputs['Lstated'], top_complex_fluorescence_model, 'k:')
+                plt.semilogx(inputs['Lstated'], top_complex_fluorescence_model, marker='.',color='silver')
             for top_ligand_fluorescence_model in mcmc.top_ligand_fluorescence_model.trace()[::10]:
-                plt.semilogx(inputs['Lstated'], top_ligand_fluorescence_model, 'r:')
+                plt.semilogx(inputs['Lstated'], top_ligand_fluorescence_model, marker='.',color='lightcoral', alpha=0.2)
+            plt.semilogx(inputs['Lstated'], complex.value, 'ko',label='complex')
+            plt.semilogx(inputs['Lstated'], ligand.value, marker='o',color='firebrick',linestyle='None',label='ligand')
+
             plt.xlabel('$[L]_T$ (M)');
             plt.ylabel('fluorescence units');
             plt.legend(loc=0);
 
-            ## PLOT TRACE
-            plt.subplot(212)
-            plt.hist(mcmc.DeltaG.trace(), 40, alpha=0.75, label="DeltaG = %.1f +- %.1f kT"%(DeltaG, dDeltaG))
-            plt.axvline(x=DeltaG,color='blue')
-            plt.axvline(x=DeltaG_map,color='black',linestyle='dashed',label="MAP = %.1f"%DeltaG_map)
-            plt.legend(loc=0)
-            plt.xlabel('$\Delta G$ ($k_B T$)');
-            plt.ylabel('$P(\Delta G)$');
+            ## PLOT HISTOGRAM
+            import matplotlib.patches as mpatches
+            import matplotlib.lines as mlines
+
+            interval = np.percentile(a=mcmc.DeltaG.trace()[t:], q=[2.5, 50.0, 97.5])
+            [hist,bin_edges] = np.histogram(mcmc.DeltaG.trace()[t:],bins=40,normed=True)
+            binwidth = np.abs(bin_edges[0]-bin_edges[1])
+
+            #set colors for 95% interval
+            clrs = [(0.7372549019607844, 0.5098039215686274, 0.7411764705882353) for xx in bin_edges]
+            idxs = bin_edges.argsort()
+            idxs = idxs[::-1]
+            gray_before = idxs[bin_edges[idxs] < interval[0]]
+            gray_after = idxs[bin_edges[idxs] > interval[2]]
+            for idx in gray_before:
+                clrs[idx] = (.5,.5,.5)
+            for idx in gray_after:
+                clrs[idx] = (.5,.5,.5)
+
+            plt.subplot(312)
+
+            plt.bar(bin_edges[:-1],hist,binwidth,color=clrs, edgecolor = "white");
+            sns.kdeplot(mcmc.DeltaG.trace()[t:],bw=.4,color=(0.39215686274509803, 0.7098039215686275, 0.803921568627451),shade=False)
+            plt.axvline(x=interval[0],color=(0.5,0.5,0.5),linestyle='--')
+            plt.axvline(x=interval[1],color=(0.5,0.5,0.5),linestyle='--')
+            plt.axvline(x=interval[2],color=(0.5,0.5,0.5),linestyle='--')
+            plt.axvline(x=DeltaG_map,color='black')
+            plt.xlabel('$\Delta G$ ($k_B T$)',fontsize=16);
+            plt.ylabel('$P(\Delta G)$',fontsize=16);
             plt.xlim(-35,-10)
+            hist_legend = mpatches.Patch(color=(0.7372549019607844, 0.5098039215686274, 0.7411764705882353),
+                        label = '$\Delta G$ =  %.3g [%.3g,%.3g] $k_B T$'
+                        %(interval[1],interval[0],interval[2]) )
+            map_legend = mlines.Line2D([],[],color='black',label="MAP = %.1f $k_B T$"%DeltaG_map)
+            plt.legend(handles=[hist_legend,map_legend],fontsize=14,loc=0,frameon=True)
+
+            ## PLOT TRACE
+            plt.subplot(313)
+            plt.plot(range(0,t),mcmc.DeltaG.trace()[:t], 'go',label='equil. at %s'%t);
+            plt.plot(range(t,len(mcmc.DeltaG.trace())),mcmc.DeltaG.trace()[t:], 'o');
+            plt.xlabel('MCMC sample');
+            plt.ylabel('$\Delta G$ ($k_B T$)');
+            plt.legend(loc=2);
 
             plt.suptitle("%s: %s" % (name, my_datetime))
             plt.tight_layout()
 
             fig1 = plt.gcf()
-            fig1.savefig('delG_%s-%s.pdf'%(name, my_datetime_filename))
+            fig1.savefig('delG_%s-%s.png'%(name, my_datetime_filename))
 
             np.save('DeltaG_%s-%s.npy'%(name, my_datetime_filename),DeltaG)
             np.save('DeltaG_trace_%s-%s.npy'%(name, my_datetime_filename),mcmc.DeltaG.trace())
