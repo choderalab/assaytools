@@ -14,8 +14,19 @@ Here is a series of ipython notebooks that walks you through simulation and anal
 
 ## Command line tools 
 
-To plot raw data using `xml2png` navigate into the data folder and run:
+* `xml2png`
+
+To plot raw data using `xml2png`, navigate into the data folder and run:
 
 `xml2png --type singlet_96 *.xml`
 
+* `quickmodel`
+
+To get delta G esimates from competition assay data using our Bayesian modeling framework via the `quickmodel` script, run:
+
+`env PYTHONPATH="./" quickmodel --inputs 'inputs_Gef_bot'`
+
+or
+
+`env PYTHONPATH="./" quickmodel --inputs 'inputs_Gef_App_bot'`
 
