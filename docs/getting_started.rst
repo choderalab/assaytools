@@ -4,78 +4,25 @@
 Installation
 ************
 
-Platforms
-=========
-
-`AssayTools` runs on CPython 2.7, 3.3, and 3.4.
-
-Install with Conda
+Install with conda
 ------------------
 .. _install-with-conda:
 
-`conda <http://www.continuum.io/blog/conda>`_ is a python package manager built for scientific python.
-Unlike ``easy_install`` or ``pip``, it handles binaries and binary dependencies, which are critical for most scientific workflows.
-If you're a ``conda`` user, you can install MDTraj by adding the omnia channel.
-If you're not a conda user, you should look into it. ::
+To install `AssayTools` with `conda <conda.pydata.org>`_`, use the following commands ::
 
-To install `AssayTools` with conda, use the following commands ::
+  $ conda install -c omnia assaytools
 
-  $ conda config --add channels choderalab
-  $ conda install assaytools
+.. note::
+   ``conda`` will automatically all of the tricky dependencies from binary packages automatically!
+   This includes :mod:`pytables`, :mod:`numpy`, :mod:`scipy`, :mod:`pandas`, and :mod:`pymc`!
+   The easiest way to get ``conda`` is with the `Anaconda python distribution <https://store.continuum.io/cshop/anaconda/>`_, or its smaller version `Miniconda <http://conda.pydata.org/miniconda.html>`_.
 
-.. note:: ``conda`` will automatically all of the tricky dependencies from binary packages automatically!
-This includes :mod:`pytables`, :mod:`numpy`, :mod:`scipy`, :mod:`pandas`, and :mod:`pymc`!
-The easiest way to get ``conda`` is with the `Anaconda python distribution <https://store.continuum.io/cshop/anaconda/>`_, or its smaller version `Miniconda <http://conda.pydata.org/miniconda.html>`_.
-
-Install from Source
+Install from source
 -------------------
-Clone the source code repository from github::
 
-  $ git clone git://github.com/choderalab/assaytools.git
+You can install the latest development version of ``AssayTools`` from github via ``pip``:
 
-If you don't have ``git``, you can download the source code as a zip file ::
-
-  https://github.com/choderalab/assaytools/archive/master.zip
-
-Then, in the directory containing the source code, you can install it with ::
-
-  $ python setup.py install
-
-Dependencies
-============
-
-To use `AssayTools`, the following libraries and software will need to be installed.
-
-    Linux, Mac OS X or Windows operating system
-        We develop mainly on 64-bit Linux and Mac machines. Windows is not
-        well supported.
-
-    `Python <http://python.org>`_ >= 2.6
-        The development package (``python-dev`` or ``python-devel``
-        on most Linux distributions) is recommended.
-
-    `NumPy <http://numpy.scipy.org/>`_ >= 1.6.0
-        Numpy is the base package for numerical computing in python.
-
-    `PyMC <http://pymc-devs.github.io/pymc/>`_ >= 2.3.3
-        PyMC is used as the underlying Markov chain Monte Carlo (MCMC) based Bayesian inference engine for AssayTools.
-
-Optional packages:
-
-    `Pandas <http://pandas.pydata.org>`_ >= 0.9.0
-        Some functionality requires pandas.
-
-Avoid Hassles with Anaconda or Canopy
--------------------------------------
-
-The easiest way to get all of the dependencies is to install via :ref:`conda <install-with-conda>`.
-
-.. note:: We really recommend Continuum's Anaconda.
-
-Manually Installing the Dependencies
-------------------------------------
-
-Oh, please don't!
+  $ pip install git+https://github.com/choderalab/assaytools.git
 
 Testing Your Installation
 =========================
@@ -84,9 +31,6 @@ The test suite uses `nose <https://nose.readthedocs.org/en/latest/>`_, which you
 
   $ conda install nose
 
-Then, to run the tests, open a python shell and do ::
+Then, to run the tests:
 
-  >>> import assaytools
-  >>> assaytools.test()
-
-From the source directory, you can also run the tests with ``nosetests assaytools`` on the command line.
+  $ nosetests -vv assaytools
