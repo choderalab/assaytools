@@ -2,6 +2,7 @@
 [![Anaconda Badge](https://anaconda.org/omnia/assaytools/badges/version.svg)](https://anaconda.org/omnia/assaytools)
 [![Anaconda-Server Badge](https://anaconda.org/omnia/assaytools/badges/downloads.svg)](https://anaconda.org/omnia/assaytools)
 [![ReadTheDocs Status](https://readthedocs.org/projects/assaytools/badge/?version=latest)](https://readthedocs.org/projects/assaytools/?badge=latest)
+[![DOI](https://zenodo.org/badge/29434469.svg)](https://zenodo.org/badge/latestdoi/29434469)
 
 assaytools
 ==========
