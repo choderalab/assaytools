@@ -11,7 +11,7 @@ With AssayTools, you can
  - Derive parameters for these experimental assays from real data to use in modeling
  - Model new assay configurations to determine expected accuracy and bias across a range of ligand affinities
 
-The library also ships with a command-line application for visualizing [Tecan Infinite](http://lifesciences.tecan.com/products/reader_and_washer/microplate_readers/infinite_m1000_pro) plate reader XML output.
+The library also ships with a command-line application for visualizing `Tecan Infinite <http://lifesciences.tecan.com/products/reader_and_washer/microplate_readers/infinite_m1000_pro>`_ plate reader XML output.
 When you install AssayTools, the script will be installed under the name ``xml2png``.
 
  - `Download the code <https://github.com/choderalab/assaytools/releases/latest>`_
