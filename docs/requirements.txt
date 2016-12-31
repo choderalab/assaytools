@@ -1,9 +1,0 @@
-matplotlib
-sphinx
-ipython-notebook
-jinja2
-runipy
-openmm
-pytables
-scikit-learn
-pymc
