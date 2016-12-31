@@ -18,12 +18,26 @@ import os
 #import assaytools
 #import assaytools.version
 
-# Use mock to make our code think that numpy and scipy are available, even though they might not be available on readthedocs
-import mock
+import sys
+try:
+    from unittest.mock import MagicMock
+except ImportError:
+    from mock import Mock as MagicMock
 
-MOCK_MODULES = ['numpy', 'scipy', 'numpy.linalg', 'scipy.special', 'scipy.stats', 'pymc', 'pint']
-for mod_name in MOCK_MODULES:
-    sys.modules[mod_name] = mock.Mock()
+class Mock(MagicMock):
+    @classmethod
+    def __getattr__(cls, name):
+            return MagicMock()
+
+MOCK_MODULES = ['numpy', 'scipy', 'numpy.linalg', 'scipy.special', 'scipy.stats', 'pymc', 'pint', 'pandas']
+sys.modules.update((mod_name, Mock()) for mod_name in MOCK_MODULES)
+
+# Use mock to make our code think that numpy and scipy are available, even though they might not be available on readthedocs
+#import mock
+#
+#MOCK_MODULES = ['numpy', 'scipy', 'numpy.linalg', 'scipy.special', 'scipy.stats', 'pymc', 'pint']
+#for mod_name in MOCK_MODULES:
+#    sys.modules[mod_name] = mock.Mock()
 
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
