@@ -1,5 +1,8 @@
 [![Build Status](https://travis-ci.org/choderalab/assaytools.png)](https://travis-ci.org/choderalab/assaytools)
+[![Anaconda Badge](https://anaconda.org/omnia/assaytools/badges/version.svg)](https://anaconda.org/omnia/assaytools)
+[![Anaconda-Server Badge](https://anaconda.org/omnia/assaytools/badges/downloads.svg)](https://anaconda.org/omnia/assaytools)
 [![ReadTheDocs Status](https://readthedocs.org/projects/assaytools/badge/?version=latest)](https://readthedocs.org/projects/assaytools/?badge=latest)
+[![DOI](https://zenodo.org/badge/29434469.svg)](https://zenodo.org/badge/latestdoi/29434469)
 
 assaytools
 ==========
@@ -17,6 +20,7 @@ See some [examples](https://github.com/choderalab/assaytools/tree/master/example
 ## Authors
 * John D. Chodera `<john.chodera@choderalab.org>`
 * Sonya M. Hanson `<sonya.hanson@choderalab.org>`
+* Mehtap Isik `<mehtap.isik@choderalab.org>`
 
 ## Acknowledgments
 * Many thanks to the authors of the [MDTraj](http://mdtraj.org) project on which much of the modern project skeleton is based.
