@@ -14,9 +14,9 @@ With AssayTools, you can
 The library also ships with a command-line application for visualizing [Tecan Infinite](http://lifesciences.tecan.com/products/reader_and_washer/microplate_readers/infinite_m1000_pro) plate reader XML output.
 When you install AssayTools, the script will be installed under the name ``xml2png``.
 
-* [Download the code](https://github.com/choderalab/assaytools/releases/latest)
-* [See it in action](https://github.com/choderalab/assaytools/tree/master/examples)
-* [Get involved](https://github.com/assaytools/assaytools/issues)
+ - `Download the code <https://github.com/choderalab/assaytools/releases/latest>`_
+ - `See it in action <https://github.com/choderalab/assaytools/tree/master/examples>`_
+ - `Get involved <https://github.com/assaytools/assaytools/issues>`_
 
 .. raw:: html
 
