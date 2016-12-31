@@ -21,7 +21,7 @@ import os
 # Use mock to make our code think that numpy and scipy are available, even though they might not be available on readthedocs
 import mock
 
-MOCK_MODULES = ['numpy', 'scipy', "numpy.linalg", "scipy.special", "scipy.stats"]
+MOCK_MODULES = ['numpy', 'scipy', 'numpy.linalg', 'scipy.special', 'scipy.stats', 'pymc', 'pint']
 for mod_name in MOCK_MODULES:
     sys.modules[mod_name] = mock.Mock()
 

@@ -46,7 +46,7 @@ else:
 
 
 ##########################
-VERSION = "0.2.1"
+VERSION = "0.2.0"
 ISRELEASED = False
 __version__ = VERSION
 ##########################
@@ -87,7 +87,7 @@ setup(name='assaytools',
       install_requires=[
         'numpy',
         'pandas',
-        #'pymc', # can't install via pip if no fortran compiler
+        'pymc',
         'matplotlib',
         'seaborn',
         'lxml',
