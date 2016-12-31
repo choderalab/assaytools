@@ -87,7 +87,7 @@ setup(name='assaytools',
       install_requires=[
         'numpy',
         'pandas',
-        'pymc',
+        #'pymc', # can't install via pip if no fortran compiler
         'matplotlib',
         'seaborn',
         'lxml',
