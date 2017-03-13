@@ -427,6 +427,71 @@ def map_fit(pymc_model):
 
     return map
 
+def run_mcmc_emcee(pymc_model):
+    """
+    Sample the model with pymc using sensible defaults and the emcee sampler.
+
+    Parameters
+    ----------
+    pymc_model : pymc model
+       The pymc model to sample.
+
+    Returns
+    -------
+    model : pymc.MCMC
+       The MCMC samples resulting from emcee sampling.
+
+    """
+
+    import emcee
+ 
+    model = pymc_model
+
+    # This is the likelihood function for emcee
+    def lnprob(vals): # vals is a vector parameter values to try
+        # Set each random variable of the pymc model to the value
+        # suggested by emcee
+        for val, var in zip(vals, model.stochastics):
+            var.value = val
+        
+        # Calculate logp
+        return model.logp
+
+    # emcee parameters
+    ndim = len(model.stochastics)
+    nwalkers = 500
+
+    # Find MAP
+    pymc.MAP(model).fit()
+    start = np.empty(ndim)
+
+    for i, var in enumerate(model.stochastics):
+        start[i] = np.mean(var.value) # this is quite possibly not a good idea,
+        # ran into error with Ltrue 'setting an array element with a sequence.'
+        # when setting start[0] = var.value
+
+    # sample starting points for walkers around the MAP
+    p0 = np.random.randn(ndim * nwalkers).reshape((nwalkers,ndim)) + start
+
+    # instantiate sampler passing in the pymc likelihood function
+    sampler = emcee.EnsembleSampler(nwalkers,ndim,lnprob)
+
+    # burn-in
+    pos, prob, state = sampler.run_mcmc(p0,10)
+    sampler.reset()
+
+    # sample 10 * 500 = 5000
+    sampler.run_mcmc(pos,10);
+
+    # Save samples back to pymc model
+    model = pymc.MCMC(model)
+    model.sample(1) # This call is to set up the chains
+    for i,var in enumerate(model.stochastics):
+        var.trace._trace[0] = sampler.flatchain[:, i]
+
+    return model
+
+
 def run_mcmc(pymc_model, db = 'ram', dbname = None):
     """
     Sample the model with pymc using sensible defaults.
