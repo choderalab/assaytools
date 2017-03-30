@@ -6,7 +6,7 @@ from assaytools.bindingmodels import TwoComponentBindingModel
 
 class AssaySimulator(object):
     """
-    Class to simulate assays using an AssayTools pymc model
+    Class to simulate fluorescence assays using an AssayTools pymc model
     """
     def __init__(self, pymc_data, L_total, sample_index, P_total=None, inner_filter=True, geometry='top', assay_volume=100E-6, well_area=0.3969):
         """
@@ -38,6 +38,8 @@ class AssaySimulator(object):
         self.L_total = L_total
         if P_total is None:
             self.P_total = 1E-6
+        else:
+            self.P_total = P_total
 
         # Pymc fluorescence parameters
         self.F_buffer = pymc_data['F_buffer'][0][sample_index]
@@ -58,7 +60,7 @@ class AssaySimulator(object):
         else:
             self.sigma = pymc_data['sigma_bottom'][0][sample_index]
 
-    def simulate_fluorescence(self, DeltaG=None, P_total=None):
+    def simulate_fluorescence(self, DeltaG=None, P_total=None, noisy=True):
         """
         Predict the fluorescence of the complex using AssayTools posterior for a given protein concentration
         and range of ligand concentrations.
@@ -69,6 +71,8 @@ class AssaySimulator(object):
             The binding free energy in thermal units.
         P_total: float
             Concentration of protein in M.
+        noisy: bool
+            Whether to add detector noise to the predicted fluorescence.
 
         Returns
         --------
@@ -86,10 +90,12 @@ class AssaySimulator(object):
         # Model the fluorescence
         if self.inner_filter:
             Fmodel = self.IF_i * (self.F_PL * PL + self.F_L * L_free + self.F_P * P_free + self.F_buffer * self.path_length) + self.IF_i_plate * self.F_plate
-            Fmodel += np.random.normal(loc=0.0, scale=self.sigma, size=len(self.L_total))
+            if noisy:
+                Fmodel += np.random.normal(loc=0.0, scale=self.sigma, size=len(self.L_total))
         else:
             Fmodel = self.F_PL * PL + self.F_L * L_free + self.F_P * P_free + self.F_buffer * self.path_length
-            Fmodel += np.random.normal(loc=0.0, scale=self.sigma, size=len(self.L_total))
+            if noisy:
+                Fmodel += np.random.normal(loc=0.0, scale=self.sigma, size=len(self.L_total))
 
         return Fmodel
 
@@ -105,7 +111,7 @@ class AssaySimulator(object):
         Returns
         -------
         fit: float
-            The estimated free energy difference
+            The estimated binding free energy in thermal units
         """
 
         if P_total is None:
@@ -118,10 +124,10 @@ class AssaySimulator(object):
             """
             The sum of squares between model fluorescence and the target
             """
-            model = self.simulate_fluorescence(DeltaG, P_total)
+            model = self.simulate_fluorescence(DeltaG, P_total, noisy=False)
             return np.sum((model - target)**2)
 
-        # Start the initial guess within about 10% of the true value
+        # Start the initial guess within about 10% of the "true" value
         guess = self.DeltaG + np.random.normal(loc=0, scale=0.1 * np.abs(self.DeltaG) )
 
         fit = optimize.minimize(sum_of_squares, guess, method='BFGS')
