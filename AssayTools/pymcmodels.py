@@ -427,7 +427,7 @@ def map_fit(pymc_model):
 
     return map
 
-def run_mcmc_emcee(pymc_model):
+def run_mcmc_emcee(pymc_model, nwalkers=100, nburn= 100, niter=1000):
     """
     Sample the model with pymc using sensible defaults and the emcee sampler.
 
@@ -435,6 +435,10 @@ def run_mcmc_emcee(pymc_model):
     ----------
     pymc_model : pymc model
        The pymc model to sample.
+    nwalkers: int
+        The number ensemble walkers.
+    niter: int
+        The number of MCMC iterations.
 
     Returns
     -------
@@ -442,49 +446,64 @@ def run_mcmc_emcee(pymc_model):
        The MCMC samples resulting from emcee sampling.
 
     """
-
     import emcee
- 
-    model = pymc_model
 
-    # This is the likelihood function for emcee
-    def lnprob(vals): # vals is a vector parameter values to try
-        # Set each random variable of the pymc model to the value
-        # suggested by emcee
-        for val, var in zip(vals, model.stochastics):
-            var.value = val
-        
-        # Calculate logp
+    def unpack_parameters(model):
+        parameters = []
+        form = []
+        for stoch in model.stochastics:
+            if type(stoch.value) == np.ndarray and stoch.value.shape == ():
+                form.append("float.{0}".format(stoch.__name__))
+                parameters.append(float(stoch.value))
+            else:
+                for val in stoch.value:
+                    form.append("array.{0}".format(stoch.__name__))
+                    parameters.append(val)
+        return parameters, form
+
+    # TODO: optimize this function. There's no need to create a new dictionary every time.
+    def pack_parameters(model, parameters, form):
+        # First, initializing the dictionary. This can be moved out, as it only needs to be initialized ones
+        param_dic = {}
+        for p, f in zip(parameters, form):
+            if f.split('.')[0] == 'float':
+                param_dic[f.split('.')[1]] = p
+            elif f.split('.')[0] == 'array':
+                param_dic[f.split('.')[1]] = []
+        # Putting the values into the array. The tricky part.
+        for p, f in zip(parameters, form):
+            if f.split('.')[0] == 'array':
+                param_dic[f.split('.')[1]].append(p)
+        # Loading the parameter values into the pymc model
+        for stoch in model.stochastics:
+            stoch.value = np.array(param_dic[stoch.__name__])
+
+    def log_prob(model):
         return model.logp
 
+    # Find MAP:
+    pymc.MAP(pymc_model).fit()
+
     # emcee parameters
-    ndim = len(model.stochastics)
-    nwalkers = 500
-
-    # Find MAP
-    pymc.MAP(model).fit()
-    start = np.empty(ndim)
-
-    for i, var in enumerate(model.stochastics):
-        start[i] = np.mean(var.value) # this is quite possibly not a good idea,
-        # ran into error with Ltrue 'setting an array element with a sequence.'
-        # when setting start[0] = var.value
+    parameters = unpack_parameters(pymc_model)
+    ndim = len(parameters)
 
     # sample starting points for walkers around the MAP
-    p0 = np.random.randn(ndim * nwalkers).reshape((nwalkers,ndim)) + start
+    p0 = np.random.randn(ndim * nwalkers).reshape((nwalkers,ndim)) + parameters
 
     # instantiate sampler passing in the pymc likelihood function
-    sampler = emcee.EnsembleSampler(nwalkers,ndim,lnprob)
+    sampler = emcee.EnsembleSampler(nwalkers, ndim, log_prob)
 
-    # burn-in
-    pos, prob, state = sampler.run_mcmc(p0,10)
+    # Burn-in
+    pos, prob, state = sampler.run_mcmc(p0, nburn)
     sampler.reset()
 
-    # sample 10 * 500 = 5000
-    sampler.run_mcmc(pos,10);
+    # Production
+    sampler.run_mcmc(pos, 10)
 
+    # TODO: this part needs total revamping, and is very wrong. Seems tricky.
     # Save samples back to pymc model
-    model = pymc.MCMC(model)
+    model = pymc.MCMC(pymc_model)
     model.sample(1) # This call is to set up the chains
     for i,var in enumerate(model.stochastics):
         var.trace._trace[0] = sampler.flatchain[:, i]
@@ -492,7 +511,7 @@ def run_mcmc_emcee(pymc_model):
     return model
 
 
-def run_mcmc(pymc_model, db = 'ram', dbname = None):
+def run_mcmc(pymc_model, nthin=20, nburn=None, niter=None, db='ram', dbname=None):
     """
     Sample the model with pymc using sensible defaults.
 
@@ -500,6 +519,12 @@ def run_mcmc(pymc_model, db = 'ram', dbname = None):
     ----------
     pymc_model : pymc model
        The pymc model to sample.
+    nthin: int
+        The number of MCMC steps that constitute 1 iteration.
+    nburn: int
+        The number of MCMC iterations during the burn-in. The total burn-in number of MCMC steps will be nthin*nburn.
+    niter: int
+        The number of production iterations. The total number of MCMC steps will be nthin*niter.
     db : how to store model, default = 'ram' means not storing it.
        To store model use storage = 'pickle'.
                - db : string
@@ -517,13 +542,16 @@ def run_mcmc(pymc_model, db = 'ram', dbname = None):
 
     # Sample the model with pymc
     mcmc = pymc.MCMC(pymc_model, db=db, dbname=dbname, name='Sampler', verbose=True)
-    nthin = 20
-    nburn = nthin*10000
-    niter = nthin*10000
 
-    # DEBUG
-    #nburn = nthin*1000
-    #niter = nthin*1000
+    if nburn is None:
+        nburn = nthin * 10000
+    else:
+        nburn = nthin * nburn
+
+    if niter is None:
+        niter = nthin * 10000
+    else:
+        niter = niter * 10000
 
     mcmc.use_step_method(pymc.Metropolis, getattr(pymc_model, 'DeltaG'), proposal_sd=1.0, proposal_distribution='Normal')
     mcmc.use_step_method(pymc.Metropolis, getattr(pymc_model, 'F_PL'), proposal_sd=10.0, proposal_distribution='Normal')
