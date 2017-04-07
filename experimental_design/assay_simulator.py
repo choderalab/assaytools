@@ -33,7 +33,7 @@ class AssaySimulator(object):
         Parameters
         ----------
         pymc_data: dict
-            Dictionary of pymc variables that have been simulated.
+            Dictionary of assaytools pymc variables that have been sampled with MCMC.
         l_total: numpy.ndarray
             Array of ligand concentrations in M.
         sample_index: int
@@ -85,7 +85,7 @@ class AssaySimulator(object):
         else:
             self.sigma = pymc_data['sigma_bottom'][0][sample_index]
 
-    def set_mean_parameters(self, pymc_data, t_equil=None):
+    def set_mean_parameters(self, pymc_data, t_equil=0):
         """
         Set the assaytools parameters to their expectation values, with the exception of p_total and l_total.
 
@@ -97,9 +97,6 @@ class AssaySimulator(object):
             The iteration number from which the pymc MCMC samples are considered "equilibrated". i.e. the end of the
             burn-in period.
         """
-        if t_equil is None:
-            t_equil = 0
-
         self.DeltaG = np.mean(pymc_data['DeltaG'][0][t_equil:])
 
         # Pymc fluorescence parameters
@@ -194,3 +191,89 @@ class AssaySimulator(object):
         fit = optimize.minimize(sum_of_squares, guess, method='BFGS')
 
         return fit.x[0]
+
+
+def predict_assay_error(pymc_data, l_total, p_total, nsamples=10, nposterior_samples=100, t_equil=0, **kwargs):
+    """
+    Function to predict the expected coefficient of variation, variance, and squared bias of estimated binding free
+    energies from assaytools PyMC data at different protein and ligand concentrations.
+
+    Parameters
+    ----------
+    pymc_data: dict
+        Dictionary of assaytools pymc variables that have been sampled with MCMC.
+    l_total: float or numpy.ndarray
+        Array of ligand concentrations in M.
+    p_total: float or numpy.ndarray
+        Array of protein concentrations in M.
+    nsamples: int
+        The number of times fluorescence data will be drawn at all ligand concentrations for a given PyMC posterior
+        sample.
+    nposterior_samples:
+        The number of assaytools posterior samples to draw. For each posterior sample, nsamples of fluorescence
+        titration profiles will be drawn.
+    t_equil: int
+        The index from which it the assaytools PyMC MCMC samples are equilibrated. i.e. the end of the burnin-period.
+
+    Returns
+    -------
+    (cv, var, bias): (np.ndarray, np.ndarray, np.ndarray)
+        the mean coefficien of variation (cv), variance (var) and bias of the fitted free energy for each protein
+        concentration.
+
+    Example
+    -------
+    Run the assaytools PyMC pipeline and save the MCMC samples, here called 'pymc_data'. It's worth discarding the
+    initial samples where the MCMC appears unequilibrated. The end of the burn-in time can be estimated with
+    pymbar.timeseries by looking at trace of the free energy:
+    >>> from pymbar import timeseries
+    >>> (t_equil, g, N_eff) = timeseries.detectEquilibration(pymc_data['DeltaG'][0], fast=True, nskip=1)
+    We'll be using t_equil below.
+
+    We can now estimate how the protein concentration used in the assay will affect the coefficient of variation,
+    variance, and bias of the fitted free energy.
+
+    First, choose the ligand concentrations that can be used in the assay:
+    >>> L_total = 10 ** (np.linspace(-10, -5, num=12))
+
+    Next, pick the range of protein concentrations for which the error of the binding free energy will be estimated:
+    >>> P_totals =10 ** (np.linspace(-10, -1, num=20))
+
+    Estimating the variance error meaures for the above concentrations. Note how we're inputing the burn-in time, as
+    well parsing the assay parameters.
+    >>> (CV, Var, Bias2) = predict_assay_error(pymc_data, L_total, P_totals, t_equil=t_equil, geometry='top',
+    >>>                                        assay_volume=100E-6, well_area=0.3969)
+
+    Finally, it's a question of picking the protein concentration that reduces whichever metric you prefer.
+    """
+    # Pre-assigning the coefficient of variation, the bias, and variance respectively.
+    CV = []
+    Bias2 = []
+    Var = []
+
+    delta_gs = pymc_data['DeltaG'][0]           # All of the binding free energy samples
+    mean_delta_g = np.mean(delta_gs)            # Used to determine the coefficient of variation.
+    pymc_indices = range(t_equil, len(delta_gs))     # The indices of the PyMC samples that are after the burn-in period:
+
+
+    # Looping over protein concentrations, drawing from the posterior and fitting the affinity:
+    for p in range(len(p_total)):
+        estimates = []
+        bias_squared = []
+        # Draw parameters from the posterior
+        for i in range(nposterior_samples):
+            ind = np.random.choice(pymc_indices,1)[0]
+            simulator = AssaySimulator(pymc_data=pymc_data, l_total=l_total, sample_index=ind,  p_total=p_total[p], **kwargs)
+            # Draw fluorescence data with different values of random noise
+            for j in range(nsamples):
+                fit = simulator.fit_deltaG()
+                estimates.append(fit)
+                bias_squared.append((fit - simulator.DeltaG)**2)
+        # Collect the bias, variance, and coefficient of variantion
+        bias_squared = np.array(bias_squared)
+        Bias2.append(np.mean(bias_squared))
+        estimates = np.array(estimates)
+        Var.append(np.var(estimates))
+        CV.append(np.std(estimates)/np.abs(mean_delta_g) * 100)
+
+    return np.array(CV), np.array(Var), np.array(Bias2)
