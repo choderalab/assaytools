@@ -6,7 +6,8 @@ from assaytools.bindingmodels import TwoComponentBindingModel
 
 class AssaySimulator(object):
     """
-    Class to predict fluorescence data using an AssayTools pymc model.
+    Class to predict fluorescence data using an AssayTools pymc model. Upon initialization of this class, fitted
+    fluorescence parameters from assaytools are generated.
 
     Example
     -------
@@ -151,7 +152,7 @@ class AssaySimulator(object):
             if noisy:
                 Fmodel += np.random.normal(loc=0.0, scale=self.sigma, size=len(self.l_total))
         else:
-            Fmodel = self.F_PL * PL + self.F_L * L_free + self.F_P * P_free + self.F_buffer * self.path_length
+            Fmodel = self.F_PL * PL + self.F_L * L_free + self.F_P * P_free + self.F_buffer * self.path_length + self.F_plate
             if noisy:
                 Fmodel += np.random.normal(loc=0.0, scale=self.sigma, size=len(self.l_total))
 
@@ -159,7 +160,8 @@ class AssaySimulator(object):
 
     def fit_deltaG(self, p_total=None):
         """
-        Estimate the binding free energy given the fluorescence model parameters using least-squares fitting.
+        When called, this function generates a target fluorescence profile, with added noise, and the free energy is
+        estimated using least-squares minimization.
 
         Parameters
         ----------
@@ -175,13 +177,15 @@ class AssaySimulator(object):
         if p_total is None:
             p_total = self.p_total
 
-        # The fluorescence data that will be fit to
-        target = self.simulate_fluorescence(p_total)
+        # The fluorescence data that will be fit to. Random noise is added the fluorescence data with noisy=True.
+        target = self.simulate_fluorescence(p_total, noisy=True)
 
         def sum_of_squares(DeltaG, target=target):
             """
             The sum of squares between model fluorescence and the target
             """
+            # Predicting the fluorescence as a funciton of DeltaG. As this should be determistic, no noise is added
+            # to the signal
             model = self.simulate_fluorescence(DeltaG, p_total, noisy=False)
             return np.sum((model - target)**2)
 
