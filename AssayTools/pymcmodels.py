@@ -449,37 +449,53 @@ def run_mcmc_emcee(pymc_model, nwalkers=100, nburn= 100, niter=1000):
     import emcee
 
     def unpack_parameters(model):
+        """
+        Takes the parameters from the a pymc, which could be floats or arrays and unpacks them into a single array.
+
+        Parameter
+        ---------
+        model: pymc.Model.Model
+
+        Returns
+        -------
+        parameters: numpy.ndarray
+            Vectorized form of the pymc model parameters
+        """
         parameters = []
-        form = []
         for stoch in model.stochastics:
-            if type(stoch.value) == np.ndarray and stoch.value.shape == ():
-                form.append("float.{0}".format(stoch.__name__))
+            if stoch.value.shape == ():
                 parameters.append(float(stoch.value))
             else:
                 for val in stoch.value:
-                    form.append("array.{0}".format(stoch.__name__))
                     parameters.append(val)
-        return parameters, form
+        return np.array(parameters)
 
-    # TODO: optimize this function. There's no need to create a new dictionary every time.
-    def pack_parameters(model, parameters, form):
-        # First, initializing the dictionary. This can be moved out, as it only needs to be initialized ones
-        param_dic = {}
-        for p, f in zip(parameters, form):
-            if f.split('.')[0] == 'float':
-                param_dic[f.split('.')[1]] = p
-            elif f.split('.')[0] == 'array':
-                param_dic[f.split('.')[1]] = []
-        # Putting the values into the array. The tricky part.
-        for p, f in zip(parameters, form):
-            if f.split('.')[0] == 'array':
-                param_dic[f.split('.')[1]].append(p)
-        # Loading the parameter values into the pymc model
+    def log_post(parameters, model):
+        """
+        Packs a vectorized form of the parameters back into the pymc model to allow the evaluation of the log posterior.
+
+        Parameters
+        ----------
+        parameters: numpy.ndarray
+            Vectorized form of the pymc model parameters
+        model: pymc.Model.Model
+            The pymc that contains all the variables that need to be inferred.
+
+        Returns
+        -------
+        logp: float
+            The log of the posterior density.
+        """
+        p_ind = 0
         for stoch in model.stochastics:
-            stoch.value = np.array(param_dic[stoch.__name__])
-
-    def log_prob(model):
+            if stoch.value.shape == ():
+                stoch.value = np.array(parameters[p_ind])
+                p_ind += 1
+            else:
+                stoch.value = parameters[p_ind:(p_ind + len(stoch.value))]
+                p_ind += len(stoch.value)
         return model.logp
+
 
     # Find MAP:
     pymc.MAP(pymc_model).fit()
@@ -489,10 +505,10 @@ def run_mcmc_emcee(pymc_model, nwalkers=100, nburn= 100, niter=1000):
     ndim = len(parameters)
 
     # sample starting points for walkers around the MAP
-    p0 = np.random.randn(ndim * nwalkers).reshape((nwalkers,ndim)) + parameters
+    p0 = np.random.randn(ndim * nwalkers).reshape((nwalkers, ndim)) + parameters
 
     # instantiate sampler passing in the pymc likelihood function
-    sampler = emcee.EnsembleSampler(nwalkers, ndim, log_prob)
+    sampler = emcee.EnsembleSampler(nwalkers, ndim, log_post, args=pymc_model)
 
     # Burn-in
     pos, prob, state = sampler.run_mcmc(p0, nburn)
