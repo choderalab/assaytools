@@ -527,9 +527,9 @@ def run_mcmc_emcee(pymc_model, nwalkers=100, nburn= 100, niter=1000):
     return model
 
 
-def run_mcmc(pymc_model, nthin=20, nburn=None, niter=None, db='ram', dbname=None):
+def run_mcmc(pymc_model, nthin=20, nburn=None, niter=None, map=True, db='ram', dbname=None):
     """
-    Sample the model with pymc using sensible defaults.
+    Sample the model with pymc. Initial values of the parameters can be chosen with a maximum a posteriori estimate.
 
     Parameters
     ----------
@@ -541,13 +541,14 @@ def run_mcmc(pymc_model, nthin=20, nburn=None, niter=None, db='ram', dbname=None
         The number of MCMC iterations during the burn-in. The total burn-in number of MCMC steps will be nthin*nburn.
     niter: int
         The number of production iterations. The total number of MCMC steps will be nthin*niter.
-    db : how to store model, default = 'ram' means not storing it.
-       To store model use storage = 'pickle'.
-               - db : string
-            The name of the database backend that will store the values
-            of the stochastics and deterministics sampled during the MCMC loop.
-   dbname : name for storage object, default = None.
-       To store model use e.g. dbname = 'my_mcmc.pickle'
+    map: bool
+        Whether to initialize the parameters before MCMC with the maximum a posteriori estimate.
+    db : str
+        How to store model, default = 'ram' means not storing it. To store model use storage = 'pickle'. If not,
+        supply the name of the database backend that will store the values of the stochastics and deterministics sampled
+        during the MCMC loop.
+   dbname : str
+        name for storage object, default = None. To store model use e.g. dbname = 'my_mcmc.pickle'
 
     Returns
     -------
@@ -555,6 +556,9 @@ def run_mcmc(pymc_model, nthin=20, nburn=None, niter=None, db='ram', dbname=None
        The MCMC samples.
 
     """
+    # Find MAP:
+    if map == True:
+        pymc.MAP(pymc_model).fit()
 
     # Sample the model with pymc
     mcmc = pymc.MCMC(pymc_model, db=db, dbname=dbname, name='Sampler', verbose=True)
