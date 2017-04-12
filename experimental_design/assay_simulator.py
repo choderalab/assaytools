@@ -158,43 +158,40 @@ class AssaySimulator(object):
 
         return Fmodel
 
-    def fit_deltaG(self, p_total=None):
+    def generate_deltag_estimates(self, nsamples=100):
         """
-        When called, this function generates a target fluorescence profile, with added noise, and the free energy is
-        estimated using least-squares minimization.
+        Generate samples of fitter DeltaGs. This function draws multiple sets of fluorescence titration data, each with
+        different amounts of random noise added. For draw,the binding free energy is estimated using least squares
+        regression.
 
         Parameters
         ----------
-        p_total: float
-            Concentration of protein in M.
+        nsamples: int
+            The number of fluorescence data draws
 
         Returns
         -------
-        fit: float
-            The estimated binding free energy in thermal units
+        estimates: numpy.ndarray
+            Binding free energies estimates, where each has been fitted using least squares regression
         """
+        estimates = np.zeros(nsamples)
+        for sample in range(nsamples):
+            # The fluorescence data that will be fit to. Random noise is added the fluorescence data with noisy=True.
+            target = self.simulate_fluorescence(noisy=True)
 
-        if p_total is None:
-            p_total = self.p_total
+            def sum_of_squares(g):
+                """
+                The sum of squares between model fluorescence and the target
+                """
+                guess = self.simulate_fluorescence(DeltaG=g, noisy=False)
+                return np.sum((guess - target) ** 2)
 
-        # The fluorescence data that will be fit to. Random noise is added the fluorescence data with noisy=True.
-        target = self.simulate_fluorescence(p_total, noisy=True)
+            # The initial guess within about 10% of the "true" value
+            initial_guess = self.DeltaG + np.random.normal(loc=0, scale=0.1 * np.abs(self.DeltaG))
+            fit = optimize.minimize(sum_of_squares, initial_guess, method='BFGS')
+            estimates[sample] = fit.x[0]
 
-        def sum_of_squares(DeltaG, target=target):
-            """
-            The sum of squares between model fluorescence and the target
-            """
-            # Predicting the fluorescence as a funciton of DeltaG. As this should be determistic, no noise is added
-            # to the signal
-            model = self.simulate_fluorescence(DeltaG, p_total, noisy=False)
-            return np.sum((model - target)**2)
-
-        # Start the initial guess within about 10% of the "true" value
-        guess = self.DeltaG + np.random.normal(loc=0, scale=0.1 * np.abs(self.DeltaG))
-
-        fit = optimize.minimize(sum_of_squares, guess, method='BFGS')
-
-        return fit.x[0]
+        return estimates
 
 
 def predict_assay_error(pymc_data, l_total, p_total, nsamples=10, nposterior_samples=100, t_equil=0, **kwargs):
@@ -268,11 +265,10 @@ def predict_assay_error(pymc_data, l_total, p_total, nsamples=10, nposterior_sam
         for i in range(nposterior_samples):
             ind = np.random.choice(pymc_indices,1)[0]
             simulator = AssaySimulator(pymc_data=pymc_data, l_total=l_total, sample_index=ind,  p_total=p_total[p], **kwargs)
-            # Draw fluorescence data with different values of random noise
-            for j in range(nsamples):
-                fit = simulator.fit_deltaG()
-                estimates.append(fit)
-                bias_squared.append((fit - simulator.DeltaG)**2)
+            # Generate fitted DeltaG estimates with stochastic noise added before each fit.
+            estimates_per_posterior_sample = simulator.generate_deltag_estimates(nsamples=nsamples)
+            bias_squared.append(np.mean((estimates_per_posterior_sample - simulator.DeltaG)**2))
+            estimates.append(estimates_per_posterior_sample)
         # Collect the bias, variance, and coefficient of variantion
         bias_squared = np.array(bias_squared)
         Bias2.append(np.mean(bias_squared))
