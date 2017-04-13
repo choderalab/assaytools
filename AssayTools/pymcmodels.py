@@ -553,7 +553,7 @@ def run_mcmc_emcee(pymc_model, nwalkers=100, nburn=100, niter=1000, nthin=None):
 
     return mcmc_model, pymc_model
 
-def run_mcmc(pymc_model, nthin=20, nburn=None, niter=None, map=True, db='ram', dbname=None):
+def run_mcmc(pymc_model, nthin=50, nburn=500, niter=1000, map=True, db='ram', dbname=None):
     """
     Sample the model with pymc. Initial values of the parameters can be chosen with a maximum a posteriori estimate.
 
@@ -564,9 +564,9 @@ def run_mcmc(pymc_model, nthin=20, nburn=None, niter=None, map=True, db='ram', d
     nthin: int
         The number of MCMC steps that constitute 1 iteration.
     nburn: int
-        The number of MCMC iterations during the burn-in. The total burn-in number of MCMC steps will be nthin*nburn.
+        The number of MCMC iterations during the burn-in.
     niter: int
-        The number of production iterations. The total number of MCMC steps will be nthin*niter.
+        The number of production iterations.
     map: bool
         Whether to initialize the parameters before MCMC with the maximum a posteriori estimate.
     db : str
@@ -588,16 +588,6 @@ def run_mcmc(pymc_model, nthin=20, nburn=None, niter=None, map=True, db='ram', d
 
     # Sample the model with pymc
     mcmc = pymc.MCMC(pymc_model, db=db, dbname=dbname, name='Sampler', verbose=True)
-
-    if nburn is None:
-        nburn = nthin * 10000
-    else:
-        nburn = nthin * nburn
-
-    if niter is None:
-        niter = nthin * 10000
-    else:
-        niter = niter * 10000
 
     mcmc.use_step_method(pymc.Metropolis, getattr(pymc_model, 'DeltaG'), proposal_sd=1.0, proposal_distribution='Normal')
     mcmc.use_step_method(pymc.Metropolis, getattr(pymc_model, 'F_PL'), proposal_sd=10.0, proposal_distribution='Normal')
