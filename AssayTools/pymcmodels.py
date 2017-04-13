@@ -427,7 +427,7 @@ def map_fit(pymc_model):
 
     return map
 
-def run_mcmc_emcee(pymc_model, nwalkers=100, nburn= 100, niter=1000):
+def run_mcmc_emcee(pymc_model, nwalkers=100, nburn=100, niter=1000, nthin=None):
     """
     Sample the model with pymc using sensible defaults and the emcee sampler.
 
@@ -437,15 +437,24 @@ def run_mcmc_emcee(pymc_model, nwalkers=100, nburn= 100, niter=1000):
        The pymc model to sample.
     nwalkers: int
         The number ensemble walkers.
+    nburn: int
+        The number of initial steps that will be discarded.
     niter: int
-        The number of MCMC iterations.
+        The number of MCMC iterations that are performed after the burn-in period.
+    nthin: int
+        The frequency with which to discard samples. If None, then nthin=nwalkers.
 
     Returns
     -------
-    model : pymc.MCMC
-       The MCMC samples resulting from emcee sampling.
+    pymc_model : pymc.Model.Model
+        The PyMC object used to initialize the class.
+    mcmc_model: pymc.MCMC.MCMC
+        The PyMC object that contains the MCMC traces.
 
     """
+    if nthin is None:
+        nthin = nwalkers
+
     import emcee
 
     def unpack_parameters(model):
@@ -454,7 +463,8 @@ def run_mcmc_emcee(pymc_model, nwalkers=100, nburn= 100, niter=1000):
 
         Parameter
         ---------
-        model: pymc.Model.Model
+        model: pymc.Model.Model or pymc.MCMC.MCMC
+            The PyMC object from which the parameters will be extracted.
 
         Returns
         -------
@@ -486,46 +496,62 @@ def run_mcmc_emcee(pymc_model, nwalkers=100, nburn= 100, niter=1000):
         logp: float
             The log of the posterior density.
         """
-        p_ind = 0
-        for stoch in model.stochastics:
-            if stoch.value.shape == ():
-                stoch.value = np.array(parameters[p_ind])
-                p_ind += 1
-            else:
-                stoch.value = parameters[p_ind:(p_ind + len(stoch.value))]
-                p_ind += len(stoch.value)
-        return model.logp
+        # Basic error handling in case emcee proposes moves outside the domain of the variables.
+        try:
+            p_ind = 0
+            for stoch in model.stochastics:
+                if stoch.value.shape == ():
+                    stoch.value = np.array(parameters[p_ind])
+                    p_ind += 1
+                else:
+                    stoch.value = parameters[p_ind:(p_ind + len(stoch.value))]
+                    p_ind += len(stoch.value)
+            logp = model.logp
+        except pymc.ZeroProbability:
+            logp = -np.inf
 
+        return logp
 
-    # Find MAP:
+    # Find MAP. This will be used to initialize the emcee sampler.
     pymc.MAP(pymc_model).fit()
 
-    # emcee parameters
-    parameters = unpack_parameters(pymc_model)
+    # Perform a dummy run with pymc to initial trace data structures
+    mcmc_model = pymc.MCMC(pymc_model)
+    mcmc_model.sample(1)
+
+    # Defining the emcee parameters by extracting the stochastic variables from pymc
+    parameters = unpack_parameters(mcmc_model)
     ndim = len(parameters)
 
     # sample starting points for walkers around the MAP
-    p0 = np.random.randn(ndim * nwalkers).reshape((nwalkers, ndim)) + parameters
+    p0 = np.zeros((nwalkers, ndim))
+    for walker in range(nwalkers):
+        # Initializing walkers to be within about 20% of the (local) MAP estimate
+        p0[walker, :] = parameters + np.random.normal(0, 0.2 * np.absolute(parameters))
 
-    # instantiate sampler passing in the pymc likelihood function
-    sampler = emcee.EnsembleSampler(nwalkers, ndim, log_post, args=pymc_model)
+    # Initiate emcee sampler by passing the likelihood function
+    sampler = emcee.EnsembleSampler(nwalkers, ndim, log_post, args=[mcmc_model])
 
     # Burn-in
     pos, prob, state = sampler.run_mcmc(p0, nburn)
     sampler.reset()
 
     # Production
-    sampler.run_mcmc(pos, 10)
+    sampler.run_mcmc(pos, niter)
 
-    # TODO: this part needs total revamping, and is very wrong. Seems tricky.
-    # Save samples back to pymc model
-    model = pymc.MCMC(pymc_model)
-    model.sample(1) # This call is to set up the chains
-    for i,var in enumerate(model.stochastics):
-        var.trace._trace[0] = sampler.flatchain[:, i]
+    # Packing the trace of the parameters into the PyMC MCMC object
+    p_ind = 0
+    for stoch in mcmc_model.stochastics:
+        if stoch.value.shape == ():
+            trace = sampler.flatchain[:, p_ind]
+            stoch.trace._trace[0] = trace[::nthin].copy()
+            p_ind += 1
+        else:
+            trace = sampler.flatchain[:, p_ind:(p_ind + len(stoch.value))]
+            stoch.trace._trace[0] = trace[::nthin].copy()
+            p_ind += len(stoch.value)
 
-    return model
-
+    return mcmc_model, pymc_model
 
 def run_mcmc(pymc_model, nthin=20, nburn=None, niter=None, map=True, db='ram', dbname=None):
     """
