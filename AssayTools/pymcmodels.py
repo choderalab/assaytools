@@ -427,21 +427,154 @@ def map_fit(pymc_model):
 
     return map
 
-def run_mcmc(pymc_model, db = 'ram', dbname = None):
+def run_mcmc_emcee(pymc_model, nwalkers=100, nburn=100, niter=1000, nthin=None):
     """
-    Sample the model with pymc using sensible defaults.
+    Sample the model with pymc using sensible defaults and the emcee sampler.
 
     Parameters
     ----------
     pymc_model : pymc model
        The pymc model to sample.
-    db : how to store model, default = 'ram' means not storing it.
-       To store model use storage = 'pickle'.
-               - db : string
-            The name of the database backend that will store the values
-            of the stochastics and deterministics sampled during the MCMC loop.
-   dbname : name for storage object, default = None.
-       To store model use e.g. dbname = 'my_mcmc.pickle'
+    nwalkers: int
+        The number ensemble walkers.
+    nburn: int
+        The number of initial steps that will be discarded.
+    niter: int
+        The number of MCMC iterations that are performed after the burn-in period.
+    nthin: int
+        The frequency with which to discard samples. If None, then nthin=nwalkers.
+
+    Returns
+    -------
+    pymc_model : pymc.Model.Model
+        The PyMC object used to initialize the class.
+    mcmc_model: pymc.MCMC.MCMC
+        The PyMC object that contains the MCMC traces.
+
+    """
+    if nthin is None:
+        nthin = nwalkers
+
+    import emcee
+
+    def unpack_parameters(model):
+        """
+        Takes the parameters from the a pymc, which could be floats or arrays and unpacks them into a single array.
+
+        Parameter
+        ---------
+        model: pymc.Model.Model or pymc.MCMC.MCMC
+            The PyMC object from which the parameters will be extracted.
+
+        Returns
+        -------
+        parameters: numpy.ndarray
+            Vectorized form of the pymc model parameters
+        """
+        parameters = []
+        for stoch in model.stochastics:
+            if stoch.value.shape == ():
+                parameters.append(float(stoch.value))
+            else:
+                for val in stoch.value:
+                    parameters.append(val)
+        return np.array(parameters)
+
+    def log_post(parameters, model):
+        """
+        Packs a vectorized form of the parameters back into the pymc model to allow the evaluation of the log posterior.
+
+        Parameters
+        ----------
+        parameters: numpy.ndarray
+            Vectorized form of the pymc model parameters
+        model: pymc.Model.Model
+            The pymc that contains all the variables that need to be inferred.
+
+        Returns
+        -------
+        logp: float
+            The log of the posterior density.
+        """
+        # Basic error handling in case emcee proposes moves outside the domain of the variables.
+        try:
+            p_ind = 0
+            for stoch in model.stochastics:
+                if stoch.value.shape == ():
+                    stoch.value = np.array(parameters[p_ind])
+                    p_ind += 1
+                else:
+                    stoch.value = parameters[p_ind:(p_ind + len(stoch.value))]
+                    p_ind += len(stoch.value)
+            logp = model.logp
+        except pymc.ZeroProbability:
+            logp = -np.inf
+
+        return logp
+
+    # Find MAP. This will be used to initialize the emcee sampler.
+    pymc.MAP(pymc_model).fit()
+
+    # Perform a dummy run with pymc to initial trace data structures
+    mcmc_model = pymc.MCMC(pymc_model)
+    mcmc_model.sample(1)
+
+    # Defining the emcee parameters by extracting the stochastic variables from pymc
+    parameters = unpack_parameters(mcmc_model)
+    ndim = len(parameters)
+
+    # sample starting points for walkers around the MAP
+    p0 = np.zeros((nwalkers, ndim))
+    for walker in range(nwalkers):
+        # Initializing walkers to be within about 20% of the (local) MAP estimate
+        p0[walker, :] = parameters + np.random.normal(0, 0.2 * np.absolute(parameters))
+
+    # Initiate emcee sampler by passing the likelihood function
+    sampler = emcee.EnsembleSampler(nwalkers, ndim, log_post, args=[mcmc_model])
+
+    # Burn-in
+    pos, prob, state = sampler.run_mcmc(p0, nburn)
+    sampler.reset()
+
+    # Production
+    sampler.run_mcmc(pos, niter)
+
+    # Packing the trace of the parameters into the PyMC MCMC object
+    p_ind = 0
+    for stoch in mcmc_model.stochastics:
+        if stoch.value.shape == ():
+            trace = sampler.flatchain[:, p_ind]
+            stoch.trace._trace[0] = trace[::nthin].copy()
+            p_ind += 1
+        else:
+            trace = sampler.flatchain[:, p_ind:(p_ind + len(stoch.value))]
+            stoch.trace._trace[0] = trace[::nthin].copy()
+            p_ind += len(stoch.value)
+
+    return mcmc_model, pymc_model
+
+def run_mcmc(pymc_model, nthin=50, nburn=500, niter=1000, map=True, db='ram', dbname=None):
+    """
+    Sample the model with pymc. Initial values of the parameters can be chosen with a maximum a posteriori estimate.
+
+    Parameters
+    ----------
+    pymc_model : pymc model
+       The pymc model to sample.
+    nthin: int
+        The number of MCMC steps that constitute 1 iteration.
+    nburn: int
+        The number of MCMC iterations during the burn-in.
+    niter: int
+        The number of production iterations.
+    map: bool
+        Whether to initialize the parameters before MCMC with the maximum a posteriori estimate.
+    db : str
+        How to store model, default = 'ram' means not storing it. To store model use storage = 'pickle'. If not,
+        supply the name of the database backend that will store the values of the stochastics and deterministics sampled
+        during the MCMC loop.
+   dbname : str
+        name for storage object, default = None. To store model use e.g. dbname = 'my_mcmc.pickle'
 
     Returns
     -------
@@ -449,16 +582,12 @@ def run_mcmc(pymc_model, db = 'ram', dbname = None):
        The MCMC samples.
 
     """
+    # Find MAP:
+    if map == True:
+        pymc.MAP(pymc_model).fit()
 
     # Sample the model with pymc
     mcmc = pymc.MCMC(pymc_model, db=db, dbname=dbname, name='Sampler', verbose=True)
-    nthin = 20
-    nburn = nthin*10000
-    niter = nthin*10000
-
-    # DEBUG
-    #nburn = nthin*1000
-    #niter = nthin*1000
 
     mcmc.use_step_method(pymc.Metropolis, getattr(pymc_model, 'DeltaG'), proposal_sd=1.0, proposal_distribution='Normal')
     mcmc.use_step_method(pymc.Metropolis, getattr(pymc_model, 'F_PL'), proposal_sd=10.0, proposal_distribution='Normal')
