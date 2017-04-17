@@ -97,7 +97,8 @@ def make_model(Pstated, dPstated, Lstated, dLstated,
                epsilon_ex=None, depsilon_ex=None,
                epsilon_em=None, depsilon_em=None,
                ligand_ex_absorbance=None, ligand_em_absorbance=None,
-               link_top_and_bottom_sigma=True):
+               link_top_and_bottom_sigma=True,
+               F_PL=None, dF_PL=None):
     """
     Build a PyMC model for an assay that consists of N wells of protein:ligand at various concentrations and an additional N wells of ligand in buffer, with the ligand at the same concentrations as the corresponding protein:ligand wells.
 
@@ -143,6 +144,10 @@ def make_model(Pstated, dPstated, Lstated, dLstated,
        Ligand absorbance measurement for emission wavelength.
     link_top_and_bottom_sigma : bool, optional, default=True
        If True, will link top and bottom fluorescence uncertainty sigma.
+    F_PL, dF_PL : float, optional, default=None
+       Prior on fluorescence quantum yield of protein-ligand complex, in units of RFU/M.
+       Both F_PL and dF_PL must be specified for a lognormal prior to be used;
+       otherwise a uniform prior is used.
 
     Returns
     -------
@@ -249,7 +254,10 @@ def make_model(Pstated, dPstated, Lstated, dLstated,
     # Priors on fluorescence intensities of complexes (later divided by a factor of Pstated for scale).
     model['F_plate'] = pymc.Uniform('F_plate', lower=0.0, upper=Fmax, value=F_plate_guess) # plate fluorescence
     model['F_buffer'] = pymc.Uniform('F_buffer', lower=0.0, upper=Fmax/path_length, value=F_buffer_guess) # buffer fluorescence
-    model['F_PL'] = pymc.Uniform('F_PL', lower=0.0, upper=2*Fmax/min(Pstated.max(),Lstated.max()), value=F_PL_guess) # complex fluorescence
+    if (F_PL is not None) and (dF_PL is not None):
+        model['F_PL'] = pymc.Lognormal('F_PL', mu=np.log(F_PL**2 / np.sqrt(dF_PL**2 + F_PL**2)), tau=np.sqrt(np.log(1.0 + (dF_PL/F_PL)**2))**(-2))
+    else:
+        model['F_PL'] = pymc.Uniform('F_PL', lower=0.0, upper=2*Fmax/min(Pstated.max(),Lstated.max()), value=F_PL_guess) # complex fluorescence
     model['F_P'] = pymc.Uniform('F_P', lower=0.0, upper=2*(Fmax/Pstated).max(), value=F_P_guess) # protein fluorescence
     model['F_L'] = pymc.Uniform('F_L', lower=0.0, upper=2*(Fmax/Lstated).max(), value=F_L_guess) # ligand fluorescence
 
