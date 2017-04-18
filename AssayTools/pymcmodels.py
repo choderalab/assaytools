@@ -131,6 +131,7 @@ def make_model(Pstated, dPstated, Lstated, dLstated,
                bottom_complex_fluorescence=None, bottom_ligand_fluorescence=None,
                DG_prior='uniform',
                concentration_priors='lognormal',
+               quantum_yield_priors='lognormal',
                use_primary_inner_filter_correction=True,
                use_secondary_inner_filter_correction=True,
                assay_volume=100e-6, well_area=0.1586,
@@ -166,6 +167,8 @@ def make_model(Pstated, dPstated, Lstated, dLstated,
        Prior to use for reduced free energy of binding (DG): 'uniform' (uniform over reasonable range), or 'chembl' (ChEMBL-inspired distribution); default: 'uniform'
     concentration_priors : str, optional, default='lognormal'
        Prior to use for protein and ligand concentrations. Available options are ['lognormal'].
+    quantum_yield_priors : str, optional, default='lognormal'
+       Prior to use for quantum yields. Available options are ['lognormal', 'uniform'].
     use_primary_inner_filter_correction : bool, optional, default=True
        If true, will infer ligand extinction coefficient epsilon and apply primary inner filter correction to attenuate excitation light.
     use_secondary_inner_filter_correction : bool, optional, default=True
@@ -282,14 +285,27 @@ def make_model(Pstated, dPstated, Lstated, dLstated,
     F_PL_guess = (Fmax - Fmin) / min(Pstated.max(), Lstated.max())
 
     # Priors on fluorescence intensities of complexes (later divided by a factor of Pstated for scale).
-    model['F_plate'] = pymc.Uniform('F_plate', lower=0.0, upper=Fmax, value=F_plate_guess) # plate fluorescence
-    model['F_buffer'] = pymc.Uniform('F_buffer', lower=0.0, upper=Fmax/path_length, value=F_buffer_guess) # buffer fluorescence
-    if (F_PL is not None) and (dF_PL is not None):
-        model['F_PL'] = pymc.Lognormal('F_PL', mu=np.log(F_PL**2 / np.sqrt(dF_PL**2 + F_PL**2)), tau=np.sqrt(np.log(1.0 + (dF_PL/F_PL)**2))**(-2))
+    if quantum_yield_priors == 'uniform':
+        model['F_plate'] = pymc.Uniform('F_plate', lower=0.0, upper=Fmax, value=F_plate_guess) # plate fluorescence
+        model['F_buffer'] = pymc.Uniform('F_buffer', lower=0.0, upper=Fmax/path_length, value=F_buffer_guess) # buffer fluorescence
+        if (F_PL is not None) and (dF_PL is not None):
+            model['log_F_PL'], model['F_PL'] = LogNormalWrapper('F_PL', mean=F_PL, stddev=dF_PL)
+        else:
+            model['F_PL'] = pymc.Uniform('F_PL', lower=0.0, upper=2*Fmax/min(Pstated.max(),Lstated.max()), value=F_PL_guess) # complex fluorescence
+        model['F_P'] = pymc.Uniform('F_P', lower=0.0, upper=2*(Fmax/Pstated).max(), value=F_P_guess) # protein fluorescence
+        model['F_L'] = pymc.Uniform('F_L', lower=0.0, upper=2*(Fmax/Lstated).max(), value=F_L_guess) # ligand fluorescence
+    elif quantum_yield_priors == 'lognormal':
+        stddev = 1.0 # relative factor for stddev guess
+        model['log_F_plate'], model['F_plate'] = LogNormalWrapper('F_plate', mean=F_plate_guess, stddev=stddev*F_plate_guess) # plate fluorescence
+        model['log_F_buffer'], model['F_buffer'] = LogNormalWrapper('F_buffer', mean=F_buffer_guess, stddev=stddev*F_buffer_guess) # buffer fluorescence
+        if (F_PL is not None) and (dF_PL is not None):
+            model['log_F_PL'], model['F_PL'] = LogNormalWrapper('F_PL', mean=F_PL, stddev=dF_PL)
+        else:
+            model['log_F_PL'], model['F_PL'] = LogNormalWrapper('F_PL', mean=F_PL_guess, stddev=stddev*F_PL_guess) # complex fluorescence
+        model['log_F_P'], model['F_P'] = LogNormalWrapper('F_P', mean=F_P_guess, stddev=stddev*F_P_guess) # protein fluorescence
+        model['log_F_L'], model['F_L'] = LogNormalWrapper('F_L', mean=F_L_guess, stddev=stddev*F_L_guess) # ligand fluorescence
     else:
-        model['F_PL'] = pymc.Uniform('F_PL', lower=0.0, upper=2*Fmax/min(Pstated.max(),Lstated.max()), value=F_PL_guess) # complex fluorescence
-    model['F_P'] = pymc.Uniform('F_P', lower=0.0, upper=2*(Fmax/Pstated).max(), value=F_P_guess) # protein fluorescence
-    model['F_L'] = pymc.Uniform('F_L', lower=0.0, upper=2*(Fmax/Lstated).max(), value=F_L_guess) # ligand fluorescence
+        raise Exception("quantum_yield_priors = '%s' unknown. Must be one of ['lognormal', 'uniform']." % quantum_yield_priors)
 
     # Unknown experimental measurement error.
     if top_fluorescence:
@@ -321,10 +337,8 @@ def make_model(Pstated, dPstated, Lstated, dLstated,
         model['sigma_abs'] = pymc.Lambda('sigma_abs', lambda log_sigma=model['log_sigma_abs'] : np.exp(log_sigma) )
         model['precision_abs'] = pymc.Lambda('precision_abs', lambda log_sigma=model['log_sigma_abs'] : np.exp(-2*log_sigma) )
 
-
     # Fluorescence model.
     from assaytools.bindingmodels import TwoComponentBindingModel
-
 
     if hasattr(model, 'epsilon_ex'):
         epsilon_ex = model['epsilon_ex']
