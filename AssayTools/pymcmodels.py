@@ -32,7 +32,7 @@ nthin = 500 # thinning interval
 # SUBROUTINES
 #=============================================================================================
 
-def LogNormalWrapper(name, mean, stddev):
+def LogNormalWrapper(name, mean, stddev, log_prefix='log_'):
     """
     Create a PyMC Normal stochastic, automatically converting parameters to be appropriate for a `LogNormal` distribution.
     Note that the resulting distribution is Normal, not LogNormal.
@@ -44,18 +44,29 @@ def LogNormalWrapper(name, mean, stddev):
        Mean of exp(X), where X is lognormal variate.
     stddev : float
        Standard deviation of exp(X), where X is lognormal variate.
+    log_prefix : str, optional, default='log_'
+       Prefix appended to stochastic
 
     Returns
     -------
     stochastic : pymc.Normal
-       Normal stochastic for random variable X
+       Normal stochastic for random variable X.
+       Name is prefixed with log_prefix
+    deterministic : pymc.deterministic
+       Deterministic encoding the exponentiated lognormal (real quantity)
 
     """
     # Compute parameters of lognormal distribution
     mu = np.log(mean**2 / np.sqrt(stddev**2 + mean**2))
     tau = np.sqrt(np.log(1.0 + (stddev/mean)**2))**(-2)
-    stochastic = pymc.Normal(name, mu=mu, tau=tau)
-    return stochastic
+    stochastic = pymc.Normal(log_prefix + name, mu=mu, tau=tau)
+
+    # Create deterministic from stochastic
+    @pymc.deterministic(name=name)
+    def deterministic(log_value=stochastic):
+        return np.exp(log_value)
+
+    return stochastic, deterministic
 
 #=============================================================================================
 # PyMC models
@@ -232,33 +243,22 @@ def make_model(Pstated, dPstated, Lstated, dLstated,
     model['DeltaG'] = DeltaG
 
     # Create priors on true concentrations of protein and ligand.
-    if concentration_priors == 'lognormal':
-        log_Ptrue = LogNormalWrapper('log_Ptrue', mean=Pstated, stddev=dPstated) # protein concentration (M)
-        log_Ltrue = LogNormalWrapper('log_Ltrue', mean=Lstated, stddev=dLstated) # ligand concentration (M)
-        log_Ltrue_control = LogNormalWrapper('log_Ltrue_control', mean=Lstated, stddev=dLstated) # ligand concentration (M)
-    else:
+    if concentration_priors != 'lognormal':
         raise Exception("concentration_priors = '%s' unknown. Must be one of ['lognormal']." % concentration_priors)
-    # Add to model.
-    model['log_Ptrue'] = log_Ptrue
-    model['log_Ltrue'] = log_Ltrue
-    model['log_Ltrue_control'] = log_Ltrue_control
-    # Create deterministic concentrations
-    for name in ['Ptrue', 'Ltrue', 'Ltrue_control']:
-        @pymc.deterministic(name=name)
-        def value(log_value=model['log_' + name]):
-            return exp(log_value)
-        self.model[name] = value
+    model['log_Ptrue'], model['Ptrue'] = LogNormalWrapper('Ptrue', mean=Pstated, stddev=dPstated) # protein concentration (M)
+    model['log_Ltrue'], model['Ltrue'] = LogNormalWrapper('Ltrue', mean=Lstated, stddev=dLstated) # ligand concentration (M)
+    model['log_Ltrue_control'], model['Ltrue_control'] = LogNormalWrapper('Ltrue_control', mean=Lstated, stddev=dLstated) # ligand concentration (M)
 
     # extinction coefficient
     if use_primary_inner_filter_correction:
         if epsilon_ex:
-            model['epsilon_ex'] = pymc.Lognormal('epsilon_ex', mu=np.log(epsilon_ex**2 / np.sqrt(depsilon_ex**2 + epsilon_ex**2)), tau=np.sqrt(np.log(1.0 + (depsilon_ex/epsilon_ex)**2))**(-2)) # prior is centered on measured extinction coefficient
+            model['log_epsilon_ex'], model['epsilon_ex'] = LogNormalWrapper('epsilon_ex', mean=epsilon_ex, stddev=depsilon_ex) # prior is centered on measured extinction coefficient
         else:
             model['epsilon_ex'] = pymc.Uniform('epsilon_ex', lower=0.0, upper=1000e3, value=70000.0) # extinction coefficient or molar absorptivity for ligand, units of 1/M/cm
 
     if use_secondary_inner_filter_correction:
         if epsilon_em:
-            model['epsilon_em'] = pymc.Lognormal('epsilon_em', mu=np.log(epsilon_em**2 / np.sqrt(depsilon_em**2 + epsilon_em**2)), tau=np.sqrt(np.log(1.0 + (depsilon_em/epsilon_em)**2))**(-2)) # prior is centered on measured extinction coefficient
+            model['log_epsilon_em'], model['epsilon_em'] = LogNormalWrapper('epsilon_em', mean=epsilon_em, stddev=depsilon_em) # prior is centered on measured extinction coefficient
         else:
             model['epsilon_em'] = pymc.Uniform('epsilon_em', lower=0.0, upper=1000e3, value=0.0) # extinction coefficient or molar absorptivity for ligand, units of 1/M/cm
 

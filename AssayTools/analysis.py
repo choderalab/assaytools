@@ -777,6 +777,10 @@ class CompetitiveBindingAnalysis(object):
 
         """
 
+        # DEBUG: Write model
+        print('Writing graph...')
+        pymc.graph.moral_graph(self.model, format='ps')
+
         # Sample the model with pymc
         # TODO: Allow
         mcmc = pymc.MCMC(self.model, db='sqlite', name='output', verbose=True)
