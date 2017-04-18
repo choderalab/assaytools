@@ -29,6 +29,35 @@ nburn = 50000 # number of burn-in iterations to discard
 nthin = 500 # thinning interval
 
 #=============================================================================================
+# SUBROUTINES
+#=============================================================================================
+
+def LogNormalWrapper(name, mean, stddev):
+    """
+    Create a PyMC Normal stochastic, automatically converting parameters to be appropriate for a `LogNormal` distribution.
+    Note that the resulting distribution is Normal, not LogNormal.
+    This is appropriate if we want to describe the log of a volume or a fluorescence reading.
+
+    Parameters
+    ----------
+    mean : float
+       Mean of exp(X), where X is lognormal variate.
+    stddev : float
+       Standard deviation of exp(X), where X is lognormal variate.
+
+    Returns
+    -------
+    stochastic : pymc.Normal
+       Normal stochastic for random variable X
+
+    """
+    # Compute parameters of lognormal distribution
+    mu = np.log(mean**2 / np.sqrt(stddev**2 + mean**2))
+    tau = np.sqrt(np.log(1.0 + (stddev/mean)**2))**(-2)
+    stochastic = pymc.Normal(name, mu=mu, tau=tau)
+    return stochastic
+
+#=============================================================================================
 # PyMC models
 #=============================================================================================
 
@@ -125,7 +154,7 @@ def make_model(Pstated, dPstated, Lstated, dLstated,
     DG_prior : str, optional, default='uniform'
        Prior to use for reduced free energy of binding (DG): 'uniform' (uniform over reasonable range), or 'chembl' (ChEMBL-inspired distribution); default: 'uniform'
     concentration_priors : str, optional, default='lognormal'
-       Prior to use for protein and ligand concentrations. Available options are ['lognormal', 'normal'].
+       Prior to use for protein and ligand concentrations. Available options are ['lognormal'].
     use_primary_inner_filter_correction : bool, optional, default=True
        If true, will infer ligand extinction coefficient epsilon and apply primary inner filter correction to attenuate excitation light.
     use_secondary_inner_filter_correction : bool, optional, default=True
@@ -204,20 +233,21 @@ def make_model(Pstated, dPstated, Lstated, dLstated,
 
     # Create priors on true concentrations of protein and ligand.
     if concentration_priors == 'lognormal':
-        Ptrue = pymc.Lognormal('Ptrue', mu=np.log(Pstated**2 / np.sqrt(dPstated**2 + Pstated**2)), tau=np.sqrt(np.log(1.0 + (dPstated/Pstated)**2))**(-2)) # protein concentration (M)
-        Ltrue = pymc.Lognormal('Ltrue', mu=np.log(Lstated**2 / np.sqrt(dLstated**2 + Lstated**2)), tau=np.sqrt(np.log(1.0 + (dLstated/Lstated)**2))**(-2)) # ligand concentration (M)
-        Ltrue_control = pymc.Lognormal('Ltrue_control', mu=np.log(Lstated**2 / np.sqrt(dLstated**2 + Lstated**2)), tau=np.sqrt(np.log(1.0 + (dLstated/Lstated)**2))**(-2)) # ligand concentration (M)
-    elif concentration_priors == 'gaussian':
-        # Warning: These priors could lead to negative concentrations.
-        Ptrue = pymc.Normal('Ptrue', mu=Pstated, tau=dPstated**(-2)) # protein concentration (M)
-        Ltrue = pymc.Normal('Ltrue', mu=Lstated, tau=dLstated**(-2)) # ligand concentration (M)
-        Ltrue_control = pymc.Normal('Ltrue_control', mu=Lstated, tau=dLstated**(-2)) # ligand concentration (M)
+        log_Ptrue = LogNormalWrapper('log_Ptrue', mean=Pstated, stddev=dPstated) # protein concentration (M)
+        log_Ltrue = LogNormalWrapper('log_Ltrue', mean=Lstated, stddev=dLstated) # ligand concentration (M)
+        log_Ltrue_control = LogNormalWrapper('log_Ltrue_control', mean=Lstated, stddev=dLstated) # ligand concentration (M)
     else:
-        raise Exception("concentration_priors = '%s' unknown. Must be one of ['lognormal', 'normal']." % concentration_priors)
+        raise Exception("concentration_priors = '%s' unknown. Must be one of ['lognormal']." % concentration_priors)
     # Add to model.
-    model['Ptrue'] = Ptrue
-    model['Ltrue'] = Ltrue
-    model['Ltrue_control'] = Ltrue_control
+    model['log_Ptrue'] = log_Ptrue
+    model['log_Ltrue'] = log_Ltrue
+    model['log_Ltrue_control'] = log_Ltrue_control
+    # Create deterministic concentrations
+    for name in ['Ptrue', 'Ltrue', 'Ltrue_control']:
+        @pymc.deterministic(name=name)
+        def value(log_value=model['log_' + name]):
+            return exp(log_value)
+        self.model[name] = value
 
     # extinction coefficient
     if use_primary_inner_filter_correction:
