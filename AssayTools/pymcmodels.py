@@ -32,7 +32,7 @@ nthin = 500 # thinning interval
 # SUBROUTINES
 #=============================================================================================
 
-def LogNormalWrapper(name, mean, stddev, log_prefix='log_'):
+def LogNormalWrapper(name, mean, stddev, log_prefix='log_', size=1, observed=False, value=None):
     """
     Create a PyMC Normal stochastic, automatically converting parameters to be appropriate for a `LogNormal` distribution.
     Note that the resulting distribution is Normal, not LogNormal.
@@ -46,6 +46,12 @@ def LogNormalWrapper(name, mean, stddev, log_prefix='log_'):
        Standard deviation of exp(X), where X is lognormal variate.
     log_prefix : str, optional, default='log_'
        Prefix appended to stochastic
+    size : list of int, optional, default=1
+       Size vector
+    observed : bool, optional, default=False
+       If True, the stochastic is fixed to this observed value.
+    value : float, optional, default=None
+       If observed=True, the observed value of the real quantity
 
     Returns
     -------
@@ -59,7 +65,9 @@ def LogNormalWrapper(name, mean, stddev, log_prefix='log_'):
     # Compute parameters of lognormal distribution
     mu = np.log(mean**2 / np.sqrt(stddev**2 + mean**2))
     tau = np.sqrt(np.log(1.0 + (stddev/mean)**2))**(-2)
-    stochastic = pymc.Normal(log_prefix + name, mu=mu, tau=tau)
+    if value is not None:
+        value = np.log(value)
+    stochastic = pymc.Normal(log_prefix + name, mu=mu, tau=tau, size=size, observed=observed, value=value)
 
     # Create deterministic from stochastic
     @pymc.deterministic(name=name)
@@ -363,9 +371,9 @@ def make_model(Pstated, dPstated, Lstated, dLstated,
             return Fmodel_i
         # Add to model.
         model['top_complex_fluorescence_model'] = top_complex_fluorescence_model
-        model['top_complex_fluorescence'] = pymc.Normal('top_complex_fluorescence',
-                                                        mu=model['top_complex_fluorescence_model'], tau=model['precision_top'],
-                                                        size=[N], observed=True, value=top_complex_fluorescence) # observed data
+        model['log_top_complex_fluorescence'], model['top_complex_fluorescence'] = LogNormalWrapper('top_complex_fluorescence',
+            mean=model['top_complex_fluorescence_model'], stddev=model['sigma_top'],
+            size=[N], observed=True, value=top_complex_fluorescence) # observed data
 
     if top_ligand_fluorescence is not None:
         @pymc.deterministic
@@ -379,8 +387,8 @@ def make_model(Pstated, dPstated, Lstated, dLstated,
             return Fmodel_i
         # Add to model.
         model['top_ligand_fluorescence_model'] = top_ligand_fluorescence_model
-        model['top_ligand_fluorescence'] = pymc.Normal('top_ligand_fluorescence',
-                                                       mu=model['top_ligand_fluorescence_model'], tau=model['precision_top'],
+        model['log_top_ligand_fluorescence'], model['top_ligand_fluorescence'] = LogNormalWrapper('top_ligand_fluorescence',
+                                                       mean=model['top_ligand_fluorescence_model'], stddev=model['sigma_top'],
                                                        size=[N], observed=True, value=top_ligand_fluorescence) # observed data
 
     if bottom_complex_fluorescence is not None:
@@ -397,8 +405,8 @@ def make_model(Pstated, dPstated, Lstated, dLstated,
             return Fmodel_i
         # Add to model.
         model['bottom_complex_fluorescence_model'] = bottom_complex_fluorescence_model
-        model['bottom_complex_fluorescence'] = pymc.Normal('bottom_complex_fluorescence',
-                                                           mu=model['bottom_complex_fluorescence_model'], tau=model['precision_bottom'],
+        model['log_bottom_complex_fluorescence'], model['bottom_complex_fluorescence'] = LogNormalWrapper('bottom_complex_fluorescence',
+                                                           mean=model['bottom_complex_fluorescence_model'], stddev=model['sigma_bottom'],
                                                            size=[N], observed=True, value=bottom_complex_fluorescence) # observed data
 
     if bottom_ligand_fluorescence is not None:
@@ -414,8 +422,8 @@ def make_model(Pstated, dPstated, Lstated, dLstated,
             return Fmodel_i
         # Add to model.
         model['bottom_ligand_fluorescence_model'] = bottom_ligand_fluorescence_model
-        model['bottom_ligand_fluorescence'] = pymc.Normal('bottom_ligand_fluorescence',
-                                                          mu=model['bottom_ligand_fluorescence_model'], tau=model['precision_bottom'],
+        model['log_bottom_ligand_fluorescence'], model['bottom_ligand_fluorescence'] = LogNormalWrapper('bottom_ligand_fluorescence',
+                                                          mean=model['bottom_ligand_fluorescence_model'], stddev=model['sigma_bottom'],
                                                           size=[N], observed=True, value=bottom_ligand_fluorescence) # observed data
 
     if ligand_ex_absorbance is not None:
@@ -428,8 +436,8 @@ def make_model(Pstated, dPstated, Lstated, dLstated,
             return Fmodel_i
         # Add to model.
         model['ligand_ex_absorbance_model'] = ligand_ex_absorbance_model
-        model['ligand_ex_absorbance'] = pymc.Normal('ligand_ex_absorbance',
-                                                    mu=model['ligand_ex_absorbance_model'], tau=model['precision_abs'],
+        model['log_ligand_ex_absorbance'], model['ligand_ex_absorbance'] = LogNoramlWrapper('ligand_ex_absorbance',
+                                                    mean=model['ligand_ex_absorbance_model'], stddev=model['sigma_abs'],
                                                     size=[N], observed=True, value=ligand_ex_absorbance) # observed data
 
     if ligand_em_absorbance is not None:
@@ -442,8 +450,8 @@ def make_model(Pstated, dPstated, Lstated, dLstated,
             return Fmodel_i
         # Add to model.
         model['ligand_em_absorbance_model'] = ligand_em_absorbance_model
-        model['ligand_em_absorbance'] = pymc.Normal('ligand_em_absorbance',
-                                                    mu=model['ligand_em_absorbance_model'], tau=model['precision_abs'],
+        model['log_ligand_em_absorbance'], model['ligand_em_absorbance'] = LogNormalWrapper('ligand_em_absorbance',
+                                                    mean=model['ligand_em_absorbance_model'], stddev=model['sigma_abs'],
                                                     size=[N], observed=True, value=ligand_em_absorbance) # observed data
 
     # Promote this to a full-fledged PyMC model.
