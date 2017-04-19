@@ -146,10 +146,14 @@ def quick_model(inputs, nsamples=1000, nthin=20):
             property_name = 'top_ligand_fluorescence'
             ligand = getattr(pymc_model, property_name)
             #plt.semilogx(inputs['Lstated'], ligand.value, 'ro',label='ligand')
-            for top_complex_fluorescence_model in mcmc.top_complex_fluorescence_model.trace()[::10]:
-                plt.semilogx(inputs['Lstated'], top_complex_fluorescence_model, marker='.',color='silver')
-            for top_ligand_fluorescence_model in mcmc.top_ligand_fluorescence_model.trace()[::10]:
-                plt.semilogx(inputs['Lstated'], top_ligand_fluorescence_model, marker='.',color='lightcoral', alpha=0.2)
+            for top_complex_fluorescence_model in mcmc.top_complex_fluorescence_model.trace()[:t:10]:
+                plt.semilogx(inputs['Lstated'], top_complex_fluorescence_model, marker='',color='silver', alpha=0.8)
+            for top_complex_fluorescence_model in mcmc.top_complex_fluorescence_model.trace()[t::10]:
+                plt.semilogx(inputs['Lstated'], top_complex_fluorescence_model, marker='',color='silver', alpha=0.2)
+            for top_ligand_fluorescence_model in mcmc.top_ligand_fluorescence_model.trace()[:t:10]:
+                plt.semilogx(inputs['Lstated'], top_ligand_fluorescence_model, marker='',color='lightcoral', alpha=0.8)
+            for top_ligand_fluorescence_model in mcmc.top_ligand_fluorescence_model.trace()[t::10]:
+                plt.semilogx(inputs['Lstated'], top_ligand_fluorescence_model, marker='',color='lightcoral', alpha=0.2)
             plt.semilogx(inputs['Lstated'], complex.value, 'ko',label='complex')
             plt.semilogx(inputs['Lstated'], ligand.value, marker='o',color='firebrick',linestyle='None',label='ligand')
 
@@ -461,8 +465,8 @@ def entry_point():
     > python quickmodel.py --inputs 'inputs_example' """)
     parser.add_argument("--inputs", help="inputs file (python script, .py not needed)",default=None)
     parser.add_argument("--type", help="type of data (spectra, singlet)",choices=['spectra','singlet'],default='singlet')
-    parser.add_argument("--nsamples", help="number of samples",default=10000)
-    parser.add_argument("--nthin", help="thinning interval",default=20)
+    parser.add_argument("--nsamples", help="number of samples",default=10000, type=int)
+    parser.add_argument("--nthin", help="thinning interval",default=20, type=int)
     args = parser.parse_args()
 
     # Define inputs
