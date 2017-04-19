@@ -702,16 +702,16 @@ def run_mcmc(pymc_model, nthin=20, nburn=0, niter=20000, map=True, db='ram', dbn
     # Sample the model with pymc
     mcmc = pymc.MCMC(pymc_model, db=db, dbname=dbname, name='Sampler', verbose=True)
 
-#    mcmc.use_step_method(pymc.Metropolis, getattr(pymc_model, 'DeltaG'), proposal_sd=1.0, proposal_distribution='Normal')
-#    mcmc.use_step_method(pymc.Metropolis, getattr(pymc_model, 'log_F_PL'), proposal_sd=1.0, proposal_distribution='Normal')
-#    mcmc.use_step_method(pymc.Metropolis, getattr(pymc_model, 'log_F_P'), proposal_sd=1.0, proposal_distribution='Normal')
-#    mcmc.use_step_method(pymc.Metropolis, getattr(pymc_model, 'log_F_L'), proposal_sd=1.0, proposal_distribution='Normal')
-#    mcmc.use_step_method(pymc.Metropolis, getattr(pymc_model, 'log_F_plate'), proposal_sd=1.0, proposal_distribution='Normal')
-#    mcmc.use_step_method(pymc.Metropolis, getattr(pymc_model, 'log_F_buffer'), proposal_sd=1.0, proposal_distribution='Normal')
-#    if hasattr(pymc_model, 'epsilon_ex'):
-#        mcmc.use_step_method(pymc.Metropolis, getattr(pymc_model, 'epsilon_ex'), proposal_sd=10000.0, proposal_distribution='Normal')
-#    if hasattr(pymc_model, 'epsilon_em'):
-#        mcmc.use_step_method(pymc.Metropolis, getattr(pymc_model, 'epsilon_em'), proposal_sd=10000.0, proposal_distribution='Normal')
+    mcmc.use_step_method(pymc.Metropolis, getattr(pymc_model, 'DeltaG'), proposal_sd=0.1, proposal_distribution='Normal')
+    mcmc.use_step_method(pymc.Metropolis, getattr(pymc_model, 'log_F_PL'), proposal_sd=0.1, proposal_distribution='Normal')
+    mcmc.use_step_method(pymc.Metropolis, getattr(pymc_model, 'log_F_P'), proposal_sd=0.1, proposal_distribution='Normal')
+    mcmc.use_step_method(pymc.Metropolis, getattr(pymc_model, 'log_F_L'), proposal_sd=0.1, proposal_distribution='Normal')
+    mcmc.use_step_method(pymc.Metropolis, getattr(pymc_model, 'log_F_plate'), proposal_sd=0.1, proposal_distribution='Normal')
+    mcmc.use_step_method(pymc.Metropolis, getattr(pymc_model, 'log_F_buffer'), proposal_sd=0.1, proposal_distribution='Normal')
+    if hasattr(pymc_model, 'epsilon_ex'):
+        mcmc.use_step_method(pymc.Metropolis, getattr(pymc_model, 'epsilon_ex'), proposal_sd=10000.0, proposal_distribution='Normal')
+    if hasattr(pymc_model, 'epsilon_em'):
+        mcmc.use_step_method(pymc.Metropolis, getattr(pymc_model, 'epsilon_em'), proposal_sd=10000.0, proposal_distribution='Normal')
 
     mcmc.sample(iter=(nburn+niter), burn=nburn, thin=nthin, progress_bar=False, tune_throughout=False)
 
