@@ -355,6 +355,7 @@ def make_model(Pstated, dPstated, Lstated, dLstated,
     if quantum_yield_priors == 'uniform':
         model['F_plate'] = pymc.Uniform('F_plate', lower=0.0, upper=Fmax, value=F_plate_guess) # plate fluorescence
         model['F_buffer'] = pymc.Uniform('F_buffer', lower=0.0, upper=Fmax/path_length, value=F_buffer_guess) # buffer fluorescence
+        model['F_buffer_control'] = pymc.Uniform('F_buffer_control', lower=0.0, upper=Fmax/path_length, value=F_buffer_guess) # buffer fluorescence
         if (F_PL is not None) and (dF_PL is not None):
             model['log_F_PL'], model['F_PL'] = LogNormalWrapper('F_PL', mean=F_PL, stddev=dF_PL)
         else:
@@ -365,6 +366,7 @@ def make_model(Pstated, dPstated, Lstated, dLstated,
         stddev = 1.0 # relative factor for stddev guess
         model['log_F_plate'], model['F_plate'] = LogNormalWrapper('F_plate', mean=F_plate_guess, stddev=stddev*F_plate_guess) # plate fluorescence
         model['log_F_buffer'], model['F_buffer'] = LogNormalWrapper('F_buffer', mean=F_buffer_guess, stddev=stddev*F_buffer_guess) # buffer fluorescence
+        model['log_F_buffer_control'], model['F_buffer_control'] = LogNormalWrapper('F_buffer_control', mean=F_buffer_guess, stddev=stddev*F_buffer_guess) # buffer fluorescence
         if (F_PL is not None) and (dF_PL is not None):
             model['log_F_PL'], model['F_PL'] = LogNormalWrapper('F_PL', mean=F_PL, stddev=dF_PL)
         else:
@@ -426,13 +428,13 @@ def make_model(Pstated, dPstated, Lstated, dLstated,
 
     if top_ligand_fluorescence is not None:
         @pymc.deterministic
-        def top_ligand_fluorescence_model(F_plate=model['F_plate'], F_buffer=model['F_buffer'],
+        def top_ligand_fluorescence_model(F_plate=model['F_plate'], F_buffer_control=model['F_buffer_control'],
                                           F_L=model['F_L'],
                                           Ltrue_control=model['Ltrue_control'],
                                           epsilon_ex=model['epsilon_ex'], epsilon_em=model['epsilon_em']):
             IF_i = inner_filter_effect_attenuation(epsilon_ex, epsilon_em, path_length, Ltrue_control, geometry='top')
             IF_i_plate = np.exp(-(epsilon_ex+epsilon_em)*path_length*Ltrue_control) # inner filter effect applied only to plate
-            Fmodel_i = IF_i[:]*(F_L*Ltrue_control + F_buffer*path_length) + IF_i_plate*F_plate
+            Fmodel_i = IF_i[:]*(F_L*Ltrue_control + F_buffer_control*path_length) + IF_i_plate*F_plate
             return Fmodel_i
         # Add to model.
         model['top_ligand_fluorescence_model'] = top_ligand_fluorescence_model
@@ -460,14 +462,14 @@ def make_model(Pstated, dPstated, Lstated, dLstated,
 
     if bottom_ligand_fluorescence is not None:
         @pymc.deterministic
-        def bottom_ligand_fluorescence_model(F_plate=model['F_plate'], F_buffer=model['F_buffer'],
+        def bottom_ligand_fluorescence_model(F_plate=model['F_plate'], F_buffer_control=model['F_buffer_control'],
                                              F_PL=model['F_PL'], F_P=model['F_P'], F_L=model['F_L'],
                                              Ltrue_control=model['Ltrue_control'],
                                              epsilon_ex=model['epsilon_ex'], epsilon_em=model['epsilon_em'],
                                              log_gain_bottom=model['log_gain_bottom']):
             IF_i = inner_filter_effect_attenuation(epsilon_ex, epsilon_em, path_length, Ltrue_control, geometry='bottom')
             IF_i_plate = np.exp(-epsilon_ex*path_length*Ltrue_control) # inner filter effect applied only to plate
-            Fmodel_i = IF_i[:]*(F_L*Ltrue_control + F_buffer*path_length)*np.exp(log_gain_bottom) + IF_i_plate*F_plate
+            Fmodel_i = IF_i[:]*(F_L*Ltrue_control + F_buffer_control*path_length)*np.exp(log_gain_bottom) + IF_i_plate*F_plate
             return Fmodel_i
         # Add to model.
         model['bottom_ligand_fluorescence_model'] = bottom_ligand_fluorescence_model
