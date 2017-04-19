@@ -428,11 +428,11 @@ def make_model(Pstated, dPstated, Lstated, dLstated,
         @pymc.deterministic
         def top_ligand_fluorescence_model(F_plate=model['F_plate'], F_buffer=model['F_buffer'],
                                           F_L=model['F_L'],
-                                          Ltrue=model['Ltrue'],
+                                          Ltrue_control=model['Ltrue_control'],
                                           epsilon_ex=model['epsilon_ex'], epsilon_em=model['epsilon_em']):
-            IF_i = inner_filter_effect_attenuation(epsilon_ex, epsilon_em, path_length, Ltrue, geometry='top')
-            IF_i_plate = np.exp(-(epsilon_ex+epsilon_em)*path_length*Ltrue) # inner filter effect applied only to plate
-            Fmodel_i = IF_i[:]*(F_L*Ltrue + F_buffer*path_length) + IF_i_plate*F_plate
+            IF_i = inner_filter_effect_attenuation(epsilon_ex, epsilon_em, path_length, Ltrue_control, geometry='top')
+            IF_i_plate = np.exp(-(epsilon_ex+epsilon_em)*path_length*Ltrue_control) # inner filter effect applied only to plate
+            Fmodel_i = IF_i[:]*(F_L*Ltrue_control + F_buffer*path_length) + IF_i_plate*F_plate
             return Fmodel_i
         # Add to model.
         model['top_ligand_fluorescence_model'] = top_ligand_fluorescence_model
@@ -462,12 +462,12 @@ def make_model(Pstated, dPstated, Lstated, dLstated,
         @pymc.deterministic
         def bottom_ligand_fluorescence_model(F_plate=model['F_plate'], F_buffer=model['F_buffer'],
                                              F_PL=model['F_PL'], F_P=model['F_P'], F_L=model['F_L'],
-                                             Ltrue=model['Ltrue'],
+                                             Ltrue_control=model['Ltrue_control'],
                                              epsilon_ex=model['epsilon_ex'], epsilon_em=model['epsilon_em'],
                                              log_gain_bottom=model['log_gain_bottom']):
-            IF_i = inner_filter_effect_attenuation(epsilon_ex, epsilon_em, path_length, Ltrue, geometry='bottom')
-            IF_i_plate = np.exp(-epsilon_ex*path_length*Ltrue) # inner filter effect applied only to plate
-            Fmodel_i = IF_i[:]*(F_L*Ltrue + F_buffer*path_length)*np.exp(log_gain_bottom) + IF_i_plate*F_plate
+            IF_i = inner_filter_effect_attenuation(epsilon_ex, epsilon_em, path_length, Ltrue_control, geometry='bottom')
+            IF_i_plate = np.exp(-epsilon_ex*path_length*Ltrue_control) # inner filter effect applied only to plate
+            Fmodel_i = IF_i[:]*(F_L*Ltrue_control + F_buffer*path_length)*np.exp(log_gain_bottom) + IF_i_plate*F_plate
             return Fmodel_i
         # Add to model.
         model['bottom_ligand_fluorescence_model'] = bottom_ligand_fluorescence_model
@@ -480,10 +480,10 @@ def make_model(Pstated, dPstated, Lstated, dLstated,
     if ligand_ex_absorbance is not None:
         model['plate_abs_ex'] = pymc.Uniform('plate_abs_ex', lower=0.0, upper=1.0, value=ligand_ex_absorbance.min())
         @pymc.deterministic
-        def ligand_ex_absorbance_model(Ltrue=model['Ltrue'],
+        def ligand_ex_absorbance_model(Ltrue_control=model['Ltrue_control'],
                                        epsilon_ex=model['epsilon_ex'],
                                        plate_abs_ex=model['epsilon_em']):
-            Fmodel_i = (1.0 - np.exp(-epsilon_ex*path_length*Ltrue)) + plate_abs_ex
+            Fmodel_i = (1.0 - np.exp(-epsilon_ex*path_length*Ltrue_control)) + plate_abs_ex
             return Fmodel_i
         # Add to model.
         model['ligand_ex_absorbance_model'] = ligand_ex_absorbance_model
@@ -494,10 +494,10 @@ def make_model(Pstated, dPstated, Lstated, dLstated,
     if ligand_em_absorbance is not None:
         model['plate_abs_em'] = pymc.Uniform('plate_abs_em', lower=0.0, upper=1.0, value=ligand_em_absorbance.min())
         @pymc.deterministic
-        def ligand_em_absorbance_model(Ltrue=Ltrue,
+        def ligand_em_absorbance_model(Ltrue_control=model['Ltrue_control'],
                                        epsilon_em=model['epsilon_em'],
                                        plate_abs_em=model['plate_abs_em']):
-            Fmodel_i = (1.0 - np.exp(-epsilon_em*path_length*Ltrue)) + plate_abs_em
+            Fmodel_i = (1.0 - np.exp(-epsilon_em*path_length*Ltrue_control)) + plate_abs_em
             return Fmodel_i
         # Add to model.
         model['ligand_em_absorbance_model'] = ligand_em_absorbance_model
@@ -700,16 +700,16 @@ def run_mcmc(pymc_model, nthin=20, nburn=0, niter=20000, map=True, db='ram', dbn
     # Sample the model with pymc
     mcmc = pymc.MCMC(pymc_model, db=db, dbname=dbname, name='Sampler', verbose=True)
 
-    mcmc.use_step_method(pymc.Metropolis, getattr(pymc_model, 'DeltaG'), proposal_sd=1.0, proposal_distribution='Normal')
-    mcmc.use_step_method(pymc.Metropolis, getattr(pymc_model, 'log_F_PL'), proposal_sd=1.0, proposal_distribution='Normal')
-    mcmc.use_step_method(pymc.Metropolis, getattr(pymc_model, 'log_F_P'), proposal_sd=1.0, proposal_distribution='Normal')
-    mcmc.use_step_method(pymc.Metropolis, getattr(pymc_model, 'log_F_L'), proposal_sd=1.0, proposal_distribution='Normal')
-    mcmc.use_step_method(pymc.Metropolis, getattr(pymc_model, 'log_F_plate'), proposal_sd=1.0, proposal_distribution='Normal')
-    mcmc.use_step_method(pymc.Metropolis, getattr(pymc_model, 'log_F_buffer'), proposal_sd=1.0, proposal_distribution='Normal')
-    if hasattr(pymc_model, 'epsilon_ex'):
-        mcmc.use_step_method(pymc.Metropolis, getattr(pymc_model, 'epsilon_ex'), proposal_sd=10000.0, proposal_distribution='Normal')
-    if hasattr(pymc_model, 'epsilon_em'):
-        mcmc.use_step_method(pymc.Metropolis, getattr(pymc_model, 'epsilon_em'), proposal_sd=10000.0, proposal_distribution='Normal')
+#    mcmc.use_step_method(pymc.Metropolis, getattr(pymc_model, 'DeltaG'), proposal_sd=1.0, proposal_distribution='Normal')
+#    mcmc.use_step_method(pymc.Metropolis, getattr(pymc_model, 'log_F_PL'), proposal_sd=1.0, proposal_distribution='Normal')
+#    mcmc.use_step_method(pymc.Metropolis, getattr(pymc_model, 'log_F_P'), proposal_sd=1.0, proposal_distribution='Normal')
+#    mcmc.use_step_method(pymc.Metropolis, getattr(pymc_model, 'log_F_L'), proposal_sd=1.0, proposal_distribution='Normal')
+#    mcmc.use_step_method(pymc.Metropolis, getattr(pymc_model, 'log_F_plate'), proposal_sd=1.0, proposal_distribution='Normal')
+#    mcmc.use_step_method(pymc.Metropolis, getattr(pymc_model, 'log_F_buffer'), proposal_sd=1.0, proposal_distribution='Normal')
+#    if hasattr(pymc_model, 'epsilon_ex'):
+#        mcmc.use_step_method(pymc.Metropolis, getattr(pymc_model, 'epsilon_ex'), proposal_sd=10000.0, proposal_distribution='Normal')
+#    if hasattr(pymc_model, 'epsilon_em'):
+#        mcmc.use_step_method(pymc.Metropolis, getattr(pymc_model, 'epsilon_em'), proposal_sd=10000.0, proposal_distribution='Normal')
 
     mcmc.sample(iter=(nburn+niter), burn=nburn, thin=nthin, progress_bar=False, tune_throughout=False)
 
