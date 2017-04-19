@@ -44,7 +44,19 @@ for j in string.ascii_uppercase:
     for i in range(1,25):
         well['%s' %j + '%s' %i] = i
 
-def quick_model(inputs):
+def quick_model(inputs, nsamples=20000, nthin=20):
+    """
+    Quick model single wavelength experiment
+
+    Parameters
+    ----------
+    inputs : dict
+        Dictionary of input information
+    nsamples : int, optional, default=20000
+        Number of MCMC samples to collect
+    nthin : int, optiona, default=20
+        Thinning interval ; number of MCMC steps per sample collected
+    """
 
     xml_files = glob("%s/*.xml" % inputs['xml_file_path'])
 
@@ -99,7 +111,11 @@ def quick_model(inputs):
             my_datetime = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
             my_datetime_filename = datetime.datetime.now().strftime("%Y-%m-%d %H%M")
 
-            mcmc = pymcmodels.run_mcmc(pymc_model, db = 'pickle', dbname = '%s_mcmc-%s.pickle'%(name,my_datetime))
+            nburn = 0 # no longer need burn-in since we do automated equilibration detection
+            niter = nthin*nsamples # former total simulation time
+            mcmc = pymcmodels.run_mcmc(pymc_model,
+                nthin=nthin, nburn=nburn, niter=niter,
+                db = 'pickle', dbname = '%s_mcmc-%s.pickle'%(name,my_datetime))
 
             map = pymcmodels.map_fit(pymc_model)
 
@@ -236,7 +252,19 @@ def quick_model(inputs):
             with open('%s-%s.json'%(name,my_datetime), 'w') as outfile:
                 json.dump(metadata, outfile, sort_keys = True, indent = 4, ensure_ascii=False)
 
-def quick_model_spectra(inputs):
+def quick_model_spectra(inputs, nsamples=20000, nthin=20):
+    """
+    Quick model spectra
+
+    Parameters
+    ----------
+    inputs : dict
+        Dictionary of input information
+    nsamples : int, optional, default=20000
+        Number of MCMC samples to collect
+    nthin : int, optiona, default=20
+        Thinning interval ; number of MCMC steps per sample collected
+    """
 
     for protein in inputs['file_set'].keys():
 
@@ -289,7 +317,11 @@ def quick_model_spectra(inputs):
             my_datetime = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
             my_datetime_filename = datetime.datetime.now().strftime("%Y-%m-%d %H%M")
 
-            mcmc = pymcmodels.run_mcmc(pymc_model, db = 'pickle', dbname = '%s_mcmc-%s.pickle'%(name,my_datetime))
+            nburn = 0 # no longer need burn-in since we do automated equilibration detection
+            niter = nthin*nsamples # former total simulation time
+            mcmc = pymcmodels.run_mcmc(pymc_model,
+                nthin=nthin, nburn=nburn, niter=niter,
+                db = 'pickle', dbname = '%s_mcmc-%s.pickle'%(name,my_datetime))
 
             map = pymcmodels.map_fit(pymc_model)
 
@@ -429,6 +461,8 @@ def entry_point():
     > python quickmodel.py --inputs 'inputs_example' """)
     parser.add_argument("--inputs", help="inputs file (python script, .py not needed)",default=None)
     parser.add_argument("--type", help="type of data (spectra, singlet)",choices=['spectra','singlet'],default='singlet')
+    parser.add_argument("--nsamples", help="number of samples",default=20000)
+    parser.add_argument("--nthin", help="thinning interval",default=20)
     args = parser.parse_args()
 
     # Define inputs
@@ -445,9 +479,9 @@ def entry_point():
     inputs['Pstated'] = np.asarray(inputs['Pstated'])
 
     if args.type == 'singlet':
-        quick_model(inputs)
+        quick_model(inputs, nsamples=args.nsamples, nthin=args.nthin)
     if args.type == 'spectra':
-        quick_model_spectra(inputs)
+        quick_model_spectra(inputs, nsamples=args.nsamples, nthin=args.nthin)
 
 if __name__ == '__main__':
     entry_point()
