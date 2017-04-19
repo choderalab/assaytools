@@ -14,6 +14,7 @@ import os
 import string
 import json
 import numpy as np
+import traceback
 
 import seaborn as sns
 import pymbar
@@ -71,7 +72,10 @@ def quick_model(inputs):
             try:
                 part1_data_protein = platereader.select_data(data, inputs['section'], protein_row)
                 part1_data_buffer = platereader.select_data(data, inputs['section'], buffer_row)
-            except:
+            except Exception as e:
+                # Print exception
+                print("An exception occurred while processing '%s' rows %s and %s:" % (my_file, protein_row, buffer_row))
+                print(traceback.print_exc())
                 continue
 
             reorder_protein = reorder2list(part1_data_protein,well)
