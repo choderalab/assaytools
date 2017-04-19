@@ -63,8 +63,14 @@ def LogNormalWrapper(name, mean, stddev, log_prefix='log_', size=1, observed=Fal
 
     """
     # Compute parameters of lognormal distribution
-    mu = np.log(mean**2 / np.sqrt(stddev**2 + mean**2))
-    tau = np.sqrt(np.log(1.0 + (stddev/mean)**2))**(-2)
+    @pymc.deterministic(name=name + '_mu')
+    def mu(mean=mean, stddev=stddev):
+        mu = np.log(mean**2 / np.sqrt(stddev**2 + mean**2))
+        return mu
+    @pymc.deterministic(name=name + '_tau')
+    def tau(mean=mean, stddev=stddev):
+        tau = np.sqrt(np.log(1.0 + (stddev/mean)**2))**(-2)
+        return tau
     if value is not None:
         value = np.log(value)
     stochastic = pymc.Normal(log_prefix + name, mu=mu, tau=tau, size=size, observed=observed, value=value)
@@ -266,17 +272,19 @@ def make_model(Pstated, dPstated, Lstated, dLstated,
     # Create priors on true concentrations of protein and ligand.
     if concentration_priors != 'lognormal':
         raise Exception("concentration_priors = '%s' unknown. Must be one of ['lognormal']." % concentration_priors)
-    model['log_Ptrue'], model['Ptrue'] = LogNormalWrapper('Ptrue', mean=Pstated, stddev=dPstated) # protein concentration (M)
-    model['log_Ltrue'], model['Ltrue'] = LogNormalWrapper('Ltrue', mean=Lstated, stddev=dLstated) # ligand concentration (M)
-    model['log_Ltrue_control'], model['Ltrue_control'] = LogNormalWrapper('Ltrue_control', mean=Lstated, stddev=dLstated) # ligand concentration (M)
+    model['log_Ptrue'], model['Ptrue'] = LogNormalWrapper('Ptrue', mean=Pstated, stddev=dPstated, size=Pstated.shape) # protein concentration (M)
+    model['log_Ltrue'], model['Ltrue'] = LogNormalWrapper('Ltrue', mean=Lstated, stddev=dLstated, size=Lstated.shape) # ligand concentration (M)
+    model['log_Ltrue_control'], model['Ltrue_control'] = LogNormalWrapper('Ltrue_control', mean=Lstated, stddev=dLstated, size=Lstated.shape) # ligand concentration (M)
 
     # extinction coefficient
+    model['epsilon_ex'] = 0.0
     if use_primary_inner_filter_correction:
         if epsilon_ex:
             model['log_epsilon_ex'], model['epsilon_ex'] = LogNormalWrapper('epsilon_ex', mean=epsilon_ex, stddev=depsilon_ex) # prior is centered on measured extinction coefficient
         else:
             model['epsilon_ex'] = pymc.Uniform('epsilon_ex', lower=0.0, upper=1000e3, value=70000.0) # extinction coefficient or molar absorptivity for ligand, units of 1/M/cm
 
+    model['epsilon_em'] = 0.0
     if use_secondary_inner_filter_correction:
         if epsilon_em:
             model['log_epsilon_em'], model['epsilon_em'] = LogNormalWrapper('epsilon_em', mean=epsilon_em, stddev=depsilon_em) # prior is centered on measured extinction coefficient
@@ -298,7 +306,7 @@ def make_model(Pstated, dPstated, Lstated, dLstated,
     F_plate_guess = Fmin
     F_buffer_guess = Fmin / path_length
     F_L_guess = (Fmax - Fmin) / Lstated.max()
-    F_P_guess = 0.0
+    F_P_guess = Fmin
     F_P_guess = Fmin / Pstated.min()
     F_PL_guess = (Fmax - Fmin) / min(Pstated.max(), Lstated.max())
 
@@ -358,22 +366,12 @@ def make_model(Pstated, dPstated, Lstated, dLstated,
     # Fluorescence model.
     from assaytools.bindingmodels import TwoComponentBindingModel
 
-    if hasattr(model, 'epsilon_ex'):
-        epsilon_ex = model['epsilon_ex']
-    else:
-        epsilon_ex = 0.0
-
-    if hasattr(model, 'epsilon_em'):
-        epsilon_em = model['epsilon_em']
-    else:
-        epsilon_em = 0.0
-
     if top_complex_fluorescence is not None:
         @pymc.deterministic
         def top_complex_fluorescence_model(F_plate=model['F_plate'], F_buffer=model['F_buffer'],
                                            F_PL=model['F_PL'], F_P=model['F_P'], F_L=model['F_L'],
-                                           Ptrue=Ptrue, Ltrue=Ltrue, DeltaG=DeltaG,
-                                           epsilon_ex=epsilon_ex, epsilon_em=epsilon_em):
+                                           Ptrue=model['Ptrue'], Ltrue=model['Ltrue'], DeltaG=model['DeltaG'],
+                                           epsilon_ex=model['epsilon_ex'], epsilon_em=model['epsilon_em']):
             [P_i, L_i, PL_i] = TwoComponentBindingModel.equilibrium_concentrations(DeltaG, Ptrue[:], Ltrue[:])
             IF_i = inner_filter_effect_attenuation(epsilon_ex, epsilon_em, path_length, L_i, geometry='top')
             IF_i_plate = np.exp(-(epsilon_ex+epsilon_em)*path_length*L_i) # inner filter effect applied only to plate
@@ -389,8 +387,8 @@ def make_model(Pstated, dPstated, Lstated, dLstated,
         @pymc.deterministic
         def top_ligand_fluorescence_model(F_plate=model['F_plate'], F_buffer=model['F_buffer'],
                                           F_L=model['F_L'],
-                                          Ltrue=Ltrue,
-                                          epsilon_ex=epsilon_ex, epsilon_em=epsilon_em):
+                                          Ltrue=model['Ltrue'],
+                                          epsilon_ex=model['epsilon_ex'], epsilon_em=model['epsilon_em']):
             IF_i = inner_filter_effect_attenuation(epsilon_ex, epsilon_em, path_length, Ltrue, geometry='top')
             IF_i_plate = np.exp(-(epsilon_ex+epsilon_em)*path_length*Ltrue) # inner filter effect applied only to plate
             Fmodel_i = IF_i[:]*(F_L*Ltrue + F_buffer*path_length) + IF_i_plate*F_plate
@@ -405,8 +403,8 @@ def make_model(Pstated, dPstated, Lstated, dLstated,
         @pymc.deterministic
         def bottom_complex_fluorescence_model(F_plate=model['F_plate'], F_buffer=model['F_buffer'],
                                               F_PL=model['F_PL'], F_P=model['F_P'], F_L=model['F_L'],
-                                              Ptrue=Ptrue, Ltrue=Ltrue, DeltaG=DeltaG,
-                                              epsilon_ex=epsilon_ex, epsilon_em=epsilon_em,
+                                              Ptrue=model['Ptrue'], Ltrue=model['Ltrue'], DeltaG=model['DeltaG'],
+                                              epsilon_ex=model['epsilon_ex'], epsilon_em=model['epsilon_em'],
                                               log_gain_bottom=model['log_gain_bottom']):
             [P_i, L_i, PL_i] = TwoComponentBindingModel.equilibrium_concentrations(DeltaG, Ptrue[:], Ltrue[:])
             IF_i = inner_filter_effect_attenuation(epsilon_ex, epsilon_em, path_length, L_i, geometry='bottom')
@@ -423,8 +421,8 @@ def make_model(Pstated, dPstated, Lstated, dLstated,
         @pymc.deterministic
         def bottom_ligand_fluorescence_model(F_plate=model['F_plate'], F_buffer=model['F_buffer'],
                                              F_PL=model['F_PL'], F_P=model['F_P'], F_L=model['F_L'],
-                                             Ltrue=Ltrue,
-                                             epsilon_ex=epsilon_ex, epsilon_em=epsilon_em,
+                                             Ltrue=model['Ltrue'],
+                                             epsilon_ex=model['epsilon_ex'], epsilon_em=model['epsilon_em'],
                                              log_gain_bottom=model['log_gain_bottom']):
             IF_i = inner_filter_effect_attenuation(epsilon_ex, epsilon_em, path_length, Ltrue, geometry='bottom')
             IF_i_plate = np.exp(-epsilon_ex*path_length*Ltrue) # inner filter effect applied only to plate
@@ -463,9 +461,9 @@ def make_model(Pstated, dPstated, Lstated, dLstated,
     if ligand_ex_absorbance is not None:
         model['plate_abs_ex'] = pymc.Uniform('plate_abs_ex', lower=0.0, upper=1.0, value=ligand_ex_absorbance.min())
         @pymc.deterministic
-        def ligand_ex_absorbance_model(Ltrue=Ltrue,
-                                       epsilon_ex=epsilon_ex,
-                                       plate_abs_ex=epsilon_em):
+        def ligand_ex_absorbance_model(Ltrue=model['Ltrue'],
+                                       epsilon_ex=model['epsilon_ex'],
+                                       plate_abs_ex=model['epsilon_em']):
             Fmodel_i = (1.0 - np.exp(-epsilon_ex*path_length*Ltrue)) + plate_abs_ex
             return Fmodel_i
         # Add to model.
@@ -684,11 +682,11 @@ def run_mcmc(pymc_model, nthin=50, nburn=500, niter=1000, map=True, db='ram', db
     mcmc = pymc.MCMC(pymc_model, db=db, dbname=dbname, name='Sampler', verbose=True)
 
     mcmc.use_step_method(pymc.Metropolis, getattr(pymc_model, 'DeltaG'), proposal_sd=1.0, proposal_distribution='Normal')
-    mcmc.use_step_method(pymc.Metropolis, getattr(pymc_model, 'F_PL'), proposal_sd=10.0, proposal_distribution='Normal')
-    mcmc.use_step_method(pymc.Metropolis, getattr(pymc_model, 'F_P'), proposal_sd=10.0, proposal_distribution='Normal')
-    mcmc.use_step_method(pymc.Metropolis, getattr(pymc_model, 'F_L'), proposal_sd=10.0, proposal_distribution='Normal')
-    mcmc.use_step_method(pymc.Metropolis, getattr(pymc_model, 'F_plate'), proposal_sd=10.0, proposal_distribution='Normal')
-    mcmc.use_step_method(pymc.Metropolis, getattr(pymc_model, 'F_buffer'), proposal_sd=10.0, proposal_distribution='Normal')
+    mcmc.use_step_method(pymc.Metropolis, getattr(pymc_model, 'log_F_PL'), proposal_sd=1.0, proposal_distribution='Normal')
+    mcmc.use_step_method(pymc.Metropolis, getattr(pymc_model, 'log_F_P'), proposal_sd=1.0, proposal_distribution='Normal')
+    mcmc.use_step_method(pymc.Metropolis, getattr(pymc_model, 'log_F_L'), proposal_sd=1.0, proposal_distribution='Normal')
+    mcmc.use_step_method(pymc.Metropolis, getattr(pymc_model, 'log_F_plate'), proposal_sd=1.0, proposal_distribution='Normal')
+    mcmc.use_step_method(pymc.Metropolis, getattr(pymc_model, 'log_F_buffer'), proposal_sd=1.0, proposal_distribution='Normal')
     if hasattr(pymc_model, 'epsilon_ex'):
         mcmc.use_step_method(pymc.Metropolis, getattr(pymc_model, 'epsilon_ex'), proposal_sd=10000.0, proposal_distribution='Normal')
     if hasattr(pymc_model, 'epsilon_em'):

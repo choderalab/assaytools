@@ -14,6 +14,7 @@ import os
 import string
 import json
 import numpy as np
+import traceback
 
 import seaborn as sns
 import pymbar
@@ -61,7 +62,7 @@ def quick_model(inputs):
             protein_row = ALPHABET[i]
             buffer_row = ALPHABET[i+1]
 
-            name = "%s-%s%s"%(inputs['ligand_order'][i/2],protein_row,buffer_row)
+            name = "%s-%s%s"%(inputs['ligand_order'][int(i/2)],protein_row,buffer_row)
 
             print(name)
 
@@ -71,7 +72,10 @@ def quick_model(inputs):
             try:
                 part1_data_protein = platereader.select_data(data, inputs['section'], protein_row)
                 part1_data_buffer = platereader.select_data(data, inputs['section'], buffer_row)
-            except:
+            except Exception as e:
+                # Print exception
+                print("An exception occurred while processing '%s' rows %s and %s:" % (my_file, protein_row, buffer_row))
+                print(traceback.print_exc())
                 continue
 
             reorder_protein = reorder2list(part1_data_protein,well)
@@ -111,7 +115,7 @@ def quick_model(inputs):
             [t,g,Neff_max] = pymbar.timeseries.detectEquilibration(mcmc.DeltaG.trace())
             DeltaG_equil = mcmc.DeltaG.trace()[t:].mean()
             dDeltaG_equil = mcmc.DeltaG.trace()[t:].std()
-            
+
             ## PLOT MODEL
             #from assaytools import plots
             #figure = plots.plot_measurements(Lstated, Pstated, pymc_model, mcmc=mcmc)
@@ -155,9 +159,9 @@ def quick_model(inputs):
                 clrs[idx] = (.5,.5,.5)
             for idx in gray_after:
                 clrs[idx] = (.5,.5,.5)
-           
+
             plt.subplot(312)
-            
+
             plt.bar(bin_edges[:-1],hist,binwidth,color=clrs, edgecolor = "white");
             sns.kdeplot(mcmc.DeltaG.trace()[t:],bw=.4,color=(0.39215686274509803, 0.7098039215686275, 0.803921568627451),shade=False)
             plt.axvline(x=interval[0],color=(0.5,0.5,0.5),linestyle='--')
@@ -167,8 +171,8 @@ def quick_model(inputs):
             plt.xlabel('$\Delta G$ ($k_B T$)',fontsize=16);
             plt.ylabel('$P(\Delta G)$',fontsize=16);
             plt.xlim(-35,-10)
-            hist_legend = mpatches.Patch(color=(0.7372549019607844, 0.5098039215686274, 0.7411764705882353), 
-                        label = '$\Delta G$ =  %.3g [%.3g,%.3g] $k_B T$' 
+            hist_legend = mpatches.Patch(color=(0.7372549019607844, 0.5098039215686274, 0.7411764705882353),
+                        label = '$\Delta G$ =  %.3g [%.3g,%.3g] $k_B T$'
                         %(interval[1],interval[0],interval[2]) )
             map_legend = mlines.Line2D([],[],color='black',label="MAP = %.1f $k_B T$"%DeltaG_map)
             plt.legend(handles=[hist_legend,map_legend],fontsize=14,loc=0,frameon=True);
@@ -251,7 +255,7 @@ def quick_model_spectra(inputs):
             protein_row = ALPHABET[i]
             buffer_row = ALPHABET[i+1]
 
-            name = "%s-%s-%s%s"%(protein,inputs['ligand_order'][i/2],protein_row,buffer_row)
+            name = "%s-%s-%s%s"%(protein,inputs['ligand_order'][int(i/2)],protein_row,buffer_row)
 
             print(name)
 
