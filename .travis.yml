@@ -30,6 +30,8 @@ script:
   - conda install --yes --quiet nose nose-timer
   # Test the package
   - cd devtools && nosetests $PACKAGENAME --nocapture --verbosity=2 --with-timer -a '!slow' && cd ..
+  # Run quickmodel
+  - pushd . && cd examples/direct-fluorescence-assay && env PYTHONPATH="./" quickmodel --inputs 'inputs_p38_singlet' && popd
   # Run IPython notebook tests
   # THIS NEEDS TO BE REPLACED WITH A PY3.x COMPATIBLE SCHEME
   #- source devtools/travis-ci/ipythontests.sh
