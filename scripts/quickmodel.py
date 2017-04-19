@@ -461,7 +461,7 @@ def entry_point():
     > python quickmodel.py --inputs 'inputs_example' """)
     parser.add_argument("--inputs", help="inputs file (python script, .py not needed)",default=None)
     parser.add_argument("--type", help="type of data (spectra, singlet)",choices=['spectra','singlet'],default='singlet')
-    parser.add_argument("--nsamples", help="number of samples",default=1000)
+    parser.add_argument("--nsamples", help="number of samples",default=10000)
     parser.add_argument("--nthin", help="thinning interval",default=20)
     args = parser.parse_args()
 
