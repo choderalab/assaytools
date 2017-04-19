@@ -664,7 +664,7 @@ def run_mcmc_emcee(pymc_model, nwalkers=100, nburn=100, niter=1000, nthin=None):
 
     return mcmc_model, pymc_model
 
-def run_mcmc(pymc_model, nthin=50, nburn=0, niter=20000, map=True, db='ram', dbname=None):
+def run_mcmc(pymc_model, nthin=20, nburn=0, niter=20000, map=True, db='ram', dbname=None):
     """
     Sample the model with pymc. Initial values of the parameters can be chosen with a maximum a posteriori estimate.
 

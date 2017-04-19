@@ -44,7 +44,7 @@ for j in string.ascii_uppercase:
     for i in range(1,25):
         well['%s' %j + '%s' %i] = i
 
-def quick_model(inputs, nsamples=20000, nthin=20):
+def quick_model(inputs, nsamples=1000, nthin=20):
     """
     Quick model single wavelength experiment
 
@@ -252,7 +252,7 @@ def quick_model(inputs, nsamples=20000, nthin=20):
             with open('%s-%s.json'%(name,my_datetime), 'w') as outfile:
                 json.dump(metadata, outfile, sort_keys = True, indent = 4, ensure_ascii=False)
 
-def quick_model_spectra(inputs, nsamples=20000, nthin=20):
+def quick_model_spectra(inputs, nsamples=1000, nthin=20):
     """
     Quick model spectra
 
@@ -461,7 +461,7 @@ def entry_point():
     > python quickmodel.py --inputs 'inputs_example' """)
     parser.add_argument("--inputs", help="inputs file (python script, .py not needed)",default=None)
     parser.add_argument("--type", help="type of data (spectra, singlet)",choices=['spectra','singlet'],default='singlet')
-    parser.add_argument("--nsamples", help="number of samples",default=20000)
+    parser.add_argument("--nsamples", help="number of samples",default=1000)
     parser.add_argument("--nthin", help="thinning interval",default=20)
     args = parser.parse_args()
 
