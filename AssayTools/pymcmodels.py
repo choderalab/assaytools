@@ -38,11 +38,15 @@ def LogNormalWrapper(name, mean, stddev, log_prefix='log_', size=1, observed=Fal
     Note that the resulting distribution is Normal, not LogNormal.
     This is appropriate if we want to describe the log of a volume or a fluorescence reading.
 
+    Notes
+    -----
+    Everything is coerced into a 1D array.
+
     Parameters
     ----------
-    mean : float
+    mean : float or array-like (but not pymc variable)
        Mean of exp(X), where X is lognormal variate.
-    stddev : float
+    stddev : float or array-like (but not pymc variable)
        Standard deviation of exp(X), where X is lognormal variate.
     log_prefix : str, optional, default='log_'
        Prefix appended to stochastic
@@ -62,23 +66,69 @@ def LogNormalWrapper(name, mean, stddev, log_prefix='log_', size=1, observed=Fal
        Deterministic encoding the exponentiated lognormal (real quantity)
 
     """
+    if observed and (value is not None):
+        # Compute parameters of lognormal distribution
+        @pymc.deterministic(name=name + '_mu')
+        def mu(mean=mean, stddev=stddev):
+            mu = np.log(mean**2 / np.sqrt(stddev**2 + mean**2))
+            return mu
+        @pymc.deterministic(name=name + '_tau')
+        def tau(mean=mean, stddev=stddev):
+            tau = np.sqrt(np.log(1.0 + (stddev/mean)**2))**(-2)
+            return tau
+        stochastic = pymc.Normal(log_prefix + name, mu=mu, tau=tau, size=size, observed=observed, value=np.log(value))
+
+        # Create deterministic from stochastic
+        @pymc.deterministic(name=name)
+        def deterministic(log_value=stochastic):
+            return value
+
+        return stochastic, deterministic
+
+    #
+    # Handle non-observed case
+    #
+
+    # Promote to array
+    if size == 1:
+        mean, stddev = np.array([mean]), np.array([stddev])
+        size = [1]
+
+    # Handle only strictly positive elements---all others are set to zero as constants
+    try:
+        nonzero_indices = np.where(mean > 0)[0]
+        zero_indices = np.where(mean <= 0)[0]
+    except:
+        nonzero_indices = range(size[0])
+        zero_indices = []
+    nnonzero = len(nonzero_indices)
+    nzeros = len(zero_indices)
+
     # Compute parameters of lognormal distribution
     @pymc.deterministic(name=name + '_mu')
     def mu(mean=mean, stddev=stddev):
+        if not np.isscalar(mean):
+            mean = mean[nonzero_indices]
+        if not np.isscalar(stddev):
+            stddev = stddev[nonzero_indices]
         mu = np.log(mean**2 / np.sqrt(stddev**2 + mean**2))
         return mu
     @pymc.deterministic(name=name + '_tau')
     def tau(mean=mean, stddev=stddev):
+        if not np.isscalar(mean):
+            mean = mean[nonzero_indices]
+        if not np.isscalar(stddev):
+            stddev = stddev[nonzero_indices]
         tau = np.sqrt(np.log(1.0 + (stddev/mean)**2))**(-2)
         return tau
-    if value is not None:
-        value = np.log(value)
-    stochastic = pymc.Normal(log_prefix + name, mu=mu, tau=tau, size=size, observed=observed, value=value)
+    stochastic = pymc.Normal(log_prefix + name, mu=mu, tau=tau, size=nnonzero)
 
     # Create deterministic from stochastic
     @pymc.deterministic(name=name)
     def deterministic(log_value=stochastic):
-        return np.exp(log_value)
+        value = np.zeros(size, np.float64)
+        value[nonzero_indices] = np.exp(log_value)
+        return value
 
     return stochastic, deterministic
 
@@ -143,8 +193,6 @@ def inner_filter_effect_attenuation(epsilon_ex, epsilon_em, path_length, concent
 def make_model(Pstated, dPstated, Lstated, dLstated,
                top_complex_fluorescence=None, top_ligand_fluorescence=None,
                bottom_complex_fluorescence=None, bottom_ligand_fluorescence=None,
-               top_protein_fluorescence=None, top_buffer_fluorescence=None,
-               bottom_protein_fluorescence=None, bottom_buffer_fluorescence=None,
                DG_prior='uniform',
                concentration_priors='lognormal',
                quantum_yield_priors='lognormal',
@@ -168,9 +216,10 @@ def make_model(Pstated, dPstated, Lstated, dLstated,
        Uncertainties currently cannot be zero.
     Lstated : numpy.array of N values
        Stated ligand concentrations for all protein:ligand and ligand wells of assay, which must be the same with and without protein. Units of molarity.
+       Zero concentrations will automatically be handled as special cases.
     dLstated : numpy.array of N values
        Absolute uncertainty in stated protein concentrations for all wells of assay. Units of molarity.
-       Uncertainties currently cannot be zero
+       Uncertainties cannot be zero if the corresponding concentration is nonzero.
     top_complex_fluorecence : numpy.array of N values, optional, default=None
        Fluorescence intensity (top) for protein:ligand mixture.
     top_ligand_fluorescence : numpy.array of N values, optional, default=None
@@ -179,14 +228,6 @@ def make_model(Pstated, dPstated, Lstated, dLstated,
        Fluorescence intensity (bottom) for protein:ligand mixture.
     bottom_ligand_fluorescence : numpy.array of N values, optional, default=None
        Fluorescence intensity (bottom) for ligand control.
-    top_protein_fluorescence : numpy.array of M values, optional, default=None
-       Fluorescence intensity (top) for protein control.
-    top_buffer_fluorescence : numpy.array of M values, optional, default=None
-       Fluorescence intensity (top) for buffer control.
-    bottom_protein_fluorescence : numpy.array of M values, optional, default=None
-       Fluorescence intensity (bottom) for protein control.
-    bottom_buffer_fluorescence : numpy.array of M values, optional, default=None
-       Fluorescence intensity (bottom) for buffer control.
     DG_prior : str, optional, default='uniform'
        Prior to use for reduced free energy of binding (DG): 'uniform' (uniform over reasonable range), or 'chembl' (ChEMBL-inspired distribution); default: 'uniform'
     concentration_priors : str, optional, default='lognormal'
@@ -253,8 +294,8 @@ def make_model(Pstated, dPstated, Lstated, dLstated,
         raise Exception('len(dLstated) [%d] must equal len(Lstated) [%d].' % (len(dLstated), len(Lstated)))
 
     # Note whether we have top or bottom fluorescence measurements.
-    top_fluorescence = (top_complex_fluorescence is not None) or (top_ligand_fluorescence is not None) or (top_protein_fluorescence is not None) or (top_buffer_fluorescence is not None) # True if any top fluorescence measurements provided
-    bottom_fluorescence = (bottom_complex_fluorescence is not None) or (bottom_ligand_fluorescence is not None) or (bottom_protein_fluorescence is not None) or (bottom_buffer_fluorescence is not None) # True if any bottom fluorescence measurements provided
+    top_fluorescence = (top_complex_fluorescence is not None) or (top_ligand_fluorescence is not None) # True if any top fluorescence measurements provided
+    bottom_fluorescence = (bottom_complex_fluorescence is not None) or (bottom_ligand_fluorescence is not None) # True if any bottom fluorescence measurements provided
 
     # Create an empty dict to hold the model.
     model = dict()
@@ -433,28 +474,6 @@ def make_model(Pstated, dPstated, Lstated, dLstated,
         model['log_bottom_ligand_fluorescence'], model['bottom_ligand_fluorescence'] = LogNormalWrapper('bottom_ligand_fluorescence',
                                                           mean=model['bottom_ligand_fluorescence_model'], stddev=model['sigma_bottom'],
                                                           size=[N], observed=True, value=bottom_ligand_fluorescence) # observed data
-
-    # Protein in buffer (no ligand)
-    # TODO: Do we need a separate Ptrue for the protein_fluorescence wells where [L] = 0?
-    if top_protein_fluorescence is not None:
-        @pymc.deterministic
-        def top_protein_fluorescence_model(F_plate=model['F_plate'], F_buffer=model['F_buffer'],
-                                           F_P=model['F_P'], Ptrue=Ptrue):
-            Fmodel_i = F_P*Ptrue + F_L*Ltrue + F_buffer*path_length + F_plate
-            return Fmodel_i
-        # Add to model.
-        model['top_protein_fluorescence_model'] = top_protein_fluorescence_model
-        model['log_top_protein_fluorescence'], model['top_protein_fluorescence'] = LogNormalWrapper('top_protein_fluorescence',
-                                                       mean=model['top_protein_fluorescence_model'], stddev=model['sigma_top'],
-                                                       size=[N], observed=True, value=top_protein_fluorescence) # observed data
-
-    # TODO: bottom_protein_fluorescence
-
-    # Buffer only (no ligand)
-
-    # TODO: top_buffer_fluorescence
-
-    # TODO: bottom_buffer_fluorescence
 
     # Absorbance measurements
 
@@ -645,7 +664,7 @@ def run_mcmc_emcee(pymc_model, nwalkers=100, nburn=100, niter=1000, nthin=None):
 
     return mcmc_model, pymc_model
 
-def run_mcmc(pymc_model, nthin=50, nburn=500, niter=1000, map=True, db='ram', dbname=None):
+def run_mcmc(pymc_model, nthin=50, nburn=0, niter=20000, map=True, db='ram', dbname=None):
     """
     Sample the model with pymc. Initial values of the parameters can be chosen with a maximum a posteriori estimate.
 

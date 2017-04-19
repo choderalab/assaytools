@@ -72,6 +72,15 @@ class TwoComponentBindingModel(BindingModel):
          Bound complex concentration, molarity.
 
       """
+      # Handle only strictly positive elements---all others are set to zero as constants
+      try:
+          nonzero_indices = np.where(Ltot > 0)[0]
+          zero_indices = np.where(Ltot <= 0)[0]
+      except:
+          nonzero_indices = range(size[0])
+          zero_indices = []
+      nnonzero = len(nonzero_indices)
+      nzeros = len(zero_indices)
 
       # Original form:
       #Kd = np.exp(DeltaG)
@@ -79,14 +88,16 @@ class TwoComponentBindingModel(BindingModel):
       #sqrt_arg[sqrt_arg < 0.0] = 0.0
       #PL = 0.5 * ((Ptot + Ltot + Kd) - np.sqrt(sqrt_arg));  # complex concentration (M)
 
+
       # Numerically stable variant?
-      logP = np.log(Ptot)
-      logL = np.log(Ltot)
+      PL = np.zeros(Ptot.shape)
+      logP = np.log(Ptot[nonzero_indices])
+      logL = np.log(Ltot[nonzero_indices])
       logPLK = np.logaddexp(np.logaddexp(logP, logL), DeltaG)
       PLK = np.exp(logPLK);
       sqrt_arg = 1.0 - np.exp(np.log(4.0) + logP + logL - 2*logPLK);
       sqrt_arg[sqrt_arg < 0.0] = 0.0 # ensure always positive
-      PL = 0.5 * PLK * (1.0 - np.sqrt(sqrt_arg));  # complex concentration (M)
+      PL[nonzero_indices] = 0.5 * PLK * (1.0 - np.sqrt(sqrt_arg));  # complex concentration (M)
 
       # Another variant
       #PL = 2*Ptot*Ltot / ((Ptot+Ltot+Kd) + np.sqrt((Ptot + Ltot + Kd)**2 - 4*Ptot*Ltot));  # complex concentration (M)
