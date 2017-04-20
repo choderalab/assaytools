@@ -715,7 +715,7 @@ def run_mcmc(pymc_model, nthin=20, nburn=0, niter=20000, map=True, db='ram', dbn
     if hasattr(pymc_model, 'epsilon_em'):
         mcmc.use_step_method(pymc.Metropolis, getattr(pymc_model, 'epsilon_em'), proposal_sd=10000.0, proposal_distribution='Normal')
     # log_F_PL is highly correlated with DeltaG
-    mcmc.use_step_method(pymc.AdaptiveMetropolis, [pymc_model.log_F_PL, pymc_model.DeltaG], scales={ pymc_model.log_F_PL : 0.01, pymc_model.DeltaG : 0.01  })
+    mcmc.use_step_method(pymc.AdaptiveMetropolis, [pymc_model.log_F_PL, pymc_model.DeltaG], scales={ pymc_model.log_F_PL : 0.1, pymc_model.DeltaG : 0.1  })
 
     mcmc.sample(iter=(nburn+niter), burn=nburn, thin=nthin, progress_bar=False, tune_throughout=True)
 
