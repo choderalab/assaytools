@@ -717,7 +717,7 @@ def run_mcmc(pymc_model, nthin=20, nburn=0, niter=20000, map=True, db='ram', dbn
     # log_F_PL is highly correlated with DeltaG
     mcmc.use_step_method(pymc.AdaptiveMetropolis, [pymc_model.log_F_PL, pymc_model.DeltaG], scales={ pymc_model.log_F_PL : 0.01, pymc_model.DeltaG : 0.01  })
 
-    mcmc.sample(iter=(nburn+niter), burn=nburn, thin=nthin, progress_bar=False, tune_throughout=False)
+    mcmc.sample(iter=(nburn+niter), burn=nburn, thin=nthin, progress_bar=False, tune_throughout=True)
 
     return mcmc
 
