@@ -44,11 +44,14 @@ concentration_unit = Unit(1.0, 'moles/liter')
 # SUBROUTINES
 #=============================================================================================
 
-def LogNormalWrapper(name, mean, stddev):
+def LogNormalWrapper(name, mean, stddev, observed=False, value=None, log_trace=True, trace=True):
     """
     Create a PyMC Normal stochastic, automatically converting parameters to be appropriate for a `LogNormal` distribution.
     Note that the resulting distribution is Normal, not LogNormal.
     This is appropriate if we want to describe the log of a volume or a fluorescence reading.
+
+    # TODO: Automatically generate corresponding deterministic
+    # TODO: Squeeze out mean=0 entries from stochastic to allow for zero concentrations
 
     Parameters
     ----------
@@ -56,18 +59,38 @@ def LogNormalWrapper(name, mean, stddev):
        Mean of exp(X), where X is lognormal variate.
     stddev : float
        Standard deviation of exp(X), where X is lognormal variate.
+    observed : bool, optional, False
+       If True, the values are observed
+    value : float, optional, default=None
+       The observed values; observed must be True if provided.
 
     Returns
     -------
     stochastic : pymc.Normal
-       Normal stochastic for random variable X
+       Stochastic version of log quantity
+    deterministic
+       Deterministic version of real quantity
 
     """
     # Compute parameters of lognormal distribution
-    mu = np.log(mean**2 / np.sqrt(stddev**2 + mean**2))
-    tau = np.sqrt(np.log(1.0 + (stddev/mean)**2))**(-2)
-    stochastic = pymc.Normal(name, mu=mu, tau=tau)
-    return stochastic
+    @pymc.deterministic
+    def mu(mean=mean, stddev=stddev):
+        return np.log(mean**2 / np.sqrt(stddev**2 + mean**2))
+    @pymc.deterministic
+    def tau(mean=mean, stddev=stddev):
+        return np.sqrt(np.log(1.0 + (stddev/mean)**2))**(-2)
+
+    # Create stochastic
+    logname = 'log ' + name
+    stochastic = pymc.Normal(logname, mu=mu, tau=tau, trace=log_trace, observed=observed, value=value)
+
+    # Create deterministic
+    if observed:
+        deterministic = value
+    else:
+        deterministic = pymc.Lambda(name, lambda log_quantity=stochastic: np.exp(log_quantity), trace=trace)
+
+    return stochastic, deterministic
 
 def wellname(well):
     """
@@ -156,8 +179,9 @@ class CompetitiveBindingAnalysis(object):
         for solution in self.solutions.values():
             if solution.species is None:
                 continue # skip buffers or pure solvents
-            name = 'log concentration of %s' % solution.shortname
-            self.model[name] = LogNormalWrapper(name, mean=solution.concentration.to_base_units().m, stddev=solution.uncertainty.to_base_units().m)
+            name = 'concentration of %s' % solution.shortname
+            self.model['log ' + name], self.model[name] = LogNormalWrapper(name, mean=solution.concentration.to_base_units().m, stddev=solution.uncertainty.to_base_units().m)
+            self.parameter_names['solution concentrations'].append('log ' + name)
             self.parameter_names['solution concentrations'].append(name)
 
     def _identify_ligand_names(self):
@@ -192,26 +216,19 @@ class CompetitiveBindingAnalysis(object):
             log_volumes = list() # log volumes are in Liters
             for component in well.properties['contents']:
                 name = 'volume of %s dispensed into well %s' % (component, wellname(well))
-                logname = 'log %s' % name
+                logname = 'log ' + name
                 (volume, error) = well.properties['contents'][component]
-                log_volume_dispensed = LogNormalWrapper(logname, mean=volume.to_base_units().m, stddev=error.to_base_units().m)
-                self.model[logname] = log_volume_dispensed
-                #self.parameter_names['dispensed volumes'].append(logname)
-                log_volumes.append(log_volume_dispensed)
-                # Store real (non-log) value
-                self.model[name] = pymc.Lambda(name, lambda log_quantity=self.model[logname]: np.exp(log_quantity) / volume_unit.to_base_units().m, trace=True)
+                self.model[logname], self.model[name] =  LogNormalWrapper(name, mean=volume.to_base_units().m, stddev=error.to_base_units().m)
+                log_volumes.append(self.model[logname])
+                self.parameter_names['dispensed volumes'].append(logname)
                 self.parameter_names['dispensed volumes'].append(name)
 
             # Total volume in well
             name = 'volume of well %s' % wellname(well)
-            logname = 'log %s' % name
-            @pymc.deterministic(name=logname)
-            def log_total_volume(log_volumes=log_volumes):
-                return logsumexp(log_volumes)
-            self.model[logname] = log_total_volume
-            #self.parameter_names['well volumes'].append(logname)
-            # Store real (non-log) value
-            self.model[name] = pymc.Lambda(name, lambda log_quantity=self.model[logname]: np.exp(log_quantity) / volume_unit.to_base_units().m, trace=True)
+            logname = 'log ' + name
+            self.model[logname] = pymc.Lambda(logname, lambda log_volumes=log_volumes: logsumexp(log_volumes))
+            self.model[name] = pymc.Lambda(name, lambda log_total_volume=self.model[logname]: np.exp(log_total_volume), trace=True)
+            self.parameter_names['well volumes'].append(logname)
             self.parameter_names['well volumes'].append(name)
 
             # Total concentration of all species involving each component in well
@@ -231,7 +248,7 @@ class CompetitiveBindingAnalysis(object):
                 def log_total_concentration(log_solution_concentration=log_solution_concentration, log_solution_volume=log_solution_volume, log_total_volume=log_total_volume):
                     return log_solution_concentration + log_solution_volume - log_total_volume
                 self.model[logname] = log_total_concentration
-                #self.parameter_names['well concentrations'].append(logname)
+                self.parameter_names['well concentrations'].append(logname)
                 # Store real (non-log) value
                 self.model[name] = pymc.Lambda(name, lambda log_quantity=self.model[logname]: np.exp(log_quantity) / concentration_unit.to_base_units().m, trace=True)
                 self.parameter_names['well concentrations'].append(name)
@@ -638,6 +655,10 @@ class CompetitiveBindingAnalysis(object):
                 self.model[logname] = pymc.Uniform(logname, lower=MIN_LOG_FLUORESCENCE_UNCERTAINTY, upper=MAX_LOG_FLUORESCENCE_UNCERTAINTY, value=0)
                 #self.parameter_names['fluorescence'].append(name)
 
+                name = 'top fluorescence uncertainty'
+                self.model[name] = pymc.Lambda(name, lambda log_sigma=self.model[logname] : np.exp(log_sigma))
+                #self.parameter_names['fluorescence'].append(name)
+
                 name = 'top fluorescence precision'
                 self.model[name] = pymc.Lambda(name, lambda log_sigma=self.model[logname] : np.exp(-2*log_sigma))
                 self.parameter_names['fluorescence'].append(name)
@@ -646,6 +667,10 @@ class CompetitiveBindingAnalysis(object):
                 name = 'bottom fluorescence log illumination intensity'
                 self.model[name] = pymc.Uniform(name, lower=MIN_LOG_FLUORESCENCE_INTENSITY, upper=MAX_LOG_FLUORESCENCE_INTENSITY, value=0)
                 self.parameter_names['fluorescence'].append(name)
+
+                name = 'bottom fluorescence uncertainty'
+                self.model[name] = pymc.Lambda(name, lambda log_sigma=self.model[logname] : np.exp(log_sigma))
+                #self.parameter_names['fluorescence'].append(name)
 
                 logname = 'bottom fluorescence log uncertainty'
                 self.model[logname] = pymc.Uniform(logname, lower=MIN_LOG_FLUORESCENCE_UNCERTAINTY, upper=MAX_LOG_FLUORESCENCE_UNCERTAINTY, value=0)
@@ -728,7 +753,9 @@ class CompetitiveBindingAnalysis(object):
 
                     measured_fluorescence = measurements['fluorescence'][(excitation_wavelength, emission_wavelength, geometry)]
                     name = 'measured %s fluorescence of well %s at excitation wavelength %s and emission wavelength %s' % (geometry, wellname(well), excitation_wavelength, emission_wavelength)
-                    self.model[name] = pymc.Normal(name, mu=fluorescence_model, tau=self.model['%s fluorescence precision' % geometry], observed=True, value=measured_fluorescence)
+                    logname = 'log ' + name
+                    self.model[logname], self.model[name] = LogNormalWrapper(name, mean=fluorescence_model, stddev=self.model['%s fluorescence uncertainty' % geometry], observed=True, value=measured_fluorescence)
+                    self.parameter_names['fluorescence'].append(logname)
                     self.parameter_names['fluorescence'].append(name)
 
     def map_fit(self):
