@@ -199,6 +199,10 @@ In the :mod:`pymc` model, these priors are implemented via ::
   model['F_plate'] = pymc.Uniform('F_plate', lower=0.0, upper=Fmax, value=F_plate_guess)
   model['F_buffer'] = pymc.Uniform('F_buffer', lower=0.0, upper=Fmax/path_length, value=F_buffer_guess)
 
+If an estimate of :math:`F_{PL}` is known from a prior experiment, this value and its standard error can be specified via a lognormal distribution ::
+
+  model['F_PL'] = pymc.Lognormal('F_PL', mu=np.log(F_PL**2 / np.sqrt(dF_PL**2 + F_PL**2)), tau=np.sqrt(np.log(1.0 + (dF_PL/F_PL)**2))**(-2))
+  
 Top/bottom detector gain.
 """""""""""""""""""""""""
 .. _detector-gain:

@@ -14,6 +14,7 @@ import os
 import string
 import json
 import numpy as np
+import traceback
 
 import seaborn as sns
 import pymbar
@@ -43,7 +44,19 @@ for j in string.ascii_uppercase:
     for i in range(1,25):
         well['%s' %j + '%s' %i] = i
 
-def quick_model(inputs):
+def quick_model(inputs, nsamples=1000, nthin=20):
+    """
+    Quick model single wavelength experiment
+
+    Parameters
+    ----------
+    inputs : dict
+        Dictionary of input information
+    nsamples : int, optional, default=20000
+        Number of MCMC samples to collect
+    nthin : int, optiona, default=20
+        Thinning interval ; number of MCMC steps per sample collected
+    """
 
     xml_files = glob("%s/*.xml" % inputs['xml_file_path'])
 
@@ -61,7 +74,7 @@ def quick_model(inputs):
             protein_row = ALPHABET[i]
             buffer_row = ALPHABET[i+1]
 
-            name = "%s-%s%s"%(inputs['ligand_order'][i/2],protein_row,buffer_row)
+            name = "%s-%s%s"%(inputs['ligand_order'][int(i/2)],protein_row,buffer_row)
 
             print(name)
 
@@ -71,7 +84,10 @@ def quick_model(inputs):
             try:
                 part1_data_protein = platereader.select_data(data, inputs['section'], protein_row)
                 part1_data_buffer = platereader.select_data(data, inputs['section'], buffer_row)
-            except:
+            except Exception as e:
+                # Print exception
+                print("An exception occurred while processing '%s' rows %s and %s:" % (my_file, protein_row, buffer_row))
+                print(traceback.print_exc())
                 continue
 
             reorder_protein = reorder2list(part1_data_protein,well)
@@ -95,7 +111,11 @@ def quick_model(inputs):
             my_datetime = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
             my_datetime_filename = datetime.datetime.now().strftime("%Y-%m-%d %H%M")
 
-            mcmc = pymcmodels.run_mcmc(pymc_model, db = 'pickle', dbname = '%s_mcmc-%s.pickle'%(name,my_datetime))
+            nburn = 0 # no longer need burn-in since we do automated equilibration detection
+            niter = nthin*nsamples # former total simulation time
+            mcmc = pymcmodels.run_mcmc(pymc_model,
+                nthin=nthin, nburn=nburn, niter=niter,
+                db = 'pickle', dbname = '%s_mcmc-%s.pickle'%(name,my_datetime))
 
             map = pymcmodels.map_fit(pymc_model)
 
@@ -111,7 +131,7 @@ def quick_model(inputs):
             [t,g,Neff_max] = pymbar.timeseries.detectEquilibration(mcmc.DeltaG.trace())
             DeltaG_equil = mcmc.DeltaG.trace()[t:].mean()
             dDeltaG_equil = mcmc.DeltaG.trace()[t:].std()
-            
+
             ## PLOT MODEL
             #from assaytools import plots
             #figure = plots.plot_measurements(Lstated, Pstated, pymc_model, mcmc=mcmc)
@@ -126,10 +146,14 @@ def quick_model(inputs):
             property_name = 'top_ligand_fluorescence'
             ligand = getattr(pymc_model, property_name)
             #plt.semilogx(inputs['Lstated'], ligand.value, 'ro',label='ligand')
-            for top_complex_fluorescence_model in mcmc.top_complex_fluorescence_model.trace()[::10]:
-                plt.semilogx(inputs['Lstated'], top_complex_fluorescence_model, marker='.',color='silver')
-            for top_ligand_fluorescence_model in mcmc.top_ligand_fluorescence_model.trace()[::10]:
-                plt.semilogx(inputs['Lstated'], top_ligand_fluorescence_model, marker='.',color='lightcoral', alpha=0.2)
+            for top_complex_fluorescence_model in mcmc.top_complex_fluorescence_model.trace()[:t:10]:
+                plt.semilogx(inputs['Lstated'], top_complex_fluorescence_model, marker='',color='silver', alpha=0.8)
+            for top_complex_fluorescence_model in mcmc.top_complex_fluorescence_model.trace()[t::10]:
+                plt.semilogx(inputs['Lstated'], top_complex_fluorescence_model, marker='',color='silver', alpha=0.2)
+            for top_ligand_fluorescence_model in mcmc.top_ligand_fluorescence_model.trace()[:t:10]:
+                plt.semilogx(inputs['Lstated'], top_ligand_fluorescence_model, marker='',color='lightcoral', alpha=0.8)
+            for top_ligand_fluorescence_model in mcmc.top_ligand_fluorescence_model.trace()[t::10]:
+                plt.semilogx(inputs['Lstated'], top_ligand_fluorescence_model, marker='',color='lightcoral', alpha=0.2)
             plt.semilogx(inputs['Lstated'], complex.value, 'ko',label='complex')
             plt.semilogx(inputs['Lstated'], ligand.value, marker='o',color='firebrick',linestyle='None',label='ligand')
 
@@ -155,9 +179,9 @@ def quick_model(inputs):
                 clrs[idx] = (.5,.5,.5)
             for idx in gray_after:
                 clrs[idx] = (.5,.5,.5)
-           
+
             plt.subplot(312)
-            
+
             plt.bar(bin_edges[:-1],hist,binwidth,color=clrs, edgecolor = "white");
             sns.kdeplot(mcmc.DeltaG.trace()[t:],bw=.4,color=(0.39215686274509803, 0.7098039215686275, 0.803921568627451),shade=False)
             plt.axvline(x=interval[0],color=(0.5,0.5,0.5),linestyle='--')
@@ -167,8 +191,8 @@ def quick_model(inputs):
             plt.xlabel('$\Delta G$ ($k_B T$)',fontsize=16);
             plt.ylabel('$P(\Delta G)$',fontsize=16);
             plt.xlim(-35,-10)
-            hist_legend = mpatches.Patch(color=(0.7372549019607844, 0.5098039215686274, 0.7411764705882353), 
-                        label = '$\Delta G$ =  %.3g [%.3g,%.3g] $k_B T$' 
+            hist_legend = mpatches.Patch(color=(0.7372549019607844, 0.5098039215686274, 0.7411764705882353),
+                        label = '$\Delta G$ =  %.3g [%.3g,%.3g] $k_B T$'
                         %(interval[1],interval[0],interval[2]) )
             map_legend = mlines.Line2D([],[],color='black',label="MAP = %.1f $k_B T$"%DeltaG_map)
             plt.legend(handles=[hist_legend,map_legend],fontsize=14,loc=0,frameon=True);
@@ -232,7 +256,19 @@ def quick_model(inputs):
             with open('%s-%s.json'%(name,my_datetime), 'w') as outfile:
                 json.dump(metadata, outfile, sort_keys = True, indent = 4, ensure_ascii=False)
 
-def quick_model_spectra(inputs):
+def quick_model_spectra(inputs, nsamples=1000, nthin=20):
+    """
+    Quick model spectra
+
+    Parameters
+    ----------
+    inputs : dict
+        Dictionary of input information
+    nsamples : int, optional, default=20000
+        Number of MCMC samples to collect
+    nthin : int, optiona, default=20
+        Thinning interval ; number of MCMC steps per sample collected
+    """
 
     for protein in inputs['file_set'].keys():
 
@@ -251,7 +287,7 @@ def quick_model_spectra(inputs):
             protein_row = ALPHABET[i]
             buffer_row = ALPHABET[i+1]
 
-            name = "%s-%s-%s%s"%(protein,inputs['ligand_order'][i/2],protein_row,buffer_row)
+            name = "%s-%s-%s%s"%(protein,inputs['ligand_order'][int(i/2)],protein_row,buffer_row)
 
             print(name)
 
@@ -285,7 +321,11 @@ def quick_model_spectra(inputs):
             my_datetime = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
             my_datetime_filename = datetime.datetime.now().strftime("%Y-%m-%d %H%M")
 
-            mcmc = pymcmodels.run_mcmc(pymc_model, db = 'pickle', dbname = '%s_mcmc-%s.pickle'%(name,my_datetime))
+            nburn = 0 # no longer need burn-in since we do automated equilibration detection
+            niter = nthin*nsamples # former total simulation time
+            mcmc = pymcmodels.run_mcmc(pymc_model,
+                nthin=nthin, nburn=nburn, niter=niter,
+                db = 'pickle', dbname = '%s_mcmc-%s.pickle'%(name,my_datetime))
 
             map = pymcmodels.map_fit(pymc_model)
 
@@ -425,6 +465,8 @@ def entry_point():
     > python quickmodel.py --inputs 'inputs_example' """)
     parser.add_argument("--inputs", help="inputs file (python script, .py not needed)",default=None)
     parser.add_argument("--type", help="type of data (spectra, singlet)",choices=['spectra','singlet'],default='singlet')
+    parser.add_argument("--nsamples", help="number of samples",default=10000, type=int)
+    parser.add_argument("--nthin", help="thinning interval",default=20, type=int)
     args = parser.parse_args()
 
     # Define inputs
@@ -441,9 +483,9 @@ def entry_point():
     inputs['Pstated'] = np.asarray(inputs['Pstated'])
 
     if args.type == 'singlet':
-        quick_model(inputs)
+        quick_model(inputs, nsamples=args.nsamples, nthin=args.nthin)
     if args.type == 'spectra':
-        quick_model_spectra(inputs)
+        quick_model_spectra(inputs, nsamples=args.nsamples, nthin=args.nthin)
 
 if __name__ == '__main__':
     entry_point()

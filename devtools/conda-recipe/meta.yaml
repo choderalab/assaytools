@@ -25,6 +25,7 @@ requirements:
     - notebook
     - autoprotocol
     - mock
+    - pymbar
 
   run:
     - python
@@ -40,6 +41,7 @@ requirements:
     - ipython
     - notebook
     - autoprotocol
+    - pymbar
     - libgfortran ==1.0.0 [linux]
 
 test:
