@@ -808,15 +808,15 @@ class CompetitiveBindingAnalysis(object):
         # TODO: Allow
         mcmc = pymc.MCMC(self.model, db='sqlite', name='output', verbose=True)
 
-        nthin = 10
-        nburn = nthin*100
-        niter = nthin*100
+        nthin = 20
+        nburn = nthin*0
+        niter = nthin*10000
 
         # Specify initial parameter standard deviations to apply to specific classes of parameters
         keywords = {
             'concentration' : 0.1,
             'affinity' : 0.1,
-            'volume' : 0.01,
+            'volume' : 0.1,
         }
 
         print('Assigning initial guesses for Metropolis step method proposal standard deviations:')
