@@ -33,9 +33,9 @@ C0 = 1.0 # standard concentration (M)
 
 DG_min = np.log(1e-15) # kT, most favorable (negative) binding free energy possible; 1 fM
 DG_max = +0 # kT, least favorable binding free energy possible
-niter = 500000 # number of iterations
-nburn = 50000 # number of burn-in iterations to discard
-nthin = 500 # thinning interval
+niter = 10000 # number of iterations
+nburn = 0 # number of burn-in iterations to discard
+nthin = 1 # thinning interval
 
 volume_unit = Unit(1.0, 'liter')
 concentration_unit = Unit(1.0, 'moles/liter')
@@ -450,7 +450,7 @@ class CompetitiveBindingAnalysis(object):
                 if len(reactions)==0 or len(conservation_equations)==0:
                     raise Exception(reactions, conservation_equations)
                 initial_time = time.time()
-                solution = GeneralBindingModel.equilibrium_concentrations(reactions, conservation_equations)
+                solution = GeneralBindingModel.equilibrium_concentrations(tuple(reactions), tuple(conservation_equations))
                 final_time = time.time()
                 elapsed_time = final_time - initial_time
                 #print('  GeneralBindingModel elapased time: %.6f s' % elapsed_time)
@@ -778,8 +778,8 @@ class CompetitiveBindingAnalysis(object):
         """
 
         # DEBUG: Write model
-        print('Writing graph...')
-        pymc.graph.moral_graph(self.model, format='ps')
+        #print('Writing graph...')
+        #pymc.graph.moral_graph(self.model, format='ps')
 
         # Sample the model with pymc
         # TODO: Allow

@@ -11,6 +11,7 @@ Various ligand binding models for use in assays.
 
 import numpy as np
 import copy
+import time
 
 import scipy.optimize
 import scipy.integrate
@@ -38,6 +39,49 @@ class BindingModel(object):
     def __init__(self):
         pass
 
+
+#=============================================================================================
+# LRU cache that supports mutable args
+#=============================================================================================
+
+import typing
+from collections import OrderedDict
+from functools import lru_cache, wraps
+
+def lru_cache2(size=128):
+
+    cache = OrderedDict()
+
+    def make_key(x):
+        if isinstance(x, typing.Mapping):
+            return (id(type(x)), *((k, make_key(v)) for k, v in sorted(x.items())))
+        elif isinstance(x, typing.Set):
+            return (id(type(x)), *map(make_key, sorted(x)))
+        elif isinstance(x, typing.Sequence):
+            return (id(type(x)), *map(make_key, x))
+        else:
+            try:
+                hash(x)
+            except TypeError:
+                return id(type(x)), str(x)
+            else:
+                return id(type(x)), x
+
+    def decorator(fn):
+        @wraps(fn)
+        def wrapped(*args, **kwargs):
+            key = make_key((id(fn), args, kwargs))
+            try:
+                return cache[key]
+            except KeyError:
+                res = fn(*args, **kwargs)
+                cache[key] = res
+                while len(cache) >= size:
+                    cache.popitem(last=False)
+                return res
+        return wrapped
+    return decorator
+
 #=============================================================================================
 # Two-component binding model
 #=============================================================================================
@@ -47,7 +91,6 @@ class TwoComponentBindingModel(BindingModel):
    Simple two-component association.
 
    """
-
    @classmethod
    def equilibrium_concentrations(cls, DeltaG, Ptot, Ltot):
       """
@@ -72,6 +115,8 @@ class TwoComponentBindingModel(BindingModel):
          Bound complex concentration, molarity.
 
       """
+      initial_time = time.time()
+
       # Handle only strictly positive elements---all others are set to zero as constants
       try:
           nonzero_indices = np.where(Ltot > 0)[0]
@@ -118,6 +163,7 @@ class TwoComponentBindingModel(BindingModel):
       # Compute remaining concentrations.
       P = Ptot - PL; # free protein concentration in sample cell after n injections (M)
       L = Ltot - PL; # free ligand concentration in sample cell after n injections (M)
+
       return [P, L, PL]
 
 #=============================================================================================
@@ -130,7 +176,11 @@ class GeneralBindingModel(BindingModel):
 
    """
 
+   _time = 0
+   _ncalls = 0
+
    @classmethod
+   #@lru_cache2(size=128)
    def equilibrium_concentrations(cls, reactions, conservation_equations, tol=1.0e-8):
       """
       Compute the equilibrium concentrations of each complex species for a general set of binding reactions.
@@ -187,6 +237,10 @@ class GeneralBindingModel(BindingModel):
       nspecies = len(all_species)
 
       # Construct function with appropriate roots.
+      # TODO: Meta-program efficient form of target function for speed?
+      # TODO: Form the logK, logQ, S, and C  matrices in numpy outside of this function so that operations can be numpy-accelerated
+      # http://assaytools.readthedocs.io/en/latest/theory.html#general-binding-model
+      # Rewrite theory docs in these matrices as well.
       def ftarget(X):
           target = np.zeros([nequations], np.float64)
           jacobian = np.zeros([nequations, nspecies], np.float64)
@@ -221,6 +275,16 @@ class GeneralBindingModel(BindingModel):
 
           return (target, jacobian)
 
+      # Variant of taret function for minimization
+      def ftarget_minimize(X):
+          (target, jacobian) = ftarget(X)
+          (nequations, nspecies) = jacobian.shape
+          objective = (target**2).sum(0)
+          target = np.reshape(target, (nequations,1))
+          target = np.tile(target, (1,nspecies))
+          gradient = (2*target*jacobian).sum(0)
+          return (objective, gradient)
+
       # Construct initial guess
       # We assume that all matter is equally spread out among all species via the conservation equations
       from scipy.misc import logsumexp
@@ -236,7 +300,16 @@ class GeneralBindingModel(BindingModel):
       # Solve
       from scipy.optimize import root
       options = {'xtol' : tol}
+      initial_time = time.time()
       sol = root(ftarget, X, method='lm', jac=True, tol=tol, options=options)
+      #from scipy.optimize import minimize
+      #sol = minimize(ftarget_minimize, X * 0, method='L-BFGS-B', jac=True, tol=tol, options=options)
+      final_time = time.time()
+      cls._time += (final_time - initial_time)
+      cls._ncalls += 1
+      if (cls._ncalls % 1000 == 0):
+          print('%8d calls : %8.3f s total (%8.3f ms/call)' % (cls._ncalls, cls._time, cls._time/cls._ncalls*1000))
+
       if (sol.success == False):
           msg  = "root-finder failed to converge:\n"
           msg += str(sol)
