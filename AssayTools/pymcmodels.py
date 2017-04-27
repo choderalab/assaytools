@@ -489,7 +489,7 @@ def make_model(Pstated, dPstated, Lstated, dLstated,
             return Fmodel_i
         # Add to model.
         model['ligand_ex_absorbance_model'] = ligand_ex_absorbance_model
-        model['log_ligand_ex_absorbance'], model['ligand_ex_absorbance'] = LogNoramlWrapper('ligand_ex_absorbance',
+        model['log_ligand_ex_absorbance'], model['ligand_ex_absorbance'] = LogNormalWrapper('ligand_ex_absorbance',
                                                     mean=model['ligand_ex_absorbance_model'], stddev=model['sigma_abs'],
                                                     size=[N], observed=True, value=ligand_ex_absorbance) # observed data
 
