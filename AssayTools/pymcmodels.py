@@ -28,6 +28,7 @@ niter = 500000 # number of iterations
 nburn = 50000 # number of burn-in iterations to discard
 nthin = 500 # thinning interval
 
+
 #=============================================================================================
 # SUBROUTINES
 #=============================================================================================
@@ -74,6 +75,10 @@ def LogNormalWrapper(name, mean, stddev, log_prefix='log_', size=1, observed=Fal
             return mu
         @pymc.deterministic(name=name + '_tau')
         def tau(mean=mean, stddev=stddev):
+            if np.any(mean == 0.0):
+                raise Exception("'mean' for variable '%s' is zero: mean = %s, stddev = %s" % (name, mean, stddev))
+            if np.any(np.sqrt(np.log(1.0 + (stddev/mean)**2)) == 0.0):
+                raise Exception("'np.sqrt(np.log(1.0 + (stddev/mean)**2))' for variable '%s' is zero: mean = %s, stddev = %s" % (name, mean, stddev))                
             tau = np.sqrt(np.log(1.0 + (stddev/mean)**2))**(-2)
             return tau
         stochastic = pymc.Normal(log_prefix + name, mu=mu, tau=tau, size=size, observed=observed, value=np.log(value))
