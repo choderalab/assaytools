@@ -67,6 +67,27 @@ def LogNormalWrapper(name, mean, stddev, log_prefix='log_', size=1, observed=Fal
        Deterministic encoding the exponentiated lognormal (real quantity)
 
     """
+    def stable_tau(mean=mean, stddev=stddev):
+        # Ensure tau has same dimensionality and type as 'mean'
+        tau = 0*mean
+        SMALL = 1.0e-6
+        # Handle scalars
+        if np.isscalar(mean):
+            x = (stddev/mean)**2
+            if (x < SMALL):
+                # Use Taylor series expansion
+                tau = 1.0 / (x - x**2/2 + x**3/3 - x**4/4)
+            else:
+                tau = 1.0 / np.log(1.0 + x)
+        else:
+            x = (stddev/mean)**2
+            small_indices = np.where(x < SMALL)[0]
+            other_indices = np.where(x >= SMALL)[0]
+            tau[small_indices] = (x[small_indices] - x[small_indices]**2/2 + x[small_indices]**3/3 - x[small_indices]**4/4 + x[small_indices]**5/5)**(-1)
+            tau[other_indices] = np.log(1.0 + x[other_indices])**(-1)
+
+        return tau
+
     if observed and (value is not None):
         # Compute parameters of lognormal distribution
         @pymc.deterministic(name=name + '_mu')
@@ -77,9 +98,7 @@ def LogNormalWrapper(name, mean, stddev, log_prefix='log_', size=1, observed=Fal
         def tau(mean=mean, stddev=stddev):
             if np.any(mean == 0.0):
                 raise Exception("'mean' for variable '%s' is zero: mean = %s, stddev = %s" % (name, mean, stddev))
-            if np.any(np.sqrt(np.log(1.0 + (stddev/mean)**2)) == 0.0):
-                raise Exception("'np.sqrt(np.log(1.0 + (stddev/mean)**2))' for variable '%s' is zero: mean = %s, stddev = %s" % (name, mean, stddev))                
-            tau = np.sqrt(np.log(1.0 + (stddev/mean)**2))**(-2)
+            tau = stable_tau(mean=mean, stddev=stddev)
             return tau
         stochastic = pymc.Normal(log_prefix + name, mu=mu, tau=tau, size=size, observed=observed, value=np.log(value))
 
@@ -124,7 +143,7 @@ def LogNormalWrapper(name, mean, stddev, log_prefix='log_', size=1, observed=Fal
             mean = mean[nonzero_indices]
         if not np.isscalar(stddev):
             stddev = stddev[nonzero_indices]
-        tau = np.sqrt(np.log(1.0 + (stddev/mean)**2))**(-2)
+        tau = stable_tau(mean=mean, stddev=stddev)
         return tau
     stochastic = pymc.Normal(log_prefix + name, mu=mu, tau=tau, size=nnonzero)
 
@@ -136,6 +155,47 @@ def LogNormalWrapper(name, mean, stddev, log_prefix='log_', size=1, observed=Fal
         return value
 
     return stochastic, deterministic
+
+def NormalWrapper(name, mean, stddev, size=1, observed=False, value=None):
+    """
+    Create a PyMC Normal stochastic, automatically converting parameters to be appropriate for a `Normal` distribution.
+
+    Notes
+    -----
+    Everything is coerced into a 1D array.
+
+    Parameters
+    ----------
+    mean : float or array-like (but not pymc variable)
+       Mean of exp(X), where X is lognormal variate.
+    stddev : float or array-like (but not pymc variable)
+       Standard deviation of exp(X), where X is lognormal variate.
+    size : list of int, optional, default=1
+       Size vector
+    observed : bool, optional, default=False
+       If True, the stochastic is fixed to this observed value.
+    value : float, optional, default=None
+       If observed=True, the observed value of the real quantity
+
+    Returns
+    -------
+    stochastic : pymc.Normal
+       Normal stochastic for random variable X.
+       Name is prefixed with log_prefix
+       Deterministic encoding the exponentiated lognormal (real quantity)
+
+    """
+    @pymc.deterministic(name=name + '_mu')
+    def mu(mean=mean, stddev=stddev):
+        mu = mean
+        return mu
+    @pymc.deterministic(name=name + '_tau')
+    def tau(mean=mean, stddev=stddev):
+        tau = stddev**(-2)
+        return tau
+    stochastic = pymc.Normal(name, mu=mu, tau=tau, size=size, observed=observed, value=value)
+
+    return stochastic
 
 #=============================================================================================
 # PyMC models
