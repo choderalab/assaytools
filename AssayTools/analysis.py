@@ -450,7 +450,7 @@ class CompetitiveBindingAnalysis(object):
                 if len(reactions)==0 or len(conservation_equations)==0:
                     raise Exception(reactions, conservation_equations)
                 initial_time = time.time()
-                solution = GeneralBindingModel.equilibrium_concentrations(tuple(reactions), tuple(conservation_equations))
+                solution = GeneralBindingModel.equilibrium_concentrations(reactions, conservation_equations)
                 final_time = time.time()
                 elapsed_time = final_time - initial_time
                 #print('  GeneralBindingModel elapased time: %.6f s' % elapsed_time)
@@ -786,8 +786,8 @@ class CompetitiveBindingAnalysis(object):
         mcmc = pymc.MCMC(self.model, db='sqlite', name='output', verbose=True)
 
         nthin = 10
-        nburn = nthin*100
-        niter = nthin*100
+        nburn = nthin*10
+        niter = nthin*10
 
         # Specify initial parameter standard deviations to apply to specific classes of parameters
         keywords = {

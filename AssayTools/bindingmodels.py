@@ -241,6 +241,45 @@ class GeneralBindingModel(BindingModel):
       # TODO: Form the logK, logQ, S, and C  matrices in numpy outside of this function so that operations can be numpy-accelerated
       # http://assaytools.readthedocs.io/en/latest/theory.html#general-binding-model
       # Rewrite theory docs in these matrices as well.
+
+      # Form equations as numpy
+      logK = np.zeros([nreactions], np.float64)
+      S = np.zeros([nreactions, nspecies], np.float64)
+      C = np.zeros([nconservation, nspecies], np.float64)
+      logQ = np.zeros([nconservation], np.float64)
+      equation_index = 0
+      # Reactions
+      for (reaction_index, (log_equilibrium_constant, reaction)) in enumerate(reactions):
+          logK[reaction_index] = log_equilibrium_constant
+          for (species_index, species) in enumerate(all_species):
+              if species in reaction:
+                  S[reaction_index, species_index] = reaction[species]
+      # Conservation of mass
+      for (equation_index, (log_total_concentration, conservation_equation)) in enumerate(conservation_equations):
+          logQ[equation_index] = log_total_concentration
+          for (species_index, species) in enumerate(all_species):
+              if species in conservation_equation:
+                  C[equation_index, species_index] = conservation_equation[species]
+
+      # Define target function
+      from scipy.misc import logsumexp
+      def ftarget_numpy(logX):
+          target = np.zeros([nequations], np.float64)
+          jacobian = np.zeros([nequations, nspecies], np.float64)
+
+          # Reactions
+          target[0:nreactions] = - logK[:] + np.dot(S[:,:], logX[:])
+          jacobian[0:nreactions,:] = S[:,:]
+          # Conservation
+          target[nreactions:] = - logQ[:] + logsumexp(C + logX, axis=1)
+          for equation_index in range(nconservation):
+              nonzero_indices = np.where(C[equation_index,:] != 0)[0]
+              logsum = logsumexp(np.log(C[equation_index, nonzero_indices]) + logX[nonzero_indices])
+              jacobian[nreactions+equation_index,:] = C[equation_index,:] * np.exp(logX[:] - logsum)
+
+          return (target, jacobian)
+
+      # Construct function with appropriate roots.
       def ftarget(X):
           target = np.zeros([nequations], np.float64)
           jacobian = np.zeros([nequations, nspecies], np.float64)
@@ -275,16 +314,6 @@ class GeneralBindingModel(BindingModel):
 
           return (target, jacobian)
 
-      # Variant of taret function for minimization
-      def ftarget_minimize(X):
-          (target, jacobian) = ftarget(X)
-          (nequations, nspecies) = jacobian.shape
-          objective = (target**2).sum(0)
-          target = np.reshape(target, (nequations,1))
-          target = np.tile(target, (1,nspecies))
-          gradient = (2*target*jacobian).sum(0)
-          return (objective, gradient)
-
       # Construct initial guess
       # We assume that all matter is equally spread out among all species via the conservation equations
       from scipy.misc import logsumexp
@@ -302,8 +331,6 @@ class GeneralBindingModel(BindingModel):
       options = {'xtol' : tol}
       initial_time = time.time()
       sol = root(ftarget, X, method='lm', jac=True, tol=tol, options=options)
-      #from scipy.optimize import minimize
-      #sol = minimize(ftarget_minimize, X * 0, method='L-BFGS-B', jac=True, tol=tol, options=options)
       final_time = time.time()
       cls._time += (final_time - initial_time)
       cls._ncalls += 1
