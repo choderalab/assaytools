@@ -48,6 +48,13 @@ for j in string.ascii_uppercase:
 # This function requires an inputs dictionary with a single xml file input.
 
 def get_data_using_inputs(inputs):
+
+    """
+    Parameters
+    ----------
+    inputs : dict
+        Dictionary of input information
+    """
     
     data = platereader.read_icontrol_xml(inputs['my_file'])
     
@@ -58,7 +65,7 @@ def get_data_using_inputs(inputs):
         protein_row = ALPHABET[i]
         buffer_row = ALPHABET[i+1]
 
-        name = "%s-%s%s"%(inputs['ligand_order'][i/2],protein_row,buffer_row)
+        name = "%s-%s%s"%(inputs['ligand_order'][int(i/2)],protein_row,buffer_row)
 
         complex_fluorescence_data = platereader.select_data(data, inputs['section'], protein_row)
         ligand_fluorescence_data = platereader.select_data(data, inputs['section'], buffer_row)
