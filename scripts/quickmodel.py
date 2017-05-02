@@ -281,7 +281,7 @@ def quick_model_spectra(inputs, nsamples=1000, nthin=20):
             my_file.append(file)
             new_dict = platereader.read_icontrol_xml(file)
             for key in data:
-                data[key] = dict(data[key].items()+new_dict[key].items())
+                data[key].update(new_dict[key])
 
         for i in range(0,7,2):
             protein_row = ALPHABET[i]
