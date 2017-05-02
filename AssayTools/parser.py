@@ -72,13 +72,13 @@ def get_data_using_inputs(inputs):
                 my_file.append(file)
                 new_dict = platereader.read_icontrol_xml(file)
                 for key in data:
-                    data[key] = dict(data[key].items()+new_dict[key].items())
+                    data[key].update(new_dict[key])
     
             for i in range(0,7,2):
                 protein_row = ALPHABET[i]
                 buffer_row = ALPHABET[i+1]
 
-                name = "%s-%s-%s%s"%(protein,inputs['ligand_order'][i/2],protein_row,buffer_row)
+                name = "%s-%s-%s%s"%(protein,inputs['ligand_order'][int(i/2)],protein_row,buffer_row)
  
                 complex_fluorescence_data = platereader.select_data(data, inputs['section'], protein_row, wavelength = '%s' %inputs['wavelength'])
                 ligand_fluorescence_data = platereader.select_data(data, inputs['section'], buffer_row, wavelength = '%s' %inputs['wavelength'])
