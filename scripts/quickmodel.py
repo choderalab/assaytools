@@ -7,6 +7,7 @@
 #        python quickmodel.py --inputs 'inputs_spectra_example' --type 'spectra'
 
 from assaytools import platereader
+from assaytools import parser
 import matplotlib.pyplot as plt
 import string
 from glob import glob
@@ -270,38 +271,12 @@ def quick_model_spectra(inputs, nsamples=1000, nthin=20):
         Thinning interval ; number of MCMC steps per sample collected
     """
 
-    for protein in inputs['file_set'].keys():
+    [complex_fluorescence, ligand_fluorescence] = parser.get_data_using_inputs(inputs)  
 
-        #concatenate four spectra xmls into one dictionary with all ligand data
-
-        my_file = []
-
-        data = platereader.read_icontrol_xml(inputs['file_set']['%s'%protein][0])
-        for file in inputs['file_set']['%s'%protein]:
-            my_file.append(file)
-            new_dict = platereader.read_icontrol_xml(file)
-            for key in data:
-                data[key].update(new_dict[key])
-
-        for i in range(0,7,2):
-            protein_row = ALPHABET[i]
-            buffer_row = ALPHABET[i+1]
-
-            name = "%s-%s-%s%s"%(protein,inputs['ligand_order'][int(i/2)],protein_row,buffer_row)
-
-            print(name)
+    for name in complex_fluorescence.keys():
 
             metadata = {}
             metadata = dict(inputs)
-
-            try:
-                part1_data_protein = platereader.select_data(data, inputs['section'], protein_row, wavelength = '%s' %inputs['wavelength'])
-                part1_data_buffer = platereader.select_data(data, inputs['section'], buffer_row, wavelength = '%s' %inputs['wavelength'])
-            except:
-                continue
-
-            reorder_protein = reorder2list(part1_data_protein,well)
-            reorder_buffer = reorder2list(part1_data_buffer,well)
 
             #these need to be changed so they are TAKEN FROM INPUTS!!!
 
@@ -352,10 +327,8 @@ def quick_model_spectra(inputs, nsamples=1000, nthin=20):
             plt.subplot(311)
             property_name = 'top_complex_fluorescence'
             complex = getattr(pymc_model, property_name)
-            #plt.semilogx(inputs['Lstated'], complex.value, 'ko',label='complex')
             property_name = 'top_ligand_fluorescence'
             ligand = getattr(pymc_model, property_name)
-            #plt.semilogx(inputs['Lstated'], ligand.value, 'ro',label='ligand')
             for top_complex_fluorescence_model in mcmc.top_complex_fluorescence_model.trace()[::10]:
                 plt.semilogx(inputs['Lstated'], top_complex_fluorescence_model, marker='.',color='silver')
             for top_ligand_fluorescence_model in mcmc.top_ligand_fluorescence_model.trace()[::10]:
@@ -437,7 +410,7 @@ def quick_model_spectra(inputs, nsamples=1000, nthin=20):
                 Kd_summary = "%.3e M +- %.3e M" % (Kd, dKd)
 
             outputs = {
-                'raw_data_file'   : my_file,
+                #'raw_data_file'   : my_file,
                 'name'            : name,
                 'analysis'        : 'pymcmodels', #right now this is hardcoded, BOOO
                 'outfiles'        : '%s_mcmc-%s.pickle, delG_%s-%s.pdf,DeltaG_%s-%s.npy,DeltaG_trace_%s-%s.npy'%(name,my_datetime,name,my_datetime,name,my_datetime,name,my_datetime),
