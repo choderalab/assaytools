@@ -45,33 +45,65 @@ for j in string.ascii_uppercase:
 # Parsing functions
 #=============================================================================================
 
-# This function requires an inputs dictionary with a single xml file input.
 
 def get_data_using_inputs(inputs):
 
     """
+    Parses your data according to inputs dictionary. Currently requires single xml file input or spectra analysis.
     Parameters
     ----------
     inputs : dict
         Dictionary of input information
     """
-    
-    data = platereader.read_icontrol_xml(inputs['my_file'])
-    
-    complex_fluorescence = {}
-    ligand_fluorescence = {}
-    
-    for i in range(0,15,2):
-        protein_row = ALPHABET[i]
-        buffer_row = ALPHABET[i+1]
 
-        name = "%s-%s%s"%(inputs['ligand_order'][int(i/2)],protein_row,buffer_row)
+    if 'wavelength' in inputs:
+        
+        complex_fluorescence = {}
+        ligand_fluorescence = {}
+        
+        for protein in inputs['file_set'].keys():
 
-        complex_fluorescence_data = platereader.select_data(data, inputs['section'], protein_row)
-        ligand_fluorescence_data = platereader.select_data(data, inputs['section'], buffer_row)
+            #concatenate four spectra xmls into one dictionary with all ligand data
 
-        complex_fluorescence[name] = reorder2list(complex_fluorescence_data,well)
-        ligand_fluorescence[name] = reorder2list(ligand_fluorescence_data,well)
+            my_file = []
+
+            data = platereader.read_icontrol_xml(inputs['file_set']['%s'%protein][0])
+            for file in inputs['file_set']['%s'%protein]:
+                my_file.append(file)
+                new_dict = platereader.read_icontrol_xml(file)
+                for key in data:
+                    data[key] = dict(data[key].items()+new_dict[key].items())
+    
+            for i in range(0,7,2):
+                protein_row = ALPHABET[i]
+                buffer_row = ALPHABET[i+1]
+
+                name = "%s-%s-%s%s"%(protein,inputs['ligand_order'][i/2],protein_row,buffer_row)
+ 
+                complex_fluorescence_data = platereader.select_data(data, inputs['section'], protein_row, wavelength = '%s' %inputs['wavelength'])
+                ligand_fluorescence_data = platereader.select_data(data, inputs['section'], buffer_row, wavelength = '%s' %inputs['wavelength'])
+
+                complex_fluorescence[name] = reorder2list(complex_fluorescence_data,well)
+                ligand_fluorescence[name] = reorder2list(ligand_fluorescence_data,well)
+    
+    else:
+
+        data = platereader.read_icontrol_xml(inputs['my_file'])
+    
+        complex_fluorescence = {}
+        ligand_fluorescence = {}
+    
+        for i in range(0,15,2):
+            protein_row = ALPHABET[i]
+            buffer_row = ALPHABET[i+1]
+
+            name = "%s-%s%s"%(inputs['ligand_order'][int(i/2)],protein_row,buffer_row)
+
+            complex_fluorescence_data = platereader.select_data(data, inputs['section'], protein_row)
+            ligand_fluorescence_data = platereader.select_data(data, inputs['section'], buffer_row)
+
+            complex_fluorescence[name] = reorder2list(complex_fluorescence_data,well)
+            ligand_fluorescence[name] = reorder2list(ligand_fluorescence_data,well)
 
     return [complex_fluorescence, ligand_fluorescence]
  
