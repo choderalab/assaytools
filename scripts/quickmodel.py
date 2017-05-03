@@ -271,6 +271,7 @@ def quick_model_spectra(inputs, nsamples=1000, nthin=20):
         Thinning interval ; number of MCMC steps per sample collected
     """
 
+
     [complex_fluorescence, ligand_fluorescence] = parser.get_data_using_inputs(inputs)  
 
     for name in complex_fluorescence.keys():
@@ -321,6 +322,8 @@ def quick_model_spectra(inputs, nsamples=1000, nthin=20):
             #from assaytools import plots
             #figure = plots.plot_measurements(Lstated, Pstated, pymc_model, mcmc=mcmc)
             #Code below inspired by import above, but didn't quite work to import it...
+            plt.switch_backend('agg')
+
             plt.clf()
             plt.figure(figsize=(8,8))
 
@@ -431,6 +434,8 @@ def quick_model_spectra(inputs, nsamples=1000, nthin=20):
 
             metadata.update(outputs)
 
+            metadata['bin_edges'] = metadata['bin_edges'].tolist()
+            metadata['hist'] = metadata['hist'].tolist()
             metadata['Pstated'] = metadata['Pstated'].tolist()
             metadata['Lstated'] = metadata['Lstated'].tolist()
 
