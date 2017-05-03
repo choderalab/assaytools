@@ -286,8 +286,8 @@ def quick_model_spectra(inputs, nsamples=1000, nthin=20):
 
             from assaytools import pymcmodels
             pymc_model = pymcmodels.make_model(inputs['Pstated'], dPstated, inputs['Lstated'], dLstated,
-               top_complex_fluorescence=reorder_protein,
-               top_ligand_fluorescence=reorder_buffer,
+               top_complex_fluorescence=complex_fluorescence[name],
+               top_ligand_fluorescence=ligand_fluorescence[name],
                use_primary_inner_filter_correction=True,
                use_secondary_inner_filter_correction=True,
                assay_volume=inputs['assay_volume'], DG_prior='uniform')
@@ -413,12 +413,20 @@ def quick_model_spectra(inputs, nsamples=1000, nthin=20):
 
             outputs = {
                 #'raw_data_file'   : my_file,
-                'name'            : name,
-                'analysis'        : 'pymcmodels', #right now this is hardcoded, BOOO
-                'outfiles'        : '%s_mcmc-%s.pickle, delG_%s-%s.pdf,DeltaG_%s-%s.npy,DeltaG_trace_%s-%s.npy'%(name,my_datetime,name,my_datetime,name,my_datetime,name,my_datetime),
-                'DeltaG'          : "DeltaG = %.1f +- %.1f kT, MAP estimate = %.1f" % (DeltaG, dDeltaG, DeltaG_map),
-                'Kd'              : Kd_summary,
-                'datetime'        : my_datetime
+                'complex_fluorescence' : complex_fluorescence[name],
+                'ligand_fluorescence'  : ligand_fluorescence[name],
+                't_equil'              : t,
+                'name'                 : name,
+                'analysis'             : 'pymcmodels', #right now this is hardcoded, BOOO
+                'outfiles'             : '%s_mcmc-%s.pickle, delG_%s-%s.pdf,DeltaG_%s-%s.npy,DeltaG_trace_%s-%s.npy'%(name,my_datetime,name,my_datetime,name,my_datetime,name,my_datetime),
+                'DeltaG_cred_int'      : '$\Delta G$ =  %.3g [%.3g,%.3g] $k_B T$'  %(interval[1],interval[0],interval[2]),
+                'DeltaG'               : "DeltaG = %.1f +- %.1f kT, MAP estimate = %.1f" % (DeltaG, dDeltaG, DeltaG_map),
+                'Kd'                   : Kd_summary,
+                'bin_edges'            : bin_edges,
+                'hist'                 : hist,
+                'binwidth'             : binwidth,
+                'clrs'                 : clrs,
+                'datetime'             : my_datetime
             }
 
             metadata.update(outputs)
