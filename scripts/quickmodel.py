@@ -393,6 +393,8 @@ def quick_model_spectra(inputs, nsamples=1000, nthin=20):
             np.save('DeltaG_%s-%s.npy'%(name, my_datetime_filename),DeltaG)
             np.save('DeltaG_trace_%s-%s.npy'%(name, my_datetime_filename),mcmc.DeltaG.trace())
 
+            plt.close('all') # close all figures
+
             Kd = np.exp(mcmc.DeltaG.trace().mean())
             dKd = np.exp(mcmc.DeltaG.trace()).std()
 
