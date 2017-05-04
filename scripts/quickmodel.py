@@ -20,7 +20,7 @@ import pymbar
 
 def quick_model(inputs, nsamples=1000, nthin=20):
     """
-    Quick model spectra
+    Quick model for both spectra and single wavelength experiments
 
     Parameters
     ----------
