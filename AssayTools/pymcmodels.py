@@ -233,20 +233,20 @@ def inner_filter_effect_attenuation(epsilon_ex, epsilon_em, path_length, concent
 
     scaling = 1.0 # no attenuation
 
+    def compute_scaling(alpha):
+        scaling = np.zeros(alpha.shape, np.float64)
+        small_indices = np.where(np.abs(alpha) < 0.01)
+        large_indices = np.where(np.abs(alpha) >= 0.01)
+        scaling[large_indices] = (1 - np.exp(-alpha[large_indices])) / alpha[large_indices]
+        scaling[small_indices] = 1. - alpha[small_indices]/2. + (alpha[small_indices]**2)/6. - (alpha[small_indices]**3)/24. + (alpha[small_indices]**4)/120.
+        return scaling
+
     if geometry == 'top':
         alpha = (ELC_ex + ELC_em)
-
-        scaling = (1 - np.exp(-alpha)) / alpha
-        # Handle alpha -> 0 case explicitly.
-        indices = np.where(np.abs(alpha) < 0.01)
-        scaling[indices] = 1. - alpha[indices]/2. + (alpha[indices]**2)/6. - (alpha[indices]**3)/24. + (alpha[indices]**4)/120.
+        scaling = compute_scaling(alpha)
     elif geometry == 'bottom':
         alpha = (ELC_ex - ELC_em)
-
-        scaling = (1 - np.exp(-alpha)) / alpha
-        # Handle alpha -> 0 case explicitly.
-        indices = np.where(np.abs(alpha) < 0.01)
-        scaling[indices] = 1. - alpha[indices]/2. + (alpha[indices]**2)/6. - (alpha[indices]**3)/24. + (alpha[indices]**4)/120.
+        scaling = compute_scaling(alpha)
         # Include additional term.
         scaling *= np.exp(-ELC_em)
     else:
