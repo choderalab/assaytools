@@ -179,6 +179,7 @@ def quick_model(inputs, nsamples=1000, nthin=20):
             else:
                 Kd_summary = "%.3e M +- %.3e M" % (Kd, dKd)
 
+
             outputs = {
                 #'raw_data_file'   : my_file,
                 'complex_fluorescence' : complex_fluorescence[name],
@@ -201,6 +202,7 @@ def quick_model(inputs, nsamples=1000, nthin=20):
 
             metadata['ligand_fluorescence'] = metadata['ligand_fluorescence'].tolist()
             metadata['complex_fluorescence'] = metadata['complex_fluorescence'].tolist()
+            metadata['t_equil'] = metadata['t_equil'].tolist()
             metadata['bin_edges'] = metadata['bin_edges'].tolist()
             metadata['hist'] = metadata['hist'].tolist()
             metadata['Pstated'] = metadata['Pstated'].tolist()
