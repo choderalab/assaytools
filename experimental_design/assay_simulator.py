@@ -194,7 +194,7 @@ class AssaySimulator(object):
         return estimates
 
 
-def predict_assay_error(pymc_data, l_total, p_total, nsamples=10, nposterior_samples=100, t_equil=0, **kwargs):
+def predict_assay_error(pymc_data, l_total, p_total, DeltaG=None, nsamples=10, nposterior_samples=100, t_equil=0, **kwargs):
     """
     Function to predict the expected coefficient of variation, variance, and squared bias of estimated binding free
     energies from assaytools PyMC data at different protein and ligand concentrations.
@@ -203,6 +203,8 @@ def predict_assay_error(pymc_data, l_total, p_total, nsamples=10, nposterior_sam
     ----------
     pymc_data: dict
         Dictionary of assaytools pymc variables that have been sampled with MCMC.
+    DeltaG: float
+        The binding free energy in thermal units.
     l_total: float or numpy.ndarray
         Array of ligand concentrations in M.
     p_total: float or numpy.ndarray
@@ -251,11 +253,14 @@ def predict_assay_error(pymc_data, l_total, p_total, nsamples=10, nposterior_sam
     CV = []
     Bias2 = []
     Var = []
-
+    
     delta_gs = pymc_data['DeltaG'][0]           # All of the binding free energy samples
-    mean_delta_g = np.mean(delta_gs)            # Used to determine the coefficient of variation.
     pymc_indices = range(t_equil, len(delta_gs))     # The indices of the PyMC samples that are after the burn-in period:
-
+    
+    if DeltaG is None:
+        DeltaG = np.mean(delta_gs)            # Used to determine the coefficient of variation.
+        
+    mean_delta_g = DeltaG
 
     # Looping over protein concentrations, drawing from the posterior and fitting the affinity:
     for p in range(len(p_total)):
@@ -265,6 +270,7 @@ def predict_assay_error(pymc_data, l_total, p_total, nsamples=10, nposterior_sam
         for i in range(nposterior_samples):
             ind = np.random.choice(pymc_indices,1)[0]
             simulator = AssaySimulator(pymc_data=pymc_data, l_total=l_total, sample_index=ind,  p_total=p_total[p], **kwargs)
+            simulator.DeltaG = DeltaG
             # Generate fitted DeltaG estimates with stochastic noise added before each fit.
             estimates_per_posterior_sample = simulator.generate_deltag_estimates(nsamples=nsamples)
             bias_squared.append(np.mean((estimates_per_posterior_sample - simulator.DeltaG)**2))
