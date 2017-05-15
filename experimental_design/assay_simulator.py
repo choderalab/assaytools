@@ -269,7 +269,7 @@ def predict_assay_error(pymc_data, l_total, p_total, DeltaG=None, nsamples=10, n
         # Draw parameters from the posterior
         for i in range(nposterior_samples):
             ind = np.random.choice(pymc_indices,1)[0]
-            simulator = AssaySimulator(pymc_data=pymc_data, l_total=l_total, sample_index=ind,  p_total=p_total[p], **kwargs)
+            simulator = AssaySimulator(pymc_data=pymc_data, l_total=l_total, sample_index=ind,  p_total=p_total[p]* np.ones([12],np.float64), **kwargs)
             simulator.DeltaG = DeltaG
             # Generate fitted DeltaG estimates with stochastic noise added before each fit.
             estimates_per_posterior_sample = simulator.generate_deltag_estimates(nsamples=nsamples)
