@@ -164,7 +164,8 @@ def select_data(file_data,section_name,selection,*args,**kwargs):
 
     # extract wavelength (only relevant for spectra)
     # if you don't include wavelength for spectra, data will be a dict of all wavelengths
-    if type(data.itervalues().next()) == dict and wavelength != None:
+    datatypes = [ type(entry) for entry in data.values() ]
+    if datatypes[0] == dict and wavelength != None:
         new_data = dict()
         for key in data.keys():
             new_data[key] = data[key][wavelength]
