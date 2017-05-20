@@ -140,7 +140,7 @@ def quick_model(inputs, nsamples=1000, nthin=20):
             plt.axvline(x=DeltaG_map,color='black')
             plt.xlabel('$\Delta G$ ($k_B T$)',fontsize=16);
             plt.ylabel('$P(\Delta G)$',fontsize=16);
-            plt.xlim(-35,-10)
+            plt.xlim(-20,-8)
             hist_legend = mpatches.Patch(color=(0.7372549019607844, 0.5098039215686274, 0.7411764705882353),
                         label = '$\Delta G$ =  %.3g [%.3g,%.3g] $k_B T$'
                         %(interval[1],interval[0],interval[2]) )
