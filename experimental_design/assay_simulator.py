@@ -173,26 +173,33 @@ class AssaySimulator(object):
         -------
         estimates: numpy.ndarray
             Binding free energies estimates, where each has been fitted using least squares regression
+        intensities: numpy.ndarray
+            The fluorescence intensities that have been fitted to
+
         """
+        intensities = np.zeros((nsamples,len(self.l_total)))
         estimates = np.zeros(nsamples)
         for sample in range(nsamples):
             # The fluorescence data that will be fit to. Random noise is added the fluorescence data with noisy=True.
-            target = self.simulate_fluorescence(noisy=True)
+            intensity = self.simulate_fluorescence(noisy=True)
 
             def sum_of_squares(g):
                 """
                 The sum of squares between model fluorescence and the target
                 """
                 guess = self.simulate_fluorescence(DeltaG=g, noisy=False)
-                return np.sum((guess - target) ** 2)
+                return np.sum((guess - intensity) ** 2)
 
             # The initial guess within about 10% of the "true" value
             #initial_guess = self.DeltaG + np.random.normal(loc=0, scale=0.1 * np.abs(self.DeltaG))
             initial_guess = self.DeltaG
-            fit = optimize.minimize(sum_of_squares, initial_guess, method='BFGS', gtol=1E-4)
-            estimates[sample] = fit.x[0]
+            fit = optimize.minimize(sum_of_squares, initial_guess, method='BFGS', options={'gtol':1E-4})
 
-        return estimates
+            # Save estimated free energies and intensities
+            estimates[sample] = fit.x[0]
+            intensities[sample,:] = intensity
+
+        return estimates, intensities
 
 
 def predict_assay_error(pymc_data, l_total, p_total, DeltaG=None, nsamples=10, nposterior_samples=100, t_equil=0, **kwargs):
@@ -273,7 +280,7 @@ def predict_assay_error(pymc_data, l_total, p_total, DeltaG=None, nsamples=10, n
             simulator = AssaySimulator(pymc_data=pymc_data, l_total=l_total, sample_index=ind,  p_total=p_total[p]* np.ones([12],np.float64), **kwargs)
             simulator.DeltaG = DeltaG
             # Generate fitted DeltaG estimates with stochastic noise added before each fit.
-            estimates_per_posterior_sample = simulator.generate_deltag_estimates(nsamples=nsamples)
+            estimates_per_posterior_sample, intensities = simulator.generate_deltag_estimates(nsamples=nsamples)
             bias_squared.append(np.mean((estimates_per_posterior_sample - simulator.DeltaG)**2))
             estimates.append(estimates_per_posterior_sample)
         # Collect the bias, variance, and coefficient of variantion
