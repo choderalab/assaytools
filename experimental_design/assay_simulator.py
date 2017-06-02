@@ -187,8 +187,9 @@ class AssaySimulator(object):
                 return np.sum((guess - target) ** 2)
 
             # The initial guess within about 10% of the "true" value
-            initial_guess = self.DeltaG + np.random.normal(loc=0, scale=0.1 * np.abs(self.DeltaG))
-            fit = optimize.minimize(sum_of_squares, initial_guess, method='BFGS')
+            #initial_guess = self.DeltaG + np.random.normal(loc=0, scale=0.1 * np.abs(self.DeltaG))
+            initial_guess = self.DeltaG
+            fit = optimize.minimize(sum_of_squares, initial_guess, method='BFGS', gtol=1E-4)
             estimates[sample] = fit.x[0]
 
         return estimates
