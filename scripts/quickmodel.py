@@ -215,6 +215,11 @@ def quick_model(inputs, nsamples=1000, nthin=20):
 
 def entry_point():
 
+    import sys
+
+    #This allows us to import local inputs.py
+    sys.path.append('./')
+
     import argparse
 
     # Define argparse stuff
