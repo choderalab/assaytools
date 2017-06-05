@@ -27,9 +27,9 @@ def quick_model(inputs, nsamples=1000, nthin=20):
     ----------
     inputs : dict
         Dictionary of input information
-    nsamples : int, optional, default=20000
+    nsamples : int, optional, default=1000
         Number of MCMC samples to collect
-    nthin : int, optiona, default=20
+    nthin : int, optional, default=20
         Thinning interval ; number of MCMC steps per sample collected
     """
 
@@ -63,6 +63,9 @@ def quick_model(inputs, nsamples=1000, nthin=20):
 
             nburn = 0 # no longer need burn-in since we do automated equilibration detection
             niter = nthin*nsamples # former total simulation time
+            # Note that nsamples and niter are not the same: Here nsamples is 
+            # multiplied by nthin (default 20) so that your final mcmc samples will be the same 
+            # as your nsamples, but the actual niter will be 20x that!
             mcmc = pymcmodels.run_mcmc(pymc_model,
                 nthin=nthin, nburn=nburn, niter=niter,
                 db = 'pickle', dbname = '%s_mcmc-%s.pickle'%(name,my_datetime))
@@ -228,11 +231,12 @@ def entry_point():
     > python quickmodel.py --inputs 'inputs_example' """)
     parser.add_argument("--inputs", help="inputs file (python script, .py not needed)",default=None)
     parser.add_argument("--type", help="type of data (spectra, singlet)",choices=['spectra','singlet'],default='singlet')
-    parser.add_argument("--nsamples", help="number of samples",default=10000, type=int)
+    parser.add_argument("--nsamples", help="number of samples",default=1000, type=int)
     parser.add_argument("--nthin", help="thinning interval",default=20, type=int)
     args = parser.parse_args()
 
     # Define inputs
+    # If an inputs###.py is defined, it is run and used. An inputs.json is also created.
     if args.inputs!=None:
         inputs_file = args.inputs
         name = 'inputs'
