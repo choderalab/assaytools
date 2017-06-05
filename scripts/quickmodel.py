@@ -6,8 +6,6 @@
 #        or
 #        python quickmodel.py --inputs 'inputs_spectra_example' --type 'spectra'
 
-import matplotlib
-matplotlib.use('Agg')
 
 from assaytools import parser
 import matplotlib.pyplot as plt
