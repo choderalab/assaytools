@@ -162,9 +162,6 @@ def quick_model(inputs, nsamples=1000, nthin=20):
             fig1 = plt.gcf()
             fig1.savefig('delG_%s-%s.png'%(name, my_datetime_filename))
 
-            np.save('DeltaG_%s-%s.npy'%(name, my_datetime_filename),DeltaG)
-            np.save('DeltaG_trace_%s-%s.npy'%(name, my_datetime_filename),mcmc.DeltaG.trace())
-
             plt.close('all') # close all figures
 
             Kd = np.exp(mcmc.DeltaG.trace().mean())
