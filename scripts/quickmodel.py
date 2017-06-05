@@ -72,8 +72,6 @@ def quick_model(inputs, nsamples=1000, nthin=20):
 
             map = pymcmodels.map_fit(pymc_model)
 
-            pymcmodels.show_summary(pymc_model, map, mcmc)
-
             DeltaG_map = map.DeltaG.value
             DeltaG = mcmc.DeltaG.trace().mean()
             dDeltaG = mcmc.DeltaG.trace().std()
@@ -120,6 +118,12 @@ def quick_model(inputs, nsamples=1000, nthin=20):
             [hist,bin_edges] = np.histogram(mcmc.DeltaG.trace()[t:],bins=40,normed=True)
             binwidth = np.abs(bin_edges[0]-bin_edges[1])
 
+            #Print summary
+            print( 'Delta G (95% credibility interval after equilibration):')
+            print( '   %.3g [%.3g,%.3g] k_B T' %(interval[1],interval[0],interval[2]))
+            print( 'Delta G (mean and std after equil):')
+            print('   %.3g +- %.3g k_B T' %(DeltaG_equil,dDeltaG_equil) )
+
             #set colors for 95% interval
             clrs = [(0.7372549019607844, 0.5098039215686274, 0.7411764705882353) for xx in bin_edges]
             idxs = bin_edges.argsort()
@@ -164,8 +168,8 @@ def quick_model(inputs, nsamples=1000, nthin=20):
 
             plt.close('all') # close all figures
 
-            Kd = np.exp(mcmc.DeltaG.trace().mean())
-            dKd = np.exp(mcmc.DeltaG.trace()).std()
+            Kd = np.exp(DeltaG_equil)
+            dKd = np.exp(mcmc.DeltaG.trace()[t:]).std()
 
             if (Kd < 1e-12):
                 Kd_summary = "%.1f nM +- %.1f fM" % (Kd/1e-15, dKd/1e-15)
@@ -180,6 +184,8 @@ def quick_model(inputs, nsamples=1000, nthin=20):
             else:
                 Kd_summary = "%.3e M +- %.3e M" % (Kd, dKd)
 
+            print('Kd (mean and std after equil):')
+            print('   %s' %Kd_summary)
 
             outputs = {
                 #'raw_data_file'   : my_file,
