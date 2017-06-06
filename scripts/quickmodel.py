@@ -170,20 +170,29 @@ def quick_model(inputs, nsamples=1000, nthin=20):
 
             Kd = np.exp(DeltaG_equil)
             dKd = np.exp(mcmc.DeltaG.trace()[t:]).std()
+            Kd_interval = np.exp(interval)
 
             if (Kd < 1e-12):
-                Kd_summary = "%.1f nM +- %.1f fM" % (Kd/1e-15, dKd/1e-15)
+                Kd_summary_interval = '%.1f [%.1f,%.1f] fM' %(Kd_interval[1]/1e-15,Kd_interval[0]/1e-15,Kd_interval[2]/1e-15)
+                Kd_summary = "%.1f fM +- %.1f fM" % (Kd/1e-15, dKd/1e-15)
             elif (Kd < 1e-9):
+                Kd_summary_interval = '%.1f [%.1f,%.1f] pM' %(Kd_interval[1]/1e-12,Kd_interval[0]/1e-12,Kd_interval[2]/1e-12)
                 Kd_summary = "%.1f pM +- %.1f pM" % (Kd/1e-12, dKd/1e-12)
             elif (Kd < 1e-6):
+                Kd_summary_interval = '%.1f [%.1f,%.1f] nM' %(Kd_interval[1]/1e-9,Kd_interval[0]/1e-9,Kd_interval[2]/1e-9)
                 Kd_summary = "%.1f nM +- %.1f nM" % (Kd/1e-9, dKd/1e-9)
             elif (Kd < 1e-3):
+                Kd_summary_interval = '%.1f [%.1f,%.1f] uM' %(Kd_interval[1]/1e-6,Kd_interval[0]/1e-6,Kd_interval[2]/1e-6)
                 Kd_summary = "%.1f uM +- %.1f uM" % (Kd/1e-6, dKd/1e-6)
             elif (Kd < 1):
+                Kd_summary_interval = '%.1f [%.1f,%.1f] mM' %(Kd_interval[1]/1e-3,Kd_interval[0]/1e-3,Kd_interval[2]/1e-3)
                 Kd_summary = "%.1f mM +- %.1f mM" % (Kd/1e-3, dKd/1e-3)
             else:
+                Kd_summary_interval = '%.3e [%.3e,%.3e] M' %(Kd_interval[1],Kd_interval[0],Kd_interval[2])
                 Kd_summary = "%.3e M +- %.3e M" % (Kd, dKd)
 
+            print('Kd (95% credibility interval after equilibration):')
+            print('   %s' %Kd_summary_interval)
             print('Kd (mean and std after equil):')
             print('   %s' %Kd_summary)
 
