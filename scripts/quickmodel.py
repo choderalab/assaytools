@@ -6,8 +6,6 @@
 #        or
 #        python quickmodel.py --inputs 'inputs_spectra_example' --type 'spectra'
 
-import matplotlib
-matplotlib.use('Agg')
 
 from assaytools import parser
 import matplotlib.pyplot as plt
@@ -29,9 +27,9 @@ def quick_model(inputs, nsamples=1000, nthin=20):
     ----------
     inputs : dict
         Dictionary of input information
-    nsamples : int, optional, default=20000
+    nsamples : int, optional, default=1000
         Number of MCMC samples to collect
-    nthin : int, optiona, default=20
+    nthin : int, optional, default=20
         Thinning interval ; number of MCMC steps per sample collected
     """
 
@@ -65,13 +63,14 @@ def quick_model(inputs, nsamples=1000, nthin=20):
 
             nburn = 0 # no longer need burn-in since we do automated equilibration detection
             niter = nthin*nsamples # former total simulation time
+            # Note that nsamples and niter are not the same: Here nsamples is 
+            # multiplied by nthin (default 20) so that your final mcmc samples will be the same 
+            # as your nsamples, but the actual niter will be 20x that!
             mcmc = pymcmodels.run_mcmc(pymc_model,
                 nthin=nthin, nburn=nburn, niter=niter,
                 db = 'pickle', dbname = '%s_mcmc-%s.pickle'%(name,my_datetime))
 
             map = pymcmodels.map_fit(pymc_model)
-
-            pymcmodels.show_summary(pymc_model, map, mcmc)
 
             DeltaG_map = map.DeltaG.value
             DeltaG = mcmc.DeltaG.trace().mean()
@@ -119,6 +118,12 @@ def quick_model(inputs, nsamples=1000, nthin=20):
             [hist,bin_edges] = np.histogram(mcmc.DeltaG.trace()[t:],bins=40,normed=True)
             binwidth = np.abs(bin_edges[0]-bin_edges[1])
 
+            #Print summary
+            print( 'Delta G (95% credibility interval after equilibration):')
+            print( '   %.3g [%.3g,%.3g] k_B T' %(interval[1],interval[0],interval[2]))
+            print( 'Delta G (mean and std after equil):')
+            print('   %.3g +- %.3g k_B T' %(DeltaG_equil,dDeltaG_equil) )
+
             #set colors for 95% interval
             clrs = [(0.7372549019607844, 0.5098039215686274, 0.7411764705882353) for xx in bin_edges]
             idxs = bin_edges.argsort()
@@ -161,27 +166,35 @@ def quick_model(inputs, nsamples=1000, nthin=20):
             fig1 = plt.gcf()
             fig1.savefig('delG_%s-%s.png'%(name, my_datetime_filename))
 
-            np.save('DeltaG_%s-%s.npy'%(name, my_datetime_filename),DeltaG)
-            np.save('DeltaG_trace_%s-%s.npy'%(name, my_datetime_filename),mcmc.DeltaG.trace())
-
             plt.close('all') # close all figures
 
-            Kd = np.exp(mcmc.DeltaG.trace().mean())
-            dKd = np.exp(mcmc.DeltaG.trace()).std()
+            Kd = np.exp(DeltaG_equil)
+            dKd = np.exp(mcmc.DeltaG.trace()[t:]).std()
+            Kd_interval = np.exp(interval)
 
             if (Kd < 1e-12):
-                Kd_summary = "%.1f nM +- %.1f fM" % (Kd/1e-15, dKd/1e-15)
+                Kd_summary_interval = '%.1f [%.1f,%.1f] fM' %(Kd_interval[1]/1e-15,Kd_interval[0]/1e-15,Kd_interval[2]/1e-15)
+                Kd_summary = "%.1f fM +- %.1f fM" % (Kd/1e-15, dKd/1e-15)
             elif (Kd < 1e-9):
+                Kd_summary_interval = '%.1f [%.1f,%.1f] pM' %(Kd_interval[1]/1e-12,Kd_interval[0]/1e-12,Kd_interval[2]/1e-12)
                 Kd_summary = "%.1f pM +- %.1f pM" % (Kd/1e-12, dKd/1e-12)
             elif (Kd < 1e-6):
+                Kd_summary_interval = '%.1f [%.1f,%.1f] nM' %(Kd_interval[1]/1e-9,Kd_interval[0]/1e-9,Kd_interval[2]/1e-9)
                 Kd_summary = "%.1f nM +- %.1f nM" % (Kd/1e-9, dKd/1e-9)
             elif (Kd < 1e-3):
+                Kd_summary_interval = '%.1f [%.1f,%.1f] uM' %(Kd_interval[1]/1e-6,Kd_interval[0]/1e-6,Kd_interval[2]/1e-6)
                 Kd_summary = "%.1f uM +- %.1f uM" % (Kd/1e-6, dKd/1e-6)
             elif (Kd < 1):
+                Kd_summary_interval = '%.1f [%.1f,%.1f] mM' %(Kd_interval[1]/1e-3,Kd_interval[0]/1e-3,Kd_interval[2]/1e-3)
                 Kd_summary = "%.1f mM +- %.1f mM" % (Kd/1e-3, dKd/1e-3)
             else:
+                Kd_summary_interval = '%.3e [%.3e,%.3e] M' %(Kd_interval[1],Kd_interval[0],Kd_interval[2])
                 Kd_summary = "%.3e M +- %.3e M" % (Kd, dKd)
 
+            print('Kd (95% credibility interval after equilibration):')
+            print('   %s' %Kd_summary_interval)
+            print('Kd (mean and std after equil):')
+            print('   %s' %Kd_summary)
 
             outputs = {
                 #'raw_data_file'   : my_file,
@@ -217,6 +230,11 @@ def quick_model(inputs, nsamples=1000, nthin=20):
 
 def entry_point():
 
+    import sys
+
+    #This allows us to import local inputs.py
+    sys.path.append('./')
+
     import argparse
 
     # Define argparse stuff
@@ -225,11 +243,12 @@ def entry_point():
     > python quickmodel.py --inputs 'inputs_example' """)
     parser.add_argument("--inputs", help="inputs file (python script, .py not needed)",default=None)
     parser.add_argument("--type", help="type of data (spectra, singlet)",choices=['spectra','singlet'],default='singlet')
-    parser.add_argument("--nsamples", help="number of samples",default=10000, type=int)
+    parser.add_argument("--nsamples", help="number of samples",default=1000, type=int)
     parser.add_argument("--nthin", help="thinning interval",default=20, type=int)
     args = parser.parse_args()
 
     # Define inputs
+    # If an inputs###.py is defined, it is run and used. An inputs.json is also created.
     if args.inputs!=None:
         inputs_file = args.inputs
         name = 'inputs'
