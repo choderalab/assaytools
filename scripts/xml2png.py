@@ -272,7 +272,7 @@ def process_files_spectra(xml_files):
         if  parameters[0].attrib['Value'] == "Absorbance":
             section_ylim = [0,0.2]
         else:
-            section_ylim = [0,40000]
+            section_ylim = [0,50000]
 
         Alphabet = ['A','B','C','D','E','F','G','H']
 
@@ -280,7 +280,7 @@ def process_files_spectra(xml_files):
         for j,A in enumerate(Alphabet):
             for k in range(1,12):
                 try:
-                    globals()["large_dataframe"+str(i)].fluorescence.get(A + str(k)).plot(ax=axes[(j/3)%3,j%3], title=A, c=cm.hsv(k*15), ylim=section_ylim, xlim=[240,800])
+                    globals()["large_dataframe"+str(i)].fluorescence.get(A + str(k)).plot(ax=axes[(j/3)%3,j%3], title=A, c=cm.hsv(k*15), ylim=section_ylim, xlim=[300,600])
                 except:
                     print("****No row %s.****" %A)
 
