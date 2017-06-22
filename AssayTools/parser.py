@@ -83,7 +83,7 @@ def get_data_using_inputs(inputs):
                 except:
                     pass
     
-        for i in range(0,7,2):
+        for i in range(0,len(inputs['ligand_order']*2),2):
             protein_row = ALPHABET[i]
             buffer_row = ALPHABET[i+1]
 
