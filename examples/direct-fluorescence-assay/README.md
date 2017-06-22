@@ -23,11 +23,11 @@ To plot raw data using `xml2png`, navigate into the data folder and run:
 
 To get a deltaG estimate from direct fluorescence data using our Bayesian modeling framework, via the `quickmodel` script run:
 
-  `env PYTHONPATH="./" quickmodel --inputs 'inputs_p38_singlet'`
+  `quickmodel --inputs 'inputs_p38_singlet'`
 
 or
  
-  `env PYTHONPATH="./" quickmodel --inputs 'inputs_Gef_WIP' --type 'spectra'`
+  `quickmodel --inputs 'inputs_Gef_WIP'`
 
 The two inputs.py files here are required to run these, but they can be changed if you want to run other types of analyses (different sections of the xml file, different wavelenghts, etc.).
  
