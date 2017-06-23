@@ -46,8 +46,15 @@ def quick_model(inputs, nsamples=1000, nthin=20):
             #these need to be changed so they are TAKEN FROM INPUTS!!!
 
             # Uncertainties in protein and ligand concentrations.
-            dPstated = 0.35 * inputs['Pstated'] # protein concentration uncertainty
-            dLstated = 0.08 * inputs['Lstated'] # ligand concentraiton uncertainty (due to gravimetric preparation and HP D300 dispensing)
+            try:
+                 dPstated = inputs['P_error'] * inputs['Pstated'] # protein concentration uncertainty               
+            except:
+                 dPstated = 0.35 * inputs['Pstated'] # protein concentration uncertainty
+            
+            try:
+                 dLstated = inputs['L_error'] * inputs['Lstated']
+            except:
+                 dLstated = 0.08 * inputs['Lstated'] # ligand concentraiton uncertainty (due to gravimetric preparation and HP D300 dispensing)
 
             from assaytools import pymcmodels
             pymc_model = pymcmodels.make_model(inputs['Pstated'], dPstated, inputs['Lstated'], dLstated,
