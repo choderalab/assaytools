@@ -401,20 +401,33 @@ def plot_singlet_one_section(data, section):
         for i in range(1,25):
             well['%s' %j + '%s' %i] = i
 
-    Lstated = np.array([20.0e-6,14.0e-6,9.82e-6,6.88e-6,4.82e-6,3.38e-6,2.37e-6,1.66e-6,1.16e-6,0.815e-6,0.571e-6,0.4e-6,0.28e-6,0.196e-6,0.138e-6,0.0964e-6,0.0676e-6,0.0474e-6,0.0320e-6,0.0240e-6,0.0160e-6,0.0120e-6,0.008e-6,0.00001e-6], np.float64) # ligand concentration, M
-
     for i in range(0,15,2):
         protein_row = ALPHABET[i]
         buffer_row = ALPHABET[i+1]
 
-        part1_data_protein = platereader.select_data(data, section, protein_row)
-        part1_data_buffer = platereader.select_data(data, section, buffer_row)
+        try:
+            part1_data_protein = platereader.select_data(data, section, protein_row)
+            part1_data_buffer = platereader.select_data(data, section, buffer_row)
 
-        reorder_protein = reorder2list(part1_data_protein,well)
-        reorder_buffer = reorder2list(part1_data_buffer,well)
+            reorder_protein = reorder2list(part1_data_protein,well)
+            reorder_buffer = reorder2list(part1_data_buffer,well)
+            
+        except:
+            print '***no %s%s data***' %(protein_row,buffer_row )
+            continue    
+        
+        axes[i/2].set_color_cycle(['black','red'])
 
-        axes[i/2].semilogx()
-        axes[i/2].plot(Lstated,reorder_protein,Lstated,reorder_buffer)
+        if i/2 == 1:
+            axes[i/2].plot(reorder_protein,marker='o',linestyle='None',label='protein+ligand')
+            axes[i/2].plot(reorder_buffer,marker='o',linestyle='None',label='buffer+ligand')
+            axes[i/2].legend(frameon=True)
+
+        axes[i/2].plot(reorder_protein,marker='o',linestyle='None')
+        axes[i/2].plot(reorder_buffer,marker='o',linestyle='None')
+        axes[i/2].set_xticklabels(range(-4,25,5))
+        axes[i/2].set_xlabel('Column Index', horizontalalignment='right',position=(1,1),fontsize=8)
+        axes[i/2].set_ylabel('Fluorescence')
         axes[i/2].set_title('%s,%s' %(protein_row,buffer_row))
 
     fig.suptitle('%s' %section)
