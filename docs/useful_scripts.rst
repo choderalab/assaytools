@@ -4,30 +4,30 @@ Useful Scripts
 
 .. highlight:: bash
 
-xml2png.py
-==========
+xml2png
+=======
 
 Converts xml data file output from the Tecan Infinite M1000 Pro plate reader to png plot of fluorescence and absorbance values. It allows for the quick visual inspection of raw experimental results.
 
 ::
 
-    $ python python xml2png.py *.xml
+    $ xml2png *.xml --singlet 'singlet_96'
 
 
-quickmodel.py
-=============
+quickmodel
+==========
 
 Builds quick Bayesian model of both spectra and single wavelength two component binding experiments.
 
 As input, it requires xml output files of the experiment form plate reader and a python script(`inputs.py`) that includes all experimental design details.
 
-1. Run `calculate_L_stated_array.py` to generate ligand concentration array and copy it into `inputs.py`.
+1. Run `calculate_L_stated_array` to generate ligand concentration array and copy it into `inputs.py`.
 2. Construct `inputs.py` script based on experimental design.
-3. Run`quickmodel.py`.
+3. Run`quickmodel`.
 
 ::
 
-    $ python quickmodel.py --inputs 'inputs' --type 'singlet' --nsamples 10000
+    $ quickmodel --inputs 'inputs' --type 'singlet' --nsamples 10000
 
 
 inputs.py
@@ -64,7 +64,7 @@ Provide information on how ligand titration is constructed: number of wells in e
 
 ::
 
-    $ python calculate_Lstated_array.py --n_wells 12 --h_conc 8e-06 --l_conc 2.53e-09 --dilution logarithmic
+    $ calculate_Lstated_array --n_wells 12 --h_conc 8e-06 --l_conc 2.53e-09 --dilution logarithmic
 
 The numpy array this script prints out must be directly copied to `Lstated` section of `inputs.py`.
 
