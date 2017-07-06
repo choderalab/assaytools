@@ -40,7 +40,12 @@ Ligand concentration array (`Lstated` section) can be constructed using `calcula
 
 - `xml_file_path` : relative path to xml plate reader output files.
 - `file_set` : option to group multiple experimental sets with a dictionary key.
-- `ligand_order`: List of ligand names per each experiment set (one protein, one buffer row). If `skip` is specified as ligand name in this list, `quickmodel` analysis will skip the analysis of that experiment.
+- `ligand_order` : List of ligand names per each experiment set (one protein, one buffer row). If `None` Python object is specified as ligand name in this list, `quickmodel` analysis will skip the analysis of that experiment. For example:
+::
+
+    'ligand_order'  :  [None, None, 'ligand3', 'ligand4']
+
+
 - `section` : Data section label of Tecan Infinite M1000 Pro plate reader as specified in its method.
 - `wavelength` : Emission wavelength picked for analysis (nm).
 - `Lstated` : Experimental value of ligand concentration (M), in NumPy array form. It can be constructed using `calculate_L_stated_array.py` script.
