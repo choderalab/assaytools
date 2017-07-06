@@ -86,7 +86,7 @@ def get_data_using_inputs(inputs):
         # Are there any experiments the user wants to skip analyzing?
         skipped_experiments=[]
         for i, ligand in enumerate(inputs['ligand_order']):
-            if ligand == 'skip':
+            if ligand == None:
                 skipped_experiments.append(i*2)
             else:
                 continue
