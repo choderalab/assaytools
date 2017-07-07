@@ -31,7 +31,9 @@ script:
   # Test the package
   - cd devtools && nosetests $PACKAGENAME --nocapture --verbosity=2 --with-timer -a '!slow' && cd ..
   # Run quickmodel
-  - pushd . && cd examples/direct-fluorescence-assay && env PYTHONPATH="./" quickmodel --inputs 'inputs_p38_singlet' --nsamples 20 && popd
+  - pushd . && cd examples/direct-fluorescence-assay && quickmodel --inputs 'inputs_p38_singlet' --nsamples 20 && popd
+  # Run xml2png
+  - pushd . && cd examples/direct-fluorescence-assay/data && xml2png --type singlet_384 p38*.xml && popd
   # Run IPython notebook tests
   # THIS NEEDS TO BE REPLACED WITH A PY3.x COMPATIBLE SCHEME
   #- source devtools/travis-ci/ipythontests.sh
