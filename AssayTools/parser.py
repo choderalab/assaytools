@@ -82,27 +82,45 @@ def get_data_using_inputs(inputs):
                     data[key].update(new_dict[key])
                 except:
                     pass
-    
-        for i in range(0,len(inputs['ligand_order']*2),2):
-            protein_row = ALPHABET[i]
-            buffer_row = ALPHABET[i+1]
 
-            name = "%s-%s-%s%s"%(protein,inputs['ligand_order'][int(i/2)],protein_row,buffer_row)
- 
-            # for spectra assays
-            if 'wavelength' in inputs:
-        
-                complex_fluorescence_data = platereader.select_data(data, inputs['section'], protein_row, wavelength = '%s' %inputs['wavelength'])
-                ligand_fluorescence_data = platereader.select_data(data, inputs['section'], buffer_row, wavelength = '%s' %inputs['wavelength'])
-
-            # for single wavelength assays
+        # Are there any experiments the user wants to skip analyzing?
+        skipped_experiments=[]
+        for i, ligand in enumerate(inputs['ligand_order']):
+            if ligand == None:
+                skipped_experiments.append(i*2)
             else:
+                continue
+
+        skipped_rows=[]
+        for i in skipped_experiments:
+            skipped_rows.append(ALPHABET[i])
+            skipped_rows.append(ALPHABET[i+1])
+        print("Skipping analysis of rows: ", skipped_rows)
+
+        for i in range(0,len(inputs['ligand_order']*2),2):
+
+            if i in skipped_experiments:
+                continue
+            else:
+                protein_row = ALPHABET[i]
+                buffer_row = ALPHABET[i+1]
+
+                name = "%s-%s-%s%s"%(protein,inputs['ligand_order'][int(i/2)],protein_row,buffer_row)
+ 
+                # for spectra assays
+                if 'wavelength' in inputs:
+        
+                    complex_fluorescence_data = platereader.select_data(data, inputs['section'], protein_row, wavelength = '%s' %inputs['wavelength'])
+                    ligand_fluorescence_data = platereader.select_data(data, inputs['section'], buffer_row, wavelength = '%s' %inputs['wavelength'])
+
+                # for single wavelength assays
+                else:
                 
-                complex_fluorescence_data = platereader.select_data(data, inputs['section'], protein_row)
-                ligand_fluorescence_data = platereader.select_data(data, inputs['section'], buffer_row)
+                    complex_fluorescence_data = platereader.select_data(data, inputs['section'], protein_row)
+                    ligand_fluorescence_data = platereader.select_data(data, inputs['section'], buffer_row)
                 
-            complex_fluorescence[name] = reorder2list(complex_fluorescence_data,well)
-            ligand_fluorescence[name] = reorder2list(ligand_fluorescence_data,well) 
+                complex_fluorescence[name] = reorder2list(complex_fluorescence_data,well)
+                ligand_fluorescence[name] = reorder2list(ligand_fluorescence_data,well)
 
     return [complex_fluorescence, ligand_fluorescence]
 
