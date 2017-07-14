@@ -241,30 +241,32 @@ def quick_model(inputs, nsamples=1000, nthin=20):
             # Append Delta G and K_d estimates to summary list, for writing out a summary table.
             protein_name = name.split("-")[0]
             ligand_name = name.split("-")[1]
-            DeltaG_mean = interval[1]
+            DeltaG_median = interval[1]
             DeltaG_lower_CI = interval[0] # 95% Credibility intervals
             DeltaG_upper_CI = interval[2]
+            DeltaG_mean = DeltaG_equil
             DeltaG_STD = dDeltaG_equil
-            Kd_mean = Kd_interval[1]
+            Kd_median = Kd_interval[1]
             Kd_lower_CI = Kd_interval[0]
             Kd_upper_CI = Kd_interval[2]
+            Kd_mean = Kd
             Kd_STD = dKd
-            deltaG_output_summary_list.append((protein_name, ligand_name, "DeltaG", DeltaG_mean, DeltaG_lower_CI,
-                                        DeltaG_upper_CI, DeltaG_STD, "k_BT"))
-            Kd_output_summary_list.append((protein_name, ligand_name, "K_d", Kd_mean, Kd_lower_CI, Kd_upper_CI,
-                                        Kd_STD, "M"))
+            deltaG_output_summary_list.append((protein_name, ligand_name, "DeltaG", DeltaG_median, DeltaG_lower_CI,
+                                        DeltaG_upper_CI, DeltaG_mean, DeltaG_STD, "k_BT"))
+            Kd_output_summary_list.append((protein_name, ligand_name, "K_d", Kd_median, Kd_lower_CI, Kd_upper_CI,
+                                        Kd_mean, Kd_STD, "M"))
 
     # Save DeltaG and K_d estimates of all analyzed experiments in a summary csv file.
     summary_file_name = "%s-delG-and-Kd-summary-%s.csv" % (protein_name, my_datetime_filename)
     writer = open(summary_file_name, "w")
     # Write column names
-    writer.write("%s,%s,%s,%s,%s,%s,%s,%s\n"%("Protein", "Ligand", "Parameter", "Mean", "Lower 95% CrI",
-                                              "Upper 95% CrI", "STD", "Unit"))
+    writer.write("%s,%s,%s,%s,%s,%s,%s,%s,%s\n"%("Protein", "Ligand", "Parameter", "Median", "Lower 95% CrI",
+                                              "Upper 95% CrI", "Mean", "STD", "Unit"))
     # Write values
     for summary_tuple in deltaG_output_summary_list:
-        writer.write("%s,%s,%s,%.3g,%.3g,%.3g,%.3g,%s\n" %summary_tuple)
+        writer.write("%s,%s,%s,%.3g,%.3g,%.3g,%.3g,%.3g,%s\n" %summary_tuple)
     for summary_tuple in Kd_output_summary_list:
-        writer.write("%s,%s,%s,%.3g,%.3g,%.3g,%.3g,%s\n" %summary_tuple)
+        writer.write("%s,%s,%s,%.3g,%.3g,%.3g,%.3g,%.3g,%s\n" %summary_tuple)
 
 
 def entry_point():
