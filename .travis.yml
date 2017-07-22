@@ -21,7 +21,7 @@ script:
   # Activate the test environment
   - source activate test
   # Add org channel
-  - conda config --add channels ${ORGNAME}
+  - conda config --add channels ${ORGNAME} --add channels conda-forge
   # Build the recipe
   - conda build devtools/conda-recipe
   # Install the package
