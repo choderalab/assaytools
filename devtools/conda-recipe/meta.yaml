@@ -21,7 +21,7 @@ requirements:
     - matplotlib
     - seaborn
     - lxml
-    - libxslt=1.1.29-2
+    - libxslt 1.1.29 2
     - ipython
     - notebook
     - autoprotocol
@@ -39,7 +39,7 @@ requirements:
     - matplotlib
     - seaborn
     - lxml
-    - libxslt=1.1.29-2
+    - libxslt 1.1.29 2
     - ipython
     - notebook
     - autoprotocol
