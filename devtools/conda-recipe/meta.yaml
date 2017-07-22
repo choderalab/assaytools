@@ -21,13 +21,13 @@ requirements:
     - matplotlib
     - seaborn
     - lxml
-    - libxslt=1.1.29=2
+    - libxslt=1.1.29-2
     - ipython
     - notebook
     - autoprotocol
     - mock
     - pymbar
-    
+
   run:
     - python
     - numpy
@@ -39,7 +39,7 @@ requirements:
     - matplotlib
     - seaborn
     - lxml
-    - libxslt=1.1.29=2
+    - libxslt=1.1.29-2
     - ipython
     - notebook
     - autoprotocol
