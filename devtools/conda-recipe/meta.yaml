@@ -20,8 +20,9 @@ requirements:
     - pymc
     - matplotlib
     - seaborn
+    - icu 58.1
     - lxml
-    - libxslt 1.1.29 2
+    - libxslt
     - ipython
     - notebook
     - autoprotocol
@@ -38,8 +39,9 @@ requirements:
     - pymc
     - matplotlib
     - seaborn
+    - icu 58.1
     - lxml
-    - libxslt 1.1.29 2
+    - libxslt
     - ipython
     - notebook
     - autoprotocol
