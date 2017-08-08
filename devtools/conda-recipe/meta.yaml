@@ -20,7 +20,9 @@ requirements:
     - pymc
     - matplotlib
     - seaborn
+    - icu 58.1
     - lxml
+    - libxslt
     - ipython
     - notebook
     - autoprotocol
@@ -37,12 +39,13 @@ requirements:
     - pymc
     - matplotlib
     - seaborn
+    - icu 58.1
     - lxml
+    - libxslt
     - ipython
     - notebook
     - autoprotocol
     - pymbar
-    - libgfortran ==1.0.0 [linux]
 
 test:
   imports:

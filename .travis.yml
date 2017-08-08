@@ -1,3 +1,7 @@
+os:
+  - linux
+  - osx
+
 language: c
 sudo: false
 
@@ -12,16 +16,16 @@ install:
 before_script:
   # Mimic X display
   - "export DISPLAY=:99.0"
-  - "sh -e /etc/init.d/xvfb start"
+  - #"sh -e /etc/init.d/xvfb start"
   - sleep 3 # give xvfb some time to start
 
 script:
+  # Add org channel
+  - conda config --add channels ${ORGNAME} --add channels conda-forge
   # Create a test environment
   - conda create --yes -n test python=$python
   # Activate the test environment
   - source activate test
-  # Add org channel
-  - conda config --add channels ${ORGNAME}
   # Build the recipe
   - conda build devtools/conda-recipe
   # Install the package
@@ -39,8 +43,8 @@ script:
 env:
   matrix:
     - python=2.7  CONDA_PY=27
-    - python=3.4  CONDA_PY=34
     - python=3.5  CONDA_PY=35
+    - python=3.6  CONDA_PY=36
 
   global:
     - ORGNAME="omnia"
