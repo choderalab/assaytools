@@ -42,6 +42,7 @@ Documentation
 
    getting_started
    theory
+   useful_scripts
 
 API Reference
 -------------
