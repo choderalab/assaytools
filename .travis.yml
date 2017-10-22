@@ -20,8 +20,9 @@ before_script:
   - sleep 3 # give xvfb some time to start
 
 script:
-  # Add org channel
-  - conda config --add channels ${ORGNAME} --add channels conda-forge
+  # Add org channel and force update
+  - conda config --add channels omnia --add channels conda-forge
+  - conda update --yes conda
   # Create a test environment
   - conda create --yes -n test python=$python
   # Activate the test environment
