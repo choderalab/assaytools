@@ -413,7 +413,7 @@ def plot_singlet_one_section(data, section):
             reorder_buffer = reorder2list(part1_data_buffer,well)
             
         except:
-            print '***no %s%s data***' %(protein_row,buffer_row )
+            print('***no %s%s data***' %(protein_row,buffer_row) )
             continue    
         
         axes[i/2].set_color_cycle(['black','red'])
