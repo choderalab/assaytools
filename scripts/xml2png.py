@@ -416,19 +416,19 @@ def plot_singlet_one_section(data, section):
             print('***no %s%s data***' %(protein_row,buffer_row) )
             continue    
         
-        axes[i/2].set_color_cycle(['black','red'])
+        axes[int(i/2)].set_color_cycle(['black','red'])
 
         if i/2 == 1:
-            axes[i/2].plot(reorder_protein,marker='o',linestyle='None',label='protein+ligand')
-            axes[i/2].plot(reorder_buffer,marker='o',linestyle='None',label='buffer+ligand')
-            axes[i/2].legend(frameon=True)
+            axes[int(i/2)].plot(reorder_protein,marker='o',linestyle='None',label='protein+ligand')
+            axes[int(i/2)].plot(reorder_buffer,marker='o',linestyle='None',label='buffer+ligand')
+            axes[int(i/2)].legend(frameon=True)
 
-        axes[i/2].plot(reorder_protein,marker='o',linestyle='None')
-        axes[i/2].plot(reorder_buffer,marker='o',linestyle='None')
-        axes[i/2].set_xticklabels(range(-4,25,5))
-        axes[i/2].set_xlabel('Column Index', horizontalalignment='right',position=(1,1),fontsize=8)
-        axes[i/2].set_ylabel('Fluorescence')
-        axes[i/2].set_title('%s,%s' %(protein_row,buffer_row))
+        axes[int(i/2)].plot(reorder_protein,marker='o',linestyle='None')
+        axes[int(i/2)].plot(reorder_buffer,marker='o',linestyle='None')
+        axes[int(i/2)].set_xticklabels(range(-4,25,5))
+        axes[int(i/2)].set_xlabel('Column Index', horizontalalignment='right',position=(1,1),fontsize=8)
+        axes[int(i/2)].set_ylabel('Fluorescence')
+        axes[int(i/2)].set_title('%s,%s' %(protein_row,buffer_row))
 
     fig.suptitle('%s' %section)
 
