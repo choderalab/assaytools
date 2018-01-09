@@ -202,12 +202,12 @@ class CompetitionBindingModel(BindingModel):
             if -1.0 < theta_intermediate < 1.0:
                 value = np.arccos( theta_intermediate )
             elif theta_intermediate < -1.0:
-                value = pi
+                value = np.pi
             elif theta_intermediate > 1.0:
                 value = 0.0
             return value
         
-        theta = np.asarray(map(better_theta,theta_intermediate))
+        theta = np.asarray(list(map(better_theta,theta_intermediate)))
 
         u = (2.0/3.0)*np.sqrt(a**2-3*b)*np.cos(theta/3.0)
 
