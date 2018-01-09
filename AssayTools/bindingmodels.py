@@ -199,7 +199,7 @@ class CompetitionBindingModel(BindingModel):
         # this function prevents nans that occur when taking arccos directly
         def better_theta(theta_intermediate):
             global value
-            if -1.0 < theta_intermediate < 1.0:
+            if -1.0 <= theta_intermediate <= 1.0:
                 value = np.arccos( theta_intermediate )
             elif theta_intermediate < -1.0:
                 value = np.pi
