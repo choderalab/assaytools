@@ -192,7 +192,23 @@ class CompetitionBindingModel(BindingModel):
         delta = (r**2)/4.0 -(q**3)/27.0
     
         # 3 roots. Physically meaningful root is u.
-        theta = np.arccos((-2*(a**3)+9*a*b-27*c)/(2*np.sqrt((a**2-3*b)**3)))
+        #theta = np.arccos((-2*(a**3)+9*a*b-27*c)/(2*np.sqrt((a**2-3*b)**3)))
+
+        theta_intermediate = (-2*(a**3)+9*a*b-27*c)/(2*np.sqrt((a**2-3*b)**3))
+        
+        # this function prevents nans that occur when taking arccos directly
+        def better_theta(theta_intermediate):
+            global value
+            if -1.0 < theta_intermediate < 1.0:
+                value = np.arccos( theta_intermediate )
+            elif theta_intermediate < -1.0:
+                value = pi
+            elif theta_intermediate > 1.0:
+                value = 0.0
+            return value
+        
+        theta = np.asarray(map(better_theta,theta_intermediate))
+
         u = (2.0/3.0)*np.sqrt(a**2-3*b)*np.cos(theta/3.0)
 
         # Compute remaining concentrations.
