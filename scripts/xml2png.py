@@ -58,7 +58,14 @@ def get_wells_from_section(path):
     reads = path.xpath("*/Well")
     wellIDs = [read.attrib['Pos'] for read in reads]
 
-    data = [(float(s.text), r.attrib['Pos'])
+    def convert_value(text):
+        try:
+            return float(text)
+        except ValueError as e:
+            # OVER
+            return 0.0
+
+    data = [(convert_value(s.text), r.attrib['Pos'])
          for r in reads
          for s in r]
 
@@ -280,9 +287,10 @@ def process_files_spectra(xml_files):
         for j,A in enumerate(Alphabet):
             for k in range(1,12):
                 try:
-                    globals()["large_dataframe"+str(i)].fluorescence.get(A + str(k)).plot(ax=axes[(j/3)%3,j%3], title=A, c=cm.hsv(k*15), ylim=section_ylim, xlim=[300,600])
-                except:
-                    print("****No row %s.****" %A)
+                    x1,x2 = int(j/3)%3,j%3
+                    globals()["large_dataframe"+str(i)].fluorescence.get(A + str(k)).plot(ax=axes[x1,x2], title=A, c=cm.hsv(k*15), ylim=section_ylim, xlim=[300,600])
+                except Exception as e:
+                    print("****No row %s.**** : exception: %s" %(A, str(e)))
 
         fig.suptitle('%s \n %s \n Barcode = %s' % (globals()["title"+str(i)], plate_type, barcode), fontsize=14)
         fig.subplots_adjust(hspace=0.3)
@@ -412,8 +420,8 @@ def plot_singlet_one_section(data, section):
             reorder_protein = reorder2list(part1_data_protein,well)
             reorder_buffer = reorder2list(part1_data_buffer,well)
             
-        except:
-            print('***no %s%s data***' %(protein_row,buffer_row) )
+        except Exception as e:
+            print('***no %s%s data*** : exception is %s' %(protein_row,buffer_row, str(e)) )
             continue    
         
         axes[int(i/2)].set_color_cycle(['black','red'])
