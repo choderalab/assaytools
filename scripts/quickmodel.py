@@ -80,15 +80,15 @@ def quick_model(inputs, nsamples=1000, nthin=20):
             map = pymcmodels.map_fit(pymc_model)
 
             DeltaG_map = map.DeltaG.value
-            DeltaG = mcmc.DeltaG.trace().mean()
-            dDeltaG = mcmc.DeltaG.trace().std()
+            DeltaG = mcmc.trace('DeltaG')[:].mean()
+            dDeltaG = mcmc.tace('DeltaG')[:].std()
 
             ## DEFINE EQUILIBRATION
             #Calculate a mean and std from DeltaG trace after equil
 
             [t,g,Neff_max] = pymbar.timeseries.detectEquilibration(mcmc.DeltaG.trace())
-            DeltaG_equil = mcmc.DeltaG.trace()[t:].mean()
-            dDeltaG_equil = mcmc.DeltaG.trace()[t:].std()
+            DeltaG_equil = mcmc.trace('DeltaG')[t:].mean()
+            dDeltaG_equil = mcmc.trace('DeltaG')[t:].std()
 
             #This is so plotting works on the cluster
             plt.switch_backend('agg')
