@@ -81,12 +81,12 @@ def quick_model(inputs, nsamples=1000, nthin=20):
 
             DeltaG_map = map.DeltaG.value
             DeltaG = mcmc.trace('DeltaG')[:].mean()
-            dDeltaG = mcmc.tace('DeltaG')[:].std()
+            dDeltaG = mcmc.trace('DeltaG')[:].std()
 
             ## DEFINE EQUILIBRATION
             #Calculate a mean and std from DeltaG trace after equil
 
-            [t,g,Neff_max] = pymbar.timeseries.detectEquilibration(mcmc.DeltaG.trace())
+            [t,g,Neff_max] = pymbar.timeseries.detectEquilibration(mcmc.trace('DeltaG')[:])
             DeltaG_equil = mcmc.trace('DeltaG')[t:].mean()
             dDeltaG_equil = mcmc.trace('DeltaG')[t:].std()
 
@@ -108,7 +108,7 @@ def quick_model(inputs, nsamples=1000, nthin=20):
             ligand = getattr(pymc_model, property_name)
             for top_complex_fluorescence_model in mcmc.trace('top_complex_fluorescence_model')[::10]:
                 plt.semilogx(inputs['Lstated'], top_complex_fluorescence_model, marker='.',color='silver')
-            for top_ligand_fluorescence_model in mcmc.tace('top_ligand_fluorescence_model')[::10]:
+            for top_ligand_fluorescence_model in mcmc.trace('top_ligand_fluorescence_model')[::10]:
                 plt.semilogx(inputs['Lstated'], top_ligand_fluorescence_model, marker='.',color='lightcoral', alpha=0.2)
             plt.semilogx(inputs['Lstated'], complex.value, 'ko',label='complex')
             plt.semilogx(inputs['Lstated'], ligand.value, marker='o',color='firebrick',linestyle='None',label='ligand')
@@ -145,7 +145,7 @@ def quick_model(inputs, nsamples=1000, nthin=20):
             plt.subplot(312)
 
             plt.bar(bin_edges[:-1],hist,binwidth,color=clrs, edgecolor = "white");
-            sns.kdeplot(mcmc.tace('DeltaG')[t:],bw=.4,color=(0.39215686274509803, 0.7098039215686275, 0.803921568627451),shade=False)
+            sns.kdeplot(mcmc.trace('DeltaG')[t:],bw=.4,color=(0.39215686274509803, 0.7098039215686275, 0.803921568627451),shade=False)
             plt.axvline(x=interval[0],color=(0.5,0.5,0.5),linestyle='--')
             plt.axvline(x=interval[1],color=(0.5,0.5,0.5),linestyle='--')
             plt.axvline(x=interval[2],color=(0.5,0.5,0.5),linestyle='--')
@@ -162,7 +162,7 @@ def quick_model(inputs, nsamples=1000, nthin=20):
             ## PLOT TRACE
             plt.subplot(313)
             plt.plot(range(0,t),mcmc.trace('DeltaG')[:t], 'go',label='equil. at %s'%t);
-            plt.plot(range(t,len(mcmc.trace('DeltaG'))),mcmc.trace('DeltaG')[t:], 'o');
+            plt.plot(range(t,len(mcmc.trace('DeltaG')[:])),mcmc.trace('DeltaG')[t:], 'o');
             plt.xlabel('MCMC sample');
             plt.ylabel('$\Delta G$ ($k_B T$)');
             plt.legend(loc=2);
