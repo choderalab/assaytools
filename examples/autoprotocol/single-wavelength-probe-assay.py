@@ -38,5 +38,5 @@ mcmc = assay.experiment.run_mcmc()
 assay.experiment.show_summary(mcmc)
 
 # Generate plots
-plots_filename = 'plots.pdf'
-assay.experiment.generate_plots(mcmc, pdf_filename=plots_filename)
+#plots_filename = 'plots.pdf'
+#assay.experiment.generate_plots(mcmc, pdf_filename=plots_filename)

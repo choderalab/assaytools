@@ -33,9 +33,9 @@ C0 = 1.0 # standard concentration (M)
 
 DG_min = np.log(1e-15) # kT, most favorable (negative) binding free energy possible; 1 fM
 DG_max = +0 # kT, least favorable binding free energy possible
-niter = 500000 # number of iterations
-nburn = 50000 # number of burn-in iterations to discard
-nthin = 500 # thinning interval
+niter = 10000 # number of iterations
+nburn = 0 # number of burn-in iterations to discard
+nthin = 1 # thinning interval
 
 volume_unit = Unit(1.0, 'liter')
 concentration_unit = Unit(1.0, 'moles/liter')
@@ -778,16 +778,16 @@ class CompetitiveBindingAnalysis(object):
         """
 
         # DEBUG: Write model
-        print('Writing graph...')
-        pymc.graph.moral_graph(self.model, format='ps')
+        #print('Writing graph...')
+        #pymc.graph.moral_graph(self.model, format='ps')
 
         # Sample the model with pymc
         # TODO: Allow
         mcmc = pymc.MCMC(self.model, db='sqlite', name='output', verbose=True)
 
         nthin = 10
-        nburn = nthin*100
-        niter = nthin*100
+        nburn = nthin*10
+        niter = nthin*10
 
         # Specify initial parameter standard deviations to apply to specific classes of parameters
         keywords = {
