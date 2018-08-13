@@ -19,6 +19,7 @@ import traceback
 import seaborn as sns
 import pymbar
 
+
 def quick_model(inputs, nsamples=1000, nthin=20):
     """
     Quick model for both spectra and single wavelength experiments
@@ -78,6 +79,8 @@ def quick_model(inputs, nsamples=1000, nthin=20):
                 db = 'pickle', dbname = '%s_mcmc-%s.pickle'%(name,my_datetime))
 
             map = pymcmodels.map_fit(pymc_model)
+
+            # Save the trace for easy plotting later
 
             DeltaG_map = map.DeltaG.value
             DeltaG = mcmc.trace('DeltaG')[:].mean()
