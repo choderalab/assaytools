@@ -35,7 +35,8 @@ if 'setuptools' in sys.modules:
               ['xml2png = assaytools.scripts.xml2png:entry_point',
                'quickmodel = assaytools.scripts.quickmodel:entry_point',
                'ipnbdoctest = assaytools.scripts.ipnbdoctest:entry_point',
-               'calculate_Lstated_array = assaytools.scripts.calculate_Lstated_array:entry_point']}
+               'calculate_Lstated_array = assaytools.scripts.calculate_Lstated_array:entry_point',
+               'plot_trace = assaytools.scripts.plot_trace:entry_point']}
 
     if sys.version_info[0] == 2:
         # required to fix cythoninze() for old versions of setuptools on
@@ -43,7 +44,7 @@ if 'setuptools' in sys.modules:
         m = sys.modules['setuptools.extension']
         m.Extension.__dict__ = m._Extension.__dict__
 else:
-    setup_kwargs['scripts'] = ['scripts/xml2png.py','scripts/quickmodel.py','scripts/calculate_Lstated_array.py']
+    setup_kwargs['scripts'] = ['scripts/xml2png.py','scripts/quickmodel.py','scripts/calculate_Lstated_array.py', 'scripts/plot_trace.py']
 
 
 ##########################
