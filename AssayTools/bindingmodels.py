@@ -121,6 +121,108 @@ class TwoComponentBindingModel(BindingModel):
       return [P, L, PL]
 
 #=============================================================================================
+# Analytical competitive binding model
+#=============================================================================================
+
+class CompetitionBindingModel(BindingModel):
+     """
+     Analytic solution for competitive binding model problem.
+     As described in Wang, Z. X. An exact mathematical expression 
+     for describing competitive binding of two different ligands to 
+     a protein molecule. FEBS Lett. 1995, 360, 111−114.
+     """
+
+     @classmethod
+     def equilibrium_concentrations(cls, Ptot, Ltot, DeltaG_L, Btot, DeltaG_B):
+        """
+        
+        Compute equilibrium concentrations for analytical competition assay association.
+        Parameters
+        ----------     
+        Ptot : float or numpy array
+          Total protein concentration summed over bound and unbound species, molarity.
+        Ltot : float or numpy array
+           Total fluorescent ligand concentration summed over bound and unbound speciesl, molarity.
+        DeltaG_L : float
+           Reduced free energy of binding of fluorescent L to P (in units of kT)
+        Btot : float or numpy array
+           Total competitive non-fluorescent ligand concentration summed over bound and unbound speciesl, molarity.
+        DeltaG_B : float
+           Reduced free energy of binding of non-fluorescent B to P (in units of kT)
+        
+        Returns
+        -------
+        P : float or numpy array with same dimensions as Ptot
+           Free protein concentration, molarity.
+        L : float or numpy array with same dimensions as Ptot
+           Free fluorescent ligand concentration, molarity.
+        PL : float or numpy array with same dimensions as Ptot
+           Bound fluorescent ligand complex concentration, molarity.
+        B : float or numpy array with same dimensions as Ptot
+           Free non-fluorescent competitive ligand concentration, molarity.
+        PB : float or numpy array with same dimensions as Ptot
+           Bound non-fluorescent competitive ligand complex concentration, molarity.
+        """
+     
+        # Handle only strictly positive elements---all others are set to zero as constants
+        try:
+            nonzero_indices = np.where(Ltot > 0)[0]
+            zero_indices = np.where(Ltot <= 0)[0]
+        except:
+            nonzero_indices = range(size[0])
+            zero_indices = []
+        nnonzero = len(nonzero_indices)
+        nzeros = len(zero_indices)
+
+        # Original form:
+        Kd_L = np.exp(DeltaG_L)
+        Kd_B = np.exp(DeltaG_B)
+
+        # P^3 + aP^2 + bP + c = 0
+        a = Kd_L + Kd_B + Ltot + Btot - Ptot
+        b = Kd_L*Kd_B + Kd_B*(Ltot-Ptot) + Kd_B*(Btot - Ptot)
+        c = -Kd_L*Kd_B*Ptot
+    
+        # Subsitute P=u-a/3
+        # u^3 - qu - r = 0 where 
+        q = (a**2)/3.0 - b
+        r = (-2.0/27.0)*a**3 +(1.0/3.0)*a*b - c
+    
+        # Discriminant
+        delta = (r**2)/4.0 -(q**3)/27.0
+    
+        # 3 roots. Physically meaningful root is u.
+        #theta = np.arccos((-2*(a**3)+9*a*b-27*c)/(2*np.sqrt((a**2-3*b)**3)))
+
+        theta_intermediate = (-2*(a**3)+9*a*b-27*c)/(2*np.sqrt((a**2-3*b)**3))
+        
+        # this function prevents nans that occur when taking arccos directly
+        def better_theta(theta_intermediate):
+            global value
+            if -1.0 <= theta_intermediate <= 1.0:
+                value = np.arccos( theta_intermediate )
+            elif theta_intermediate < -1.0:
+                value = np.pi
+            elif theta_intermediate > 1.0:
+                value = 0.0
+            return value
+        
+        theta = np.asarray(list(map(better_theta,theta_intermediate)))
+
+        u = (2.0/3.0)*np.sqrt(a**2-3*b)*np.cos(theta/3.0)
+
+        # Compute remaining concentrations.
+        P = u - a/3.0           # free protein concentration in sample cell after n injections (M)
+        PL = P*Ltot/(Kd_L + P)  # fluorescent ligand complex concentration (M)
+        PB = P*Btot/(Kd_B + P)  # non-fluorescent ligand complex concentration (M)
+        L = Ltot - PL           # free fluorescent ligand concentration in sample cell after n injections (M)
+        B = Btot - PB           # free non-fluorescent ligand concentration in sample cell after n injections (M)
+    
+        return [P, L, PL, B, PB]
+
+
+
+#=============================================================================================
 # General robust competitive binding model
 #=============================================================================================
 
