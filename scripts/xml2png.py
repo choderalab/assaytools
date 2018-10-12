@@ -424,7 +424,7 @@ def plot_singlet_one_section(data, section):
             print('***no %s%s data*** : exception is %s' %(protein_row,buffer_row, str(e)) )
             continue    
         
-        axes[int(i/2)].set_prop_cycle('color,['black','red'])
+        axes[int(i/2)].set_prop_cycle('color',['black','red'])
 
         if i/2 == 1:
             axes[int(i/2)].plot(reorder_protein,marker='o',linestyle='None',label='protein+ligand')
