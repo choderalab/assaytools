@@ -87,15 +87,15 @@ def get_data_using_inputs(inputs):
                 sw_data.append(data_to_append) 
                 #sw_data is a list of dataframes in the order of the list of files
             
-            
-            if len(str(inputs['protein_wells'][protein][0]))==2: # is it e.g. 'A1'
+            if inputs['protein_wells'][protein][0] not in range(1,25): #make sure not a two digit number
+                if len(str(inputs['protein_wells'][protein][0]))==2 or 3: # is it e.g. 'A1' or 'A11'
                 
-                if len(inputs['protein_wells'][protein]) == len(inputs['ligand_order']):  
-                    pass
+                    if len(inputs['protein_wells'][protein]) == len(inputs['ligand_order']):  
+                        pass
 
-                else:
-                    print('***To define individual wells, you need to define the same number of wells as ligands.***')
-                    break
+                    else:
+                        print('***To define individual wells, you need to define the same number of wells as ligands.***')
+                        break
             
             for i in range(0,len(inputs['ligand_order'])): # i defines ligand
                 
@@ -109,10 +109,13 @@ def get_data_using_inputs(inputs):
                         name = "%s-%s-%s%s"%(protein,inputs['ligand_order'][i],protein_well,buffer_well)
                         
                     elif len(str(protein_well_ID)) == 2 or 3:
-                        protein_well = protein_well_ID                         
-                        buffer_well = inputs['buffer_wells'][protein][j]
+                        if inputs['protein_wells'][protein][0] in range(1,25): # make sure not a two digit number
+                            pass
+                        else:
+                            protein_well = protein_well_ID                         
+                            buffer_well = inputs['buffer_wells'][protein][j]
                         
-                        name = "%s-%s-%s%s"%(protein,inputs['ligand_order'][j],protein_well,buffer_well)
+                            name = "%s-%s-%s%s"%(protein,inputs['ligand_order'][j],protein_well,buffer_well)
                         
                     else:
                         #print('Your ligands are in a column (A,B,C,D, etc. are different ligands)!')
