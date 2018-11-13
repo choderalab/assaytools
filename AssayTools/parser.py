@@ -108,7 +108,7 @@ def get_data_using_inputs(inputs):
                         
                         name = "%s-%s-%s%s"%(protein,inputs['ligand_order'][i],protein_well,buffer_well)
                         
-                    elif len(str(protein_well_ID)) == 2:
+                    elif len(str(protein_well_ID)) == 2 or 3:
                         protein_well = protein_well_ID                         
                         buffer_well = inputs['buffer_wells'][protein][j]
                         
