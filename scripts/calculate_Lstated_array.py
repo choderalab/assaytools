@@ -1,11 +1,11 @@
-# Generate Numpy array of stated ligand concentration(Lstated) for logarithmic dilution along a row.
+# Generate Numpy array of stated ligand concentration(Lstated)-corrected for true stock concentration- for logarithmic dilution along a row.
 # 
 # Example output:
 # np.array([20.0e-6,9.15e-6,4.18e-6,1.91e-6,0.875e-6,0.4e-6,0.183e-6,0.0837e-6,0.0383e-6,0.0175e-6,0.008e-6,0.0001e-6], np.float64)
 #
 # Usage:	
-#	python calculate_Lstated_array.py --n_wells 12 --h_conc 8e-06 --l_conc 2.53e-09 --dilution logarithmic
-#       python calculate_Lstated_array.py --n_wells 6 --h_conc 100 --l_conc 10 --dilution linear
+#	python calculate_Lstated_array.py --n_wells 12 --h_conc 8e-06 --l_conc 2.53e-09 --target_stock_conc 0.010 --true_stock_conc 0.010034 --dilution logarithmic
+#       python calculate_Lstated_array.py --n_wells 6 --h_conc 100 --l_conc 10 --target_stock_conc 0.010 --true_stock_conc 0.0100453 --dilution linear
  
 
 from __future__ import print_function, division
@@ -18,14 +18,19 @@ parser = argparse.ArgumentParser(prog="calculate_Lstated_array")
 parser.add_argument("--n_wells", dest="n_wells", help="Enter target number of different concentrations.", type=int)
 parser.add_argument("--h_conc", dest= "highest_conc", help="The highest concentration in the series (Unit: M).", type=float)
 parser.add_argument("--l_conc", dest="lowest_conc", help="The lowest concentration in the series (Unit: M).", type=float)
+parser.add_argument("--target_stock_conc", dest="target_stock_conc", default=0.01, help="Enter target concentration of ligand stock solution (Unit: M).", type=float)
+parser.add_argument("--true_stock_conc", dest="true_stock_conc", default=0.01, help="Enter true concentration of ligand stock solution (Unit: M).", type=float)
 parser.add_argument("--dilution", dest="dilution_method", help="Defines logarithmic or linear dilution.Enter 'logarithmic' or 'linear.'.", type=str)
 args = parser.parse_args()
 
+# Use true stock concentration and target stock concentration to create a scaling factor for true ligand concentrations
+SF = args.true_stock_conc/args.target_stock_conc
+
 n = args.n_wells
 print("Number of wells: ", n)
-highest_conc = args.highest_conc
+highest_conc = (args.highest_conc*SF)
 print("Highest concentration (M): ", highest_conc)
-lowest_conc = args.lowest_conc
+lowest_conc = (args.lowest_conc*SF)
 print("Lowest concentration (M): ", lowest_conc)
 dilution_method = args.dilution_method
 print("Dilution method is {}.".format(dilution_method))
