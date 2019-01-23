@@ -60,7 +60,15 @@ calculate_L_stated_array.py
 ---------------------------
 
 Generates Numpy array of stated ligand concentration (Lstated) for logarithmic or linear dilution along a row, adjusted for true experimental ligand concentration. This numpy array is necessary to construct `inputs.py` file for `quickmodel.py` analysis.
-Provide information on how ligand titration is constructed: number of wells in each titration (`--n_wells`), highest and lowest ligand concentrations in molar units (--h_conc and --l_conc), target ligand stock concentration and true ligand stock concentration in molar units (--target_stock_conc and --true_stock_conc), and serial dilution mode (`--dilution`, linear or logarithmic) as inputs.
+Provide information on how ligand titration is constructed: number of wells in each titration (`--n_wells`), highest and lowest ligand concentrations in molar units (--h_conc and --l_conc), target ligand stock concentration and true ligand stock concentration in molar units (--target_stock_conc and --true_stock_conc), and serial dilution mode (`--dilution`, linear or logarithmic) as inputs.  
+
+Usage example for calculation based on only target stock concentration (When true stock concentration is unknown and assumed to be equal to target, i.e. scaling factor is 1 for correcting of stock concentration):  
+
+::
+    $ python calculate_Lstated_array.py --n_wells 12 --h_conc 20e-06 --l_conc 8e-09 --target_stock_conc 0.010 --dilution logarithmic
+
+
+Usage example for when target stock concentration and true stock concentrations are known:  
 
 ::
 
