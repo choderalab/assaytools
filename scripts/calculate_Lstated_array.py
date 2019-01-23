@@ -4,12 +4,12 @@
 # np.array([20.0e-6,9.15e-6,4.18e-6,1.91e-6,0.875e-6,0.4e-6,0.183e-6,0.0837e-6,0.0383e-6,0.0175e-6,0.008e-6,0.0001e-6], np.float64)
 #
 # Usage when target stock concentration and true stock concentrations are known:
-#	python calculate_Lstated_array.py --n_wells 12 --h_conc 8e-06 --l_conc 2.53e-09 --target_stock_conc 0.010 --true_stock_conc 0.010034 --dilution logarithmic
-#       python calculate_Lstated_array.py --n_wells 6 --h_conc 100 --l_conc 10 --target_stock_conc 0.010 --true_stock_conc 0.0100453 --dilution linear
+#    python calculate_Lstated_array.py --n_wells 12 --h_conc 8e-06 --l_conc 2.53e-09 --target_stock_conc 0.010 --true_stock_conc 0.010034 --dilution logarithmic
+#    python calculate_Lstated_array.py --n_wells 6 --h_conc 100 --l_conc 10 --target_stock_conc 0.010 --true_stock_conc 0.0100453 --dilution linear
 #
 # Usage based on only target stock concentration when true stock concentration unknown and assumed to be equal to target:
-# python calculate_Lstated_array.py --n_wells 12 --h_conc 20e-06 --l_conc 8e-09 --target_stock_conc 0.010 --dilution logarithmic
-# python calculate_Lstated_array.py --n_wells 12 --h_conc 20e-06 --l_conc 8e-09 --target_stock_conc 0.010 --dilution linear
+#    python calculate_Lstated_array.py --n_wells 12 --h_conc 20e-06 --l_conc 8e-09 --target_stock_conc 0.010 --dilution logarithmic
+#    python calculate_Lstated_array.py --n_wells 12 --h_conc 20e-06 --l_conc 8e-09 --target_stock_conc 0.010 --dilution linear
 #
 
 from __future__ import print_function, division
