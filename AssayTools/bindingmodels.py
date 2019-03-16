@@ -127,18 +127,18 @@ class TwoComponentBindingModel(BindingModel):
 class CompetitionBindingModel(BindingModel):
      """
      Analytic solution for competitive binding model problem.
-     As described in Wang, Z. X. An exact mathematical expression 
-     for describing competitive binding of two different ligands to 
+     As described in Wang, Z. X. An exact mathematical expression
+     for describing competitive binding of two different ligands to
      a protein molecule. FEBS Lett. 1995, 360, 111−114.
      """
 
      @classmethod
      def equilibrium_concentrations(cls, Ptot, Ltot, DeltaG_L, Btot, DeltaG_B):
         """
-        
+
         Compute equilibrium concentrations for analytical competition assay association.
         Parameters
-        ----------     
+        ----------
         Ptot : float or numpy array
           Total protein concentration summed over bound and unbound species, molarity.
         Ltot : float or numpy array
@@ -149,7 +149,7 @@ class CompetitionBindingModel(BindingModel):
            Total competitive non-fluorescent ligand concentration summed over bound and unbound speciesl, molarity.
         DeltaG_B : float
            Reduced free energy of binding of non-fluorescent B to P (in units of kT)
-        
+
         Returns
         -------
         P : float or numpy array with same dimensions as Ptot
@@ -163,7 +163,7 @@ class CompetitionBindingModel(BindingModel):
         PB : float or numpy array with same dimensions as Ptot
            Bound non-fluorescent competitive ligand complex concentration, molarity.
         """
-     
+
         # Handle only strictly positive elements---all others are set to zero as constants
         try:
             nonzero_indices = np.where(Ltot > 0)[0]
@@ -182,20 +182,20 @@ class CompetitionBindingModel(BindingModel):
         a = Kd_L + Kd_B + Ltot + Btot - Ptot
         b = Kd_L*Kd_B + Kd_B*(Ltot-Ptot) + Kd_B*(Btot - Ptot)
         c = -Kd_L*Kd_B*Ptot
-    
+
         # Subsitute P=u-a/3
-        # u^3 - qu - r = 0 where 
+        # u^3 - qu - r = 0 where
         q = (a**2)/3.0 - b
         r = (-2.0/27.0)*a**3 +(1.0/3.0)*a*b - c
-    
+
         # Discriminant
         delta = (r**2)/4.0 -(q**3)/27.0
-    
+
         # 3 roots. Physically meaningful root is u.
         #theta = np.arccos((-2*(a**3)+9*a*b-27*c)/(2*np.sqrt((a**2-3*b)**3)))
 
         theta_intermediate = (-2*(a**3)+9*a*b-27*c)/(2*np.sqrt((a**2-3*b)**3))
-        
+
         # this function prevents nans that occur when taking arccos directly
         def better_theta(theta_intermediate):
             global value
@@ -206,7 +206,7 @@ class CompetitionBindingModel(BindingModel):
             elif theta_intermediate > 1.0:
                 value = 0.0
             return value
-        
+
         theta = np.asarray(list(map(better_theta,theta_intermediate)))
 
         u = (2.0/3.0)*np.sqrt(a**2-3*b)*np.cos(theta/3.0)
@@ -217,7 +217,14 @@ class CompetitionBindingModel(BindingModel):
         PB = P*Btot/(Kd_B + P)  # non-fluorescent ligand complex concentration (M)
         L = Ltot - PL           # free fluorescent ligand concentration in sample cell after n injections (M)
         B = Btot - PB           # free non-fluorescent ligand concentration in sample cell after n injections (M)
-    
+
+        # Check all concentrations are nonnegative
+        assert np.all(P >= 0)
+        assert np.all(L >= 0)
+        assert np.all(PL >= 0)
+        assert np.all(B >= 0)
+        assert np.all(PB >= 0)
+
         return [P, L, PL, B, PB]
 
 

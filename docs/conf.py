@@ -61,7 +61,9 @@ sys.modules.update((mod_name, Mock()) for mod_name in MOCK_MODULES)
 # Add any Sphinx extension module names here, as strings. They can be extensions
 # coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
 extensions = ['sphinx.ext.autodoc', 'sphinx.ext.doctest', 'sphinx.ext.intersphinx',
-              'sphinx.ext.todo', 'sphinx.ext.pngmath', 'sphinx.ext.ifconfig',
+              'sphinx.ext.todo', 
+              #'sphinx.ext.pngmath', 
+              'sphinx.ext.ifconfig',
               'numpydoc', 'sphinx.ext.inheritance_diagram',
               'sphinx.ext.autosummary', 'sphinx.ext.extlinks', ]
 # Add any Sphinx extension module names here, as strings. They can be

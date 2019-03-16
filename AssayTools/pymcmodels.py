@@ -228,12 +228,18 @@ def inner_filter_effect_attenuation(epsilon_ex, epsilon_em, path_length, concent
     if not hasattr(concentration, '__getitem__'):
         concentration = np.array([concentration])
 
+    assert np.all(epsilon_ex >= 0)
+    assert np.all(epsilon_em >= 0)
+    assert np.all(concentration >= 0), 'concentration should not be negative, but are: {}'.format(concentration)
+    assert (path_length > 0)
+
     ELC_ex = epsilon_ex*path_length*concentration
     ELC_em = epsilon_em*path_length*concentration
 
     scaling = 1.0 # no attenuation
 
     def compute_scaling(alpha):
+        assert np.all(alpha >= 0.0)
         scaling = np.zeros(alpha.shape, np.float64)
         small_indices = np.where(np.abs(alpha) < 0.01)
         large_indices = np.where(np.abs(alpha) >= 0.01)
@@ -245,10 +251,18 @@ def inner_filter_effect_attenuation(epsilon_ex, epsilon_em, path_length, concent
         alpha = (ELC_ex + ELC_em)
         scaling = compute_scaling(alpha)
     elif geometry == 'bottom':
-        alpha = (ELC_ex - ELC_em)
-        scaling = compute_scaling(alpha)
-        # Include additional term.
-        scaling *= np.exp(-ELC_em)
+        # Check order to make sure to avoid exp overflow
+        print(ELC_ex - ELC_em)
+        if ELC_ex > ELC_em:
+            alpha = (ELC_ex - ELC_em)
+            scaling = compute_scaling(alpha)
+            # Include additional term.
+            scaling *= np.exp(-ELC_em)
+        else:
+            alpha = (ELC_em - ELC_ex)
+            scaling = compute_scaling(alpha)
+            # Include additional term.
+            scaling *= np.exp(-ELC_ex)
     else:
         raise Exception("geometry '%s' unknown, must be one of ['top', 'bottom']" % geometry)
 
