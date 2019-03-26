@@ -14,20 +14,7 @@ requirements:
     - setuptools
     - python
     - numpy
-    - pandas
-    - scipy
-    - openblas ==0.2.19
-    - pymc
-    - matplotlib
-    - seaborn
-    - icu 58.1
-    - lxml
-    - libxslt
-    - ipython
-    - notebook
-    - autoprotocol
     - mock
-    - pymbar
 
   run:
     - python
@@ -37,6 +24,7 @@ requirements:
     - scipy
     - openblas ==0.2.19
     - pymc
+    - lapack
     - matplotlib
     - seaborn
     - icu 58.1

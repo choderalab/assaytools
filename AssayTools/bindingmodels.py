@@ -262,7 +262,7 @@ class GeneralBindingModel(BindingModel):
           Each mass conservation law is encoded as a tuple of (log total concentration, dict of stoichiometry of all species)
           Example: [R]tot = 10^-6 M = [RL] + [R] and [L]tot = 10^-6 M = [RL] + [L] becomes [ (-6, {'RL' : +1, 'R' : +1}), (-6, {'RL' : +1, 'L' : +1}) ]
       tol : float, optional, default=1.0e-8
-          Solution tolerance.
+          Solution tolerance for log concentrations.
 
       Returns
       -------
@@ -295,11 +295,11 @@ class GeneralBindingModel(BindingModel):
       nequations = nreactions + nconservation
 
       # Determine names of all species.
-      all_species = set()
+      all_species = dict() # ordered
       for (log_equilibrium_constant, reaction) in reactions:
           for species in reaction.keys():
-              all_species.add(species)
-      all_species = list(all_species) # order is now fixed
+              all_species[species] = 1
+      all_species = tuple(all_species.keys()) # order is now fixed
       nspecies = len(all_species)
 
       # Construct function with appropriate roots.
@@ -338,6 +338,7 @@ class GeneralBindingModel(BindingModel):
           return (target, jacobian)
 
       # Construct initial guess
+
       # We assume that all matter is equally spread out among all species via the conservation equations
       from scipy.misc import logsumexp
       LOG_ZERO = -100
@@ -348,6 +349,9 @@ class GeneralBindingModel(BindingModel):
               if species in conservation_equation:
                   stoichiometry = conservation_equation[species]
                   X[species_index] = logsumexp([X[species_index], log_total_concentration + np.log(stoichiometry) - log_total_stoichiometry])
+
+      # Simple guess: All log concentrations are zero
+      X = np.zeros(X.shape, np.float64)
 
       # Solve
       from scipy.optimize import root
@@ -361,4 +365,5 @@ class GeneralBindingModel(BindingModel):
       # TODO: Ensure all constraints and conservation equations are satisfied?
 
       log_concentrations = { all_species[index] : sol.x[index] for index in range(nspecies) }
+
       return log_concentrations
