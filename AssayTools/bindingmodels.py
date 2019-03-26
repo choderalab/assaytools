@@ -247,7 +247,7 @@ class GeneralBindingModel(BindingModel):
    """
 
    @classmethod
-   def equilibrium_concentrations(cls, reactions, conservation_equations, tol=1.0e-8):
+   def equilibrium_concentrations(cls, reactions, conservation_equations, tol=1.0e-8, initial_guess='zero'):
       """
       Compute the equilibrium concentrations of each complex species for a general set of binding reactions.
 
@@ -263,6 +263,9 @@ class GeneralBindingModel(BindingModel):
           Example: [R]tot = 10^-6 M = [RL] + [R] and [L]tot = 10^-6 M = [RL] + [L] becomes [ (-6, {'RL' : +1, 'R' : +1}), (-6, {'RL' : +1, 'L' : +1}) ]
       tol : float, optional, default=1.0e-8
           Solution tolerance for log concentrations.
+      initial_guess : str, optional, default='zero'
+          If 'zero', will assume all initial log concentrations are zero.
+          If 'spread', will spread out concentration among all species.
 
       Returns
       -------
@@ -338,20 +341,23 @@ class GeneralBindingModel(BindingModel):
           return (target, jacobian)
 
       # Construct initial guess
-
-      # We assume that all matter is equally spread out among all species via the conservation equations
-      from scipy.misc import logsumexp
-      LOG_ZERO = -100
-      X = LOG_ZERO * np.ones([nspecies], np.float64)
-      for (species_index, species) in enumerate(all_species):
-          for (log_total_concentration, conservation_equation) in conservation_equations:
-              log_total_stoichiometry = np.log(np.sum([stoichiometry for stoichiometry in conservation_equation.values()]))
-              if species in conservation_equation:
-                  stoichiometry = conservation_equation[species]
-                  X[species_index] = logsumexp([X[species_index], log_total_concentration + np.log(stoichiometry) - log_total_stoichiometry])
-
-      # Simple guess: All log concentrations are zero
-      X = np.zeros(X.shape, np.float64)
+      if initial_guess == 'spread':
+          # We assume that all matter is equally spread out among all species via the conservation equations
+          from scipy.misc import logsumexp
+          LOG_ZERO = -100
+          X = LOG_ZERO * np.ones([nspecies], np.float64)
+          for (species_index, species) in enumerate(all_species):
+              for (log_total_concentration, conservation_equation) in conservation_equations:
+                  log_total_stoichiometry = np.log(np.sum([stoichiometry for stoichiometry in conservation_equation.values()]))
+                  if species in conservation_equation:
+                      stoichiometry = conservation_equation[species]
+                      #X[species_index] = logsumexp([X[species_index], log_total_concentration + np.log(stoichiometry) - log_total_stoichiometry])
+                      X[species_index] = np.logaddexp(X[species_index], log_total_concentration + np.log(stoichiometry) - log_total_stoichiometry)
+      elif initial_guess == 'zero':
+          # Simple guess: All log concentrations are zero
+          X = np.zeros([nspecies], np.float64)
+      else:
+          raise ValueError('Unknown initial_guess {}'.format(initial_guess))
 
       # Solve
       from scipy.optimize import root
