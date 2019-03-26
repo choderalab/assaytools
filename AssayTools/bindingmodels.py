@@ -82,20 +82,22 @@ class TwoComponentBindingModel(BindingModel):
       nnonzero = len(nonzero_indices)
       nzeros = len(zero_indices)
 
-      # Original form:
+      # Original form (suffers from numerical instabilities)
       #Kd = np.exp(DeltaG)
       #sqrt_arg = (Ptot + Ltot + Kd)**2 - 4*Ptot*Ltot
       #sqrt_arg[sqrt_arg < 0.0] = 0.0
       #PL = 0.5 * ((Ptot + Ltot + Kd) - np.sqrt(sqrt_arg));  # complex concentration (M)
 
-
-      # Numerically stable variant?
-      PL = np.zeros(Ptot.shape)
+      # Numerically stable variant
+      dtype = np.float128
+      Ptot = np.zeros(Ptot, dtype)
+      Ltot = np.zeros(Ltot, dtype)
+      PL = np.zeros(Ptot.shape, dtype)
       logP = np.log(Ptot[nonzero_indices])
       logL = np.log(Ltot[nonzero_indices])
       logPLK = np.logaddexp(np.logaddexp(logP, logL), DeltaG)
       PLK = np.exp(logPLK);
-      sqrt_arg = 1.0 - np.exp(np.log(4.0) + logP + logL - 2*logPLK);
+      sqrt_arg = 1.0 - np.exp(np.log(4.0) + logP + logL - 2.0*logPLK);
       sqrt_arg[sqrt_arg < 0.0] = 0.0 # ensure always positive
       PL[nonzero_indices] = 0.5 * PLK * (1.0 - np.sqrt(sqrt_arg));  # complex concentration (M)
 
@@ -109,15 +111,20 @@ class TwoComponentBindingModel(BindingModel):
       #chi[chi < 0.0] = 0.0 # prevent square roots of negative numbers
       #PL = 0.5 * PLK * (1 - np.sqrt(chi))
 
-      # Ensure all concentrations are within limits, correcting cases where numerical issues cause problems.
-      PL[PL < 0.0] = 0.0 # complex cannot have negative concentration
-      #PL_max = np.minimum(Ptot, Ltot)
-      #indices = np.where(PL > PL_max)
-      #PL[indices] = PL_max[indices]
-
       # Compute remaining concentrations.
       P = Ptot - PL; # free protein concentration in sample cell after n injections (M)
       L = Ltot - PL; # free ligand concentration in sample cell after n injections (M)
+
+      # Ensure all concentrations are within limits, correcting cases where numerical issues cause problems.
+      PL[PL < 0.0] = 0.0 # complex cannot have negative concentration
+      P[P < 0.0] = 0.0
+      L[L < 0.0] = 0.0
+
+      # Check all concentrations are nonnegative
+      assert np.all(P >= 0)
+      assert np.all(L >= 0)
+      assert np.all(PL >= 0)
+
       return [P, L, PL]
 
 #=============================================================================================
@@ -350,6 +357,8 @@ class GeneralBindingModel(BindingModel):
           msg  = "root-finder failed to converge:\n"
           msg += str(sol)
           raise Exception(msg)
+
+      # TODO: Ensure all constraints and conservation equations are satisfied?
 
       log_concentrations = { all_species[index] : sol.x[index] for index in range(nspecies) }
       return log_concentrations
