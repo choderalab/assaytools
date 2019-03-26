@@ -90,8 +90,8 @@ class TwoComponentBindingModel(BindingModel):
 
       # Numerically stable variant
       dtype = np.float128
-      Ptot = np.zeros(Ptot, dtype)
-      Ltot = np.zeros(Ltot, dtype)
+      Ptot = np.array(Ptot, dtype) # promote to dtype
+      Ltot = np.array(Ltot, dtype) # promote to dtype
       PL = np.zeros(Ptot.shape, dtype)
       logP = np.log(Ptot[nonzero_indices])
       logL = np.log(Ltot[nonzero_indices])
