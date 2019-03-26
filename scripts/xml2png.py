@@ -58,7 +58,14 @@ def get_wells_from_section(path):
     reads = path.xpath("*/Well")
     wellIDs = [read.attrib['Pos'] for read in reads]
 
-    data = [(float(s.text), r.attrib['Pos'])
+    def convert_value(text):
+        try:
+            return float(text)
+        except ValueError as e:
+            # OVER
+            return 0.0
+
+    data = [(convert_value(s.text), r.attrib['Pos'])
          for r in reads
          for s in r]
 
@@ -280,9 +287,10 @@ def process_files_spectra(xml_files):
         for j,A in enumerate(Alphabet):
             for k in range(1,12):
                 try:
-                    globals()["large_dataframe"+str(i)].fluorescence.get(A + str(k)).plot(ax=axes[(j/3)%3,j%3], title=A, c=cm.hsv(k*15), ylim=section_ylim, xlim=[300,600])
-                except:
-                    print("****No row %s.****" %A)
+                    x1,x2 = int(j/3)%3,j%3
+                    globals()["large_dataframe"+str(i)].fluorescence.get(A + str(k)).plot(ax=axes[x1,x2], title=A, c=cm.hsv(k*15), ylim=section_ylim, xlim=[300,600])
+                except Exception as e:
+                    print("****No row %s.**** : exception: %s" %(A, str(e)))
 
         fig.suptitle('%s \n %s \n Barcode = %s' % (globals()["title"+str(i)], plate_type, barcode), fontsize=14)
         fig.subplots_adjust(hspace=0.3)
@@ -401,21 +409,34 @@ def plot_singlet_one_section(data, section):
         for i in range(1,25):
             well['%s' %j + '%s' %i] = i
 
-    Lstated = np.array([20.0e-6,14.0e-6,9.82e-6,6.88e-6,4.82e-6,3.38e-6,2.37e-6,1.66e-6,1.16e-6,0.815e-6,0.571e-6,0.4e-6,0.28e-6,0.196e-6,0.138e-6,0.0964e-6,0.0676e-6,0.0474e-6,0.0320e-6,0.0240e-6,0.0160e-6,0.0120e-6,0.008e-6,0.00001e-6], np.float64) # ligand concentration, M
-
     for i in range(0,15,2):
         protein_row = ALPHABET[i]
         buffer_row = ALPHABET[i+1]
 
-        part1_data_protein = platereader.select_data(data, section, protein_row)
-        part1_data_buffer = platereader.select_data(data, section, buffer_row)
+        try:
+            part1_data_protein = platereader.select_data(data, section, protein_row)
+            part1_data_buffer = platereader.select_data(data, section, buffer_row)
 
-        reorder_protein = reorder2list(part1_data_protein,well)
-        reorder_buffer = reorder2list(part1_data_buffer,well)
+            reorder_protein = reorder2list(part1_data_protein,well)
+            reorder_buffer = reorder2list(part1_data_buffer,well)
+            
+        except Exception as e:
+            print('***no %s%s data*** : exception is %s' %(protein_row,buffer_row, str(e)) )
+            continue    
+        
+        axes[int(i/2)].set_prop_cycle('color',['black','red'])
 
-        axes[i/2].semilogx()
-        axes[i/2].plot(Lstated,reorder_protein,Lstated,reorder_buffer)
-        axes[i/2].set_title('%s,%s' %(protein_row,buffer_row))
+        if i/2 == 1:
+            axes[int(i/2)].plot(reorder_protein,marker='o',linestyle='None',label='protein+ligand')
+            axes[int(i/2)].plot(reorder_buffer,marker='o',linestyle='None',label='buffer+ligand')
+            axes[int(i/2)].legend(frameon=True)
+
+        axes[int(i/2)].plot(reorder_protein,marker='o',linestyle='None')
+        axes[int(i/2)].plot(reorder_buffer,marker='o',linestyle='None')
+        axes[int(i/2)].set_xticklabels(range(-4,25,5))
+        axes[int(i/2)].set_xlabel('Column Index', horizontalalignment='right',position=(1,1),fontsize=8)
+        axes[int(i/2)].set_ylabel('Fluorescence')
+        axes[int(i/2)].set_title('%s,%s' %(protein_row,buffer_row))
 
     fig.suptitle('%s' %section)
 

@@ -29,7 +29,11 @@ or
  
   `quickmodel --inputs 'inputs_Gef_WIP'`
 
-The two inputs.py files here are required to run these, but they can be changed if you want to run other types of analyses (different sections of the xml file, different wavelenghts, etc.).
+or
+
+  `quickmodel --inputs 'inputs_single_well'`
+
+The three inputs.py files here are required to run these, but they can be changed if you want to run other types of analyses (different sections of the xml file, different wavelenghts, etc.).
  
 
 
