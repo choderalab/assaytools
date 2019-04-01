@@ -169,7 +169,8 @@ def get_data_using_inputs(inputs):
             for i in skipped_experiments:
                 skipped_rows.append(ALPHABET[i])
                 skipped_rows.append(ALPHABET[i+1])
-            print("Skipping analysis of rows: ", skipped_rows)
+            if len(skipped_rows) != 0:
+                print("Skipping analysis of rows: ", skipped_rows)
 
             for i in range(0,len(inputs['ligand_order']*2),2):
 
