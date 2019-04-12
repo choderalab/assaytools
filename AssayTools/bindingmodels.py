@@ -82,20 +82,22 @@ class TwoComponentBindingModel(BindingModel):
       nnonzero = len(nonzero_indices)
       nzeros = len(zero_indices)
 
-      # Original form:
+      # Original form (suffers from numerical instabilities)
       #Kd = np.exp(DeltaG)
       #sqrt_arg = (Ptot + Ltot + Kd)**2 - 4*Ptot*Ltot
       #sqrt_arg[sqrt_arg < 0.0] = 0.0
       #PL = 0.5 * ((Ptot + Ltot + Kd) - np.sqrt(sqrt_arg));  # complex concentration (M)
 
-
-      # Numerically stable variant?
-      PL = np.zeros(Ptot.shape)
+      # Numerically stable variant
+      dtype = np.float128
+      Ptot = np.array(Ptot, dtype) # promote to dtype
+      Ltot = np.array(Ltot, dtype) # promote to dtype
+      PL = np.zeros(Ptot.shape, dtype)
       logP = np.log(Ptot[nonzero_indices])
       logL = np.log(Ltot[nonzero_indices])
       logPLK = np.logaddexp(np.logaddexp(logP, logL), DeltaG)
       PLK = np.exp(logPLK);
-      sqrt_arg = 1.0 - np.exp(np.log(4.0) + logP + logL - 2*logPLK);
+      sqrt_arg = 1.0 - np.exp(np.log(4.0) + logP + logL - 2.0*logPLK);
       sqrt_arg[sqrt_arg < 0.0] = 0.0 # ensure always positive
       PL[nonzero_indices] = 0.5 * PLK * (1.0 - np.sqrt(sqrt_arg));  # complex concentration (M)
 
@@ -109,16 +111,130 @@ class TwoComponentBindingModel(BindingModel):
       #chi[chi < 0.0] = 0.0 # prevent square roots of negative numbers
       #PL = 0.5 * PLK * (1 - np.sqrt(chi))
 
-      # Ensure all concentrations are within limits, correcting cases where numerical issues cause problems.
-      PL[PL < 0.0] = 0.0 # complex cannot have negative concentration
-      #PL_max = np.minimum(Ptot, Ltot)
-      #indices = np.where(PL > PL_max)
-      #PL[indices] = PL_max[indices]
-
       # Compute remaining concentrations.
       P = Ptot - PL; # free protein concentration in sample cell after n injections (M)
       L = Ltot - PL; # free ligand concentration in sample cell after n injections (M)
+
+      # Ensure all concentrations are within limits, correcting cases where numerical issues cause problems.
+      PL[PL < 0.0] = 0.0 # complex cannot have negative concentration
+      P[P < 0.0] = 0.0
+      L[L < 0.0] = 0.0
+
+      # Check all concentrations are nonnegative
+      assert np.all(P >= 0)
+      assert np.all(L >= 0)
+      assert np.all(PL >= 0)
+
       return [P, L, PL]
+
+#=============================================================================================
+# Analytical competitive binding model
+#=============================================================================================
+
+class CompetitionBindingModel(BindingModel):
+     """
+     Analytic solution for competitive binding model problem.
+     As described in Wang, Z. X. An exact mathematical expression
+     for describing competitive binding of two different ligands to
+     a protein molecule. FEBS Lett. 1995, 360, 111−114.
+     """
+
+     @classmethod
+     def equilibrium_concentrations(cls, Ptot, Ltot, DeltaG_L, Btot, DeltaG_B):
+        """
+
+        Compute equilibrium concentrations for analytical competition assay association.
+        Parameters
+        ----------
+        Ptot : float or numpy array
+          Total protein concentration summed over bound and unbound species, molarity.
+        Ltot : float or numpy array
+           Total fluorescent ligand concentration summed over bound and unbound speciesl, molarity.
+        DeltaG_L : float
+           Reduced free energy of binding of fluorescent L to P (in units of kT)
+        Btot : float or numpy array
+           Total competitive non-fluorescent ligand concentration summed over bound and unbound speciesl, molarity.
+        DeltaG_B : float
+           Reduced free energy of binding of non-fluorescent B to P (in units of kT)
+
+        Returns
+        -------
+        P : float or numpy array with same dimensions as Ptot
+           Free protein concentration, molarity.
+        L : float or numpy array with same dimensions as Ptot
+           Free fluorescent ligand concentration, molarity.
+        PL : float or numpy array with same dimensions as Ptot
+           Bound fluorescent ligand complex concentration, molarity.
+        B : float or numpy array with same dimensions as Ptot
+           Free non-fluorescent competitive ligand concentration, molarity.
+        PB : float or numpy array with same dimensions as Ptot
+           Bound non-fluorescent competitive ligand complex concentration, molarity.
+        """
+
+        # Handle only strictly positive elements---all others are set to zero as constants
+        try:
+            nonzero_indices = np.where(Ltot > 0)[0]
+            zero_indices = np.where(Ltot <= 0)[0]
+        except:
+            nonzero_indices = range(size[0])
+            zero_indices = []
+        nnonzero = len(nonzero_indices)
+        nzeros = len(zero_indices)
+
+        # Original form:
+        Kd_L = np.exp(DeltaG_L)
+        Kd_B = np.exp(DeltaG_B)
+
+        # P^3 + aP^2 + bP + c = 0
+        a = Kd_L + Kd_B + Ltot + Btot - Ptot
+        b = Kd_L*Kd_B + Kd_B*(Ltot-Ptot) + Kd_B*(Btot - Ptot)
+        c = -Kd_L*Kd_B*Ptot
+
+        # Subsitute P=u-a/3
+        # u^3 - qu - r = 0 where
+        q = (a**2)/3.0 - b
+        r = (-2.0/27.0)*a**3 +(1.0/3.0)*a*b - c
+
+        # Discriminant
+        delta = (r**2)/4.0 -(q**3)/27.0
+
+        # 3 roots. Physically meaningful root is u.
+        #theta = np.arccos((-2*(a**3)+9*a*b-27*c)/(2*np.sqrt((a**2-3*b)**3)))
+
+        theta_intermediate = (-2*(a**3)+9*a*b-27*c)/(2*np.sqrt((a**2-3*b)**3))
+
+        # this function prevents nans that occur when taking arccos directly
+        def better_theta(theta_intermediate):
+            global value
+            if -1.0 <= theta_intermediate <= 1.0:
+                value = np.arccos( theta_intermediate )
+            elif theta_intermediate < -1.0:
+                value = np.pi
+            elif theta_intermediate > 1.0:
+                value = 0.0
+            return value
+
+        theta = np.asarray(list(map(better_theta,theta_intermediate)))
+
+        u = (2.0/3.0)*np.sqrt(a**2-3*b)*np.cos(theta/3.0)
+
+        # Compute remaining concentrations.
+        P = u - a/3.0           # free protein concentration in sample cell after n injections (M)
+        PL = P*Ltot/(Kd_L + P)  # fluorescent ligand complex concentration (M)
+        PB = P*Btot/(Kd_B + P)  # non-fluorescent ligand complex concentration (M)
+        L = Ltot - PL           # free fluorescent ligand concentration in sample cell after n injections (M)
+        B = Btot - PB           # free non-fluorescent ligand concentration in sample cell after n injections (M)
+
+        # Check all concentrations are nonnegative
+        assert np.all(P >= 0)
+        assert np.all(L >= 0)
+        assert np.all(PL >= 0)
+        assert np.all(B >= 0)
+        assert np.all(PB >= 0)
+
+        return [P, L, PL, B, PB]
+
+
 
 #=============================================================================================
 # General robust competitive binding model
@@ -131,7 +247,7 @@ class GeneralBindingModel(BindingModel):
    """
 
    @classmethod
-   def equilibrium_concentrations(cls, reactions, conservation_equations, tol=1.0e-8):
+   def equilibrium_concentrations(cls, reactions, conservation_equations, tol=1.0e-8, initial_guess='zero'):
       """
       Compute the equilibrium concentrations of each complex species for a general set of binding reactions.
 
@@ -146,7 +262,10 @@ class GeneralBindingModel(BindingModel):
           Each mass conservation law is encoded as a tuple of (log total concentration, dict of stoichiometry of all species)
           Example: [R]tot = 10^-6 M = [RL] + [R] and [L]tot = 10^-6 M = [RL] + [L] becomes [ (-6, {'RL' : +1, 'R' : +1}), (-6, {'RL' : +1, 'L' : +1}) ]
       tol : float, optional, default=1.0e-8
-          Solution tolerance.
+          Solution tolerance for log concentrations.
+      initial_guess : str, optional, default='zero'
+          If 'zero', will assume all initial log concentrations are zero.
+          If 'spread', will spread out concentration among all species.
 
       Returns
       -------
@@ -179,11 +298,11 @@ class GeneralBindingModel(BindingModel):
       nequations = nreactions + nconservation
 
       # Determine names of all species.
-      all_species = set()
+      all_species = dict() # ordered
       for (log_equilibrium_constant, reaction) in reactions:
           for species in reaction.keys():
-              all_species.add(species)
-      all_species = list(all_species) # order is now fixed
+              all_species[species] = 1
+      all_species = tuple(all_species.keys()) # order is now fixed
       nspecies = len(all_species)
 
       # Construct function with appropriate roots.
@@ -222,16 +341,23 @@ class GeneralBindingModel(BindingModel):
           return (target, jacobian)
 
       # Construct initial guess
-      # We assume that all matter is equally spread out among all species via the conservation equations
-      from scipy.misc import logsumexp
-      LOG_ZERO = -100
-      X = LOG_ZERO * np.ones([nspecies], np.float64)
-      for (species_index, species) in enumerate(all_species):
-          for (log_total_concentration, conservation_equation) in conservation_equations:
-              log_total_stoichiometry = np.log(np.sum([stoichiometry for stoichiometry in conservation_equation.values()]))
-              if species in conservation_equation:
-                  stoichiometry = conservation_equation[species]
-                  X[species_index] = logsumexp([X[species_index], log_total_concentration + np.log(stoichiometry) - log_total_stoichiometry])
+      if initial_guess == 'spread':
+          # We assume that all matter is equally spread out among all species via the conservation equations
+          from scipy.misc import logsumexp
+          LOG_ZERO = -100
+          X = LOG_ZERO * np.ones([nspecies], np.float64)
+          for (species_index, species) in enumerate(all_species):
+              for (log_total_concentration, conservation_equation) in conservation_equations:
+                  log_total_stoichiometry = np.log(np.sum([stoichiometry for stoichiometry in conservation_equation.values()]))
+                  if species in conservation_equation:
+                      stoichiometry = conservation_equation[species]
+                      #X[species_index] = logsumexp([X[species_index], log_total_concentration + np.log(stoichiometry) - log_total_stoichiometry])
+                      X[species_index] = np.logaddexp(X[species_index], log_total_concentration + np.log(stoichiometry) - log_total_stoichiometry)
+      elif initial_guess == 'zero':
+          # Simple guess: All log concentrations are zero
+          X = np.zeros([nspecies], np.float64)
+      else:
+          raise ValueError('Unknown initial_guess {}'.format(initial_guess))
 
       # Solve
       from scipy.optimize import root
@@ -242,5 +368,8 @@ class GeneralBindingModel(BindingModel):
           msg += str(sol)
           raise Exception(msg)
 
+      # TODO: Ensure all constraints and conservation equations are satisfied?
+
       log_concentrations = { all_species[index] : sol.x[index] for index in range(nspecies) }
+
       return log_concentrations

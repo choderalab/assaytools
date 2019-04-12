@@ -27,7 +27,6 @@ requirements:
     - notebook
     - autoprotocol
     - mock
-    - pymbar
 
   run:
     - python
