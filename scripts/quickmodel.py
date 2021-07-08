@@ -34,8 +34,11 @@ def quick_model(inputs, nsamples=1000, nthin=20):
         Thinning interval ; number of MCMC steps per sample collected
     """
 
+    [complex_fluorescence, ligand_fluorescence] = parser.get_data_using_inputs(inputs)
 
-    [complex_fluorescence, ligand_fluorescence] = parser.get_data_using_inputs(inputs)  
+    # List to store DeltaG and Kd estimates for generating summary csv table.
+    deltaG_output_summary_list = []
+    Kd_output_summary_list = []
 
     for name in complex_fluorescence.keys():
 
@@ -66,8 +69,8 @@ def quick_model(inputs, nsamples=1000, nthin=20):
                assay_volume=inputs['assay_volume'], DG_prior='uniform')
 
             import datetime
-            my_datetime = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
-            my_datetime_filename = datetime.datetime.now().strftime("%Y-%m-%d %H%M")
+            my_datetime = datetime.datetime.now().strftime("%Y-%m-%d_%H:%M")
+            my_datetime_filename = datetime.datetime.now().strftime("%Y-%m-%d_%H%M")
 
             nburn = 0 # no longer need burn-in since we do automated equilibration detection
             niter = nthin*nsamples # former total simulation time
@@ -235,8 +238,39 @@ def quick_model(inputs, nsamples=1000, nthin=20):
             metadata['Lstated'] = metadata['Lstated'].tolist()
 
             import json
-            with open('%s-%s.json'%(name,my_datetime), 'w') as outfile:
+            with open('%s-%s.json'%(name,my_datetime_filename), 'w') as outfile:
                 json.dump(metadata, outfile, sort_keys = True, indent = 4, ensure_ascii=False)
+
+            # Append Delta G and K_d estimates to summary list, for writing out a summary table.
+            protein_name = name.split("-")[0]
+            ligand_name = name.split("-")[1]
+            DeltaG_median = interval[1]
+            DeltaG_lower_CI = interval[0] # 95% Credibility intervals
+            DeltaG_upper_CI = interval[2]
+            DeltaG_mean = DeltaG_equil
+            DeltaG_STD = dDeltaG_equil
+            Kd_median = Kd_interval[1]
+            Kd_lower_CI = Kd_interval[0]
+            Kd_upper_CI = Kd_interval[2]
+            Kd_mean = Kd
+            Kd_STD = dKd
+            deltaG_output_summary_list.append((protein_name, ligand_name, "DeltaG", DeltaG_median, DeltaG_lower_CI,
+                                        DeltaG_upper_CI, DeltaG_mean, DeltaG_STD, "k_BT"))
+            Kd_output_summary_list.append((protein_name, ligand_name, "K_d", Kd_median, Kd_lower_CI, Kd_upper_CI,
+                                        Kd_mean, Kd_STD, "M"))
+
+    # Save DeltaG and K_d estimates of all analyzed experiments in a summary csv file.
+    summary_file_name = "%s-delG-and-Kd-summary-%s.csv" % (protein_name, my_datetime_filename)
+    writer = open(summary_file_name, "w")
+    # Write column names
+    writer.write("%s,%s,%s,%s,%s,%s,%s,%s,%s\n"%("Protein", "Ligand", "Parameter", "Median", "Lower 95% CrI",
+                                              "Upper 95% CrI", "Mean", "STD", "Unit"))
+    # Write values
+    for summary_tuple in deltaG_output_summary_list:
+        writer.write("%s,%s,%s,%.3g,%.3g,%.3g,%.3g,%.3g,%s\n" %summary_tuple)
+    for summary_tuple in Kd_output_summary_list:
+        writer.write("%s,%s,%s,%.3g,%.3g,%.3g,%.3g,%.3g,%s\n" %summary_tuple)
+
 
 def entry_point():
 
